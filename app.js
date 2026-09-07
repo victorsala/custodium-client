@@ -16,7 +16,7 @@
 import {
   deriveKeys, derivePassphraseKey, randomKey, importKey,
   encryptJson, decryptJson, encryptBytes, decryptBytes,
-  generatePassphrase, b64encode,
+  generatePassphrase, normalizePassphrase, b64encode,
 } from "./crypto.js";
 
 const IDLE_LOCK_MS = 15 * 60 * 1000;
@@ -25,7 +25,9 @@ const MAX_FILE_BYTES = 10_000_000;
 const state = {
   token: null,
   encKey: null,
+  authHash: null,       // per verificar la contrasenya localment abans d'ensenyar una frase
   email: null,
+  reveal: {},           // id de persona → "ask" | "shown"
   vault: null,
   version: 0,
   status: {},           // id de persona → { releasedAt, openedAt, expiresAt } (del servidor)
@@ -66,6 +68,7 @@ async function submitLogin(event) {
     if (r.status !== 200) return msg("Email o contraseña incorrectos.");
     $("#login-password").value = "";
     state.email = email;
+    state.authHash = authHash;
     await openVault(r.data.token, encKey);
   } catch (err) {
     console.error(err);
@@ -98,6 +101,7 @@ async function submitRegister(event) {
     $("#register-password").value = "";
     $("#register-confirm").value = "";
     state.email = email;
+    state.authHash = authHash;
     await openVault(r.data.token, encKey);
   } catch (err) {
     console.error(err);
@@ -139,7 +143,10 @@ function lock(message) {
 function clearSecrets() {
   state.token = null;
   state.encKey = null;
+  state.authHash = null;
   state.email = null;
+  state.reveal = {};
+  clearTimeout(revealTimer);
 }
 
 // ---------------------------------------------------------------- vault
@@ -446,12 +453,16 @@ async function applyPerson(event) {
   setBusy(true, "Derivando su clave en este dispositivo…");
   try {
     let key = existing?.key ?? null;
-    if (pass) key = b64encode(await derivePassphraseKey(email, pass));
+    let phrase = existing?.phrase ?? null;
+    if (pass) {
+      key = b64encode(await derivePassphraseKey(email, pass));
+      phrase = normalizePassphrase(pass);
+    }
 
     if (existing) {
-      Object.assign(existing, { name, email, key });
+      Object.assign(existing, { name, email, key, phrase });
     } else {
-      state.vault.recipients.push({ id: crypto.randomUUID(), name, email, key, createdAt: Date.now() });
+      state.vault.recipients.push({ id: crypto.randomUUID(), name, email, key, phrase, createdAt: Date.now() });
     }
     $("#person-pass").value = "";
     state.personDraft = null;
@@ -515,6 +526,69 @@ async function revokeRelease(id) {
   renderReleaseNotice();
 }
 
+// Mostrar la frase d'una persona: demana la contrasenya del titular (verificada
+// localment contra l'authHash en memòria), l'ensenya 60 segons i l'amaga.
+let revealTimer = null;
+
+function askReveal(id) {
+  state.reveal = { [id]: "ask" };
+  renderPeople();
+  $(`#reveal-pass-${id}`)?.focus();
+}
+
+async function confirmReveal(id) {
+  const input = $(`#reveal-pass-${id}`);
+  const password = input?.value ?? "";
+  if (!password) return;
+  setBusy(true, "Comprobando la contraseña…");
+  try {
+    const { authHash } = await deriveKeys(state.email, password);
+    input.value = "";
+    if (authHash !== state.authHash) return toast("La contraseña no es correcta.");
+    state.reveal = { [id]: "shown" };
+    renderPeople();
+    clearTimeout(revealTimer);
+    revealTimer = setTimeout(hideReveal, 60_000);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function hideReveal() {
+  clearTimeout(revealTimer);
+  state.reveal = {};
+  renderPeople();
+}
+
+function renderReveal(li, p) {
+  const mode = state.reveal[p.id];
+  const box = el("div", { class: "reveal" });
+
+  if (mode === "shown") {
+    if (p.phrase) {
+      box.append(el("p", { class: "reveal-phrase" }, p.phrase));
+      box.append(el("p", { class: "hint" }, "Quien vea esta pantalla puede copiarla. Se oculta sola en un minuto."));
+    } else {
+      box.append(el("p", { class: "hint" }, "Frase no disponible: esta persona se creó antes de que se guardara. Edítala y genera una nueva."));
+    }
+    const hide = el("button", { type: "button", class: "link" }, "Ocultar");
+    hide.addEventListener("click", hideReveal);
+    box.append(hide);
+  } else if (mode === "ask") {
+    const form = el("form", { class: "reveal-form" });
+    const input = el("input", { type: "password", id: `reveal-pass-${p.id}`, autocomplete: "current-password", placeholder: "Tu contraseña" });
+    const ok = el("button", { type: "submit", class: "secondary" }, "Ver la frase");
+    const cancel = el("button", { type: "button", class: "link" }, "Cancelar");
+    cancel.addEventListener("click", hideReveal);
+    form.addEventListener("submit", (e) => { e.preventDefault(); confirmReveal(p.id); });
+    form.append(input, ok, cancel);
+    box.append(form);
+  } else {
+    return null;
+  }
+  return box;
+}
+
 async function saveSettings(event) {
   event.preventDefault();
   const warnDays = Number($("#warn-days").value);
@@ -571,6 +645,7 @@ async function changePassword(event) {
 
     state.token = r.data.token;
     state.encKey = fresh.encKey;
+    state.authHash = fresh.authHash;
     state.version = r.data.version;
     for (const id of ["#pw-current", "#pw-new", "#pw-confirm"]) { $(id).type = "password"; $(id).value = ""; }
     msg("");
@@ -701,6 +776,11 @@ function renderPeople() {
     const edit = el("button", { type: "button", class: "link" }, "Editar");
     edit.addEventListener("click", () => startPersonEdit(p.id));
     actions.append(edit);
+    if (!state.reveal[p.id]) {
+      const show = el("button", { type: "button", class: "link" }, "Mostrar frase");
+      show.addEventListener("click", () => askReveal(p.id));
+      actions.append(show);
+    }
     if (s?.releasedAt) {
       const rv = el("button", { type: "button", class: "link" }, "Anular enlace");
       rv.addEventListener("click", () => revokeRelease(p.id));
@@ -713,6 +793,8 @@ function renderPeople() {
     del.addEventListener("click", () => deletePerson(p.id));
     actions.append(del);
     li.append(actions);
+    const reveal = renderReveal(li, p);
+    if (reveal) li.append(reveal);
     list.append(li);
   }
 
@@ -747,6 +829,7 @@ function goPeople() {
 
 function goPlan() {
   if (state.personDraft) return toast("Termina o cancela la persona que estás editando.");
+  if (Object.keys(state.reveal).length) hideReveal();
   renderList();
   showScreen("list");
 }

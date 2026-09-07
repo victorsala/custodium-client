@@ -639,3 +639,33 @@ label .hint { margin-top: 2px; }
 
 .account-data dt { color: var(--slate); font-size: 14px; min-width: 96px; }
 .account-data dd { margin: 0; }
+
+
+/* v3.5 · mostrar frase */
+
+.reveal {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--brass);
+  border-radius: 12px;
+}
+
+.reveal-phrase {
+  font-family: var(--display);
+  font-size: 22px;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.reveal-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.reveal-form input { flex: 1 1 220px; }
