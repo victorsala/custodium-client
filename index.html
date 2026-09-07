@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Custodium · beta privada</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row">
+      <span class="brand">Custodium <small>beta privada</small></span>
+      <nav class="top-nav" id="top-nav" hidden>
+        <button id="nav-plan" type="button" class="ghost">Tu plan</button>
+        <button id="nav-people" type="button" class="ghost">Personas</button>
+        <button id="logout" type="button" class="ghost">Salir</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- Entrar -->
+    <section data-screen="login" hidden>
+      <h1>Abre tu plan.</h1>
+      <p class="intro">La contraseña no sale de este dispositivo. Con ella se descifra el plan aquí, en tu navegador.</p>
+      <form id="login-form" novalidate>
+        <label><span>Email</span><input id="login-email" type="email" autocomplete="username" required></label>
+        <label><span>Contraseña</span><input id="login-password" type="password" autocomplete="current-password" required></label>
+        <p id="login-message" class="message" aria-live="polite"></p>
+        <div class="actions"><button id="login-submit" type="submit">Entrar</button></div>
+      </form>
+      <p class="switch">¿Primera vez? <button id="to-register" type="button" class="link">Crear una cuenta</button></p>
+    </section>
+
+    <!-- Crear cuenta -->
+    <section data-screen="register" hidden>
+      <h1>Crea tu cuenta.</h1>
+      <p class="intro">Todo lo que guardes se cifra en este dispositivo antes de enviarse. Custodium guarda el plan, nunca las claves.</p>
+      <form id="register-form" novalidate>
+        <label><span>Email</span><input id="register-email" type="email" autocomplete="username" required></label>
+        <label><span>Contraseña <em>(12 caracteres o más)</em></span><input id="register-password" type="password" autocomplete="new-password" required></label>
+        <label><span>Repite la contraseña</span><input id="register-confirm" type="password" autocomplete="new-password" required></label>
+        <p class="notice">
+          No hay recuperación de contraseña. Si la pierdes, el plan es irrecuperable:
+          nadie, tampoco Custodium, puede descifrarlo. Guárdala donde solo tú puedas encontrarla.
+        </p>
+        <p id="register-message" class="message" aria-live="polite"></p>
+        <div class="actions"><button id="register-submit" type="submit">Crear cuenta</button></div>
+      </form>
+      <p class="switch">¿Ya tienes cuenta? <button id="to-login" type="button" class="link">Entrar</button></p>
+    </section>
+
+    <!-- Lista -->
+    <section data-screen="list" hidden>
+      <div class="vault-head">
+        <h1>Tu plan</h1>
+        <button id="add" type="button">+ Añadir elemento</button>
+      </div>
+      <p id="empty" class="intro">
+        Aún no hay nada. Añade lo que alguien necesitaría saber si un día no pudieras actuar:
+        dónde está cada cosa, cómo acceder y a quién corresponde.
+      </p>
+      <ul id="items" class="items"></ul>
+    </section>
+
+    <!-- Añadir / editar elemento -->
+    <section data-screen="edit" hidden>
+      <h1 id="edit-title">Nuevo elemento</h1>
+      <form id="item-form" novalidate>
+        <label><span>Qué es</span><input id="item-title" type="text" required placeholder="Cuenta, documento, dominio, wallet…"></label>
+        <label>
+          <span>Persona de confianza</span>
+          <select id="item-recipient"></select>
+          <small id="item-recipient-hint" class="hint">Quien debe recibir este elemento cuando no puedas actuar. Añade personas desde "Personas".</small>
+        </label>
+        <label><span>Instrucciones</span><textarea id="item-notes" rows="6" placeholder="Dónde está, cómo acceder, qué hacer con ello."></textarea></label>
+        <div class="files-block">
+          <span class="files-label">Archivos adjuntos</span>
+          <ul id="draft-files" class="files"></ul>
+          <label class="file-pick">
+            <input id="item-files" type="file" multiple class="visually-hidden">
+            <span class="secondary-look">Adjuntar archivos</span>
+            <small>Hasta 10 MB por archivo. Se cifran aquí antes de subirse.</small>
+          </label>
+        </div>
+        <p id="item-message" class="message" aria-live="polite"></p>
+        <div class="actions">
+          <button type="submit">Listo</button>
+          <button id="item-cancel" type="button" class="link">Cancelar</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Personas -->
+    <section data-screen="people" hidden>
+      <div class="vault-head">
+        <h1>Personas de confianza</h1>
+        <button id="add-person" type="button">+ Añadir persona</button>
+      </div>
+      <p class="intro">
+        Cada persona tiene su propia frase, distinta de tu contraseña. Con ella abrirá solo los elementos que le hayas asignado,
+        y solo cuando el plan se le entregue.
+      </p>
+
+      <p id="people-empty" class="hint">Aún no has añadido a nadie.</p>
+      <ul id="people" class="items"></ul>
+
+      <form id="settings-form" class="settings" novalidate>
+        <h2>Cuándo se entrega</h2>
+        <p class="hint">
+          Si dejas de entrar, primero te avisamos por correo. Si no respondes, entregamos a cada persona su parte del plan.
+          Entrar aquí o pulsar el botón del correo cuenta como señal de que sigues ahí.
+        </p>
+        <div class="settings-row">
+          <label><span>Primer aviso</span><span class="with-unit"><input id="warn-days" type="number" min="1" max="365" required><em>días sin entrar</em></span></label>
+          <label><span>Entrega</span><span class="with-unit"><input id="release-days" type="number" min="2" max="730" required><em>días sin entrar</em></span></label>
+        </div>
+        <p id="last-seen" class="hint"></p>
+        <p id="settings-message" class="message" aria-live="polite"></p>
+        <div class="actions"><button type="submit" class="secondary">Guardar plazos</button></div>
+      </form>
+    </section>
+
+    <!-- Añadir / editar persona -->
+    <section data-screen="person-edit" hidden>
+      <h1 id="person-title">Nueva persona</h1>
+      <form id="person-form" novalidate>
+        <label><span>Nombre</span><input id="person-name" type="text" required placeholder="Cómo la llamas"></label>
+        <label><span>Email</span><input id="person-email" type="email" required><small class="hint">Aquí recibirá el enlace para abrir su parte del plan.</small></label>
+
+        <div class="pass-block">
+          <label>
+            <span id="person-pass-label">Su frase</span>
+            <input id="person-pass" type="text" autocomplete="off" spellcheck="false">
+          </label>
+          <button id="person-generate" type="button" class="link">Generar una frase</button>
+          <p class="notice">
+            Escríbela en papel y dásela en persona. No se guarda en ningún sitio legible y no se puede recuperar:
+            si la pierde, pierde su parte del plan. Tú tampoco la verás más después de guardar.
+          </p>
+        </div>
+
+        <p id="person-message" class="message" aria-live="polite"></p>
+        <div class="actions">
+          <button type="submit">Listo</button>
+          <button id="person-cancel" type="button" class="link">Cancelar</button>
+        </div>
+      </form>
+    </section>
+
+  </main>
+
+  <footer class="wrap foot">
+    <p>Guardamos el plan, nunca las claves.</p>
+    <p>Cerrar la pestaña cierra el plan. Se necesita la contraseña para volver a abrirlo.</p>
+  </footer>
+
+  <p id="busy" class="busy" hidden aria-live="polite"></p>
+  <p id="toast" class="toast" hidden role="status"></p>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

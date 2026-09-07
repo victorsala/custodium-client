@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Custodium · abrir</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row"><span class="brand">Custodium</span></div>
+  </header>
+
+  <main class="wrap">
+    <section data-screen="ask" hidden>
+      <h1>Hay información preparada para ti.</h1>
+      <p class="intro" id="ask-intro">Alguien la dejó preparada en Custodium para cuando no pudiera actuar.</p>
+      <form id="open-form" novalidate>
+        <label>
+          <span>La frase que te entregó en persona</span>
+          <input id="pass" type="text" autocomplete="off" spellcheck="false" autocapitalize="off">
+        </label>
+        <p id="open-message" class="message" aria-live="polite"></p>
+        <div class="actions"><button id="open-submit" type="submit">Abrir</button></div>
+      </form>
+      <p class="notice">
+        Se descifra en este dispositivo. Nadie más, tampoco Custodium, puede leer este contenido.
+        Guarda o imprime lo que necesites: el enlace caduca.
+      </p>
+    </section>
+
+    <section data-screen="view" hidden>
+      <div class="vault-head"><h1>Para ti</h1></div>
+      <p class="intro" id="view-intro"></p>
+      <ul id="items" class="items"></ul>
+    </section>
+
+    <section data-screen="invalid" hidden>
+      <h1>Este enlace no es válido.</h1>
+      <p class="intro">Puede haber caducado o haber sido anulado. Si crees que deberías tener acceso, ponte en contacto con quien te lo envió.</p>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p>Guardamos el plan, nunca las claves.</p>
+  </footer>
+
+  <p id="busy" class="busy" hidden aria-live="polite"></p>
+  <p id="toast" class="toast" hidden role="status"></p>
+
+  <script type="module" src="/abrir.js"></script>
+</body>
+</html>

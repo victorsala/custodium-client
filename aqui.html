@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Custodium · sigo aquí</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row"><span class="brand">Custodium</span></div>
+  </header>
+
+  <main class="wrap">
+    <section data-screen="ask" hidden>
+      <h1>¿Sigues ahí?</h1>
+      <p class="intro">Pulsa el botón para confirmar que todo va bien. El plazo de entrega vuelve a empezar desde hoy.</p>
+      <div class="actions"><button id="confirm" type="button">Sigo aquí</button></div>
+      <p id="message" class="message" aria-live="polite"></p>
+    </section>
+
+    <section data-screen="done" hidden>
+      <h1>Confirmado.</h1>
+      <p class="intro">Gracias. No se entregará nada mientras sigas dando señales.</p>
+    </section>
+
+    <section data-screen="invalid" hidden>
+      <h1>Este enlace ya no es válido.</h1>
+      <p class="intro">Puede haber caducado o ya haberse usado. Entrar en <a href="/">b2c.custodium.space</a> también cuenta como confirmación.</p>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p>Guardamos el plan, nunca las claves.</p>
+  </footer>
+
+  <script type="module" src="/aqui.js"></script>
+</body>
+</html>

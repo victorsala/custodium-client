@@ -1,0 +1,745 @@
+// app.js — Custodium B2C · v3
+//
+// Tot l'estat viu en memòria. Tancar o recarregar la pestanya bloqueja el pla.
+//
+// Pantalles: login · register · list · edit · people · person-edit.
+//
+// Pla (xifrat amb la clau del titular):
+//   { v: 2,
+//     recipients: [ { id, name, email, key, createdAt } ],           key = derivada de la seva frase, base64
+//     items: [ { id, title, recipientId|null, notes, files: [ { id, name, size, key } ], updatedAt } ] }
+//
+// A cada desat, per a cada persona es construeix un paquet amb els seus
+// elements (i les claus dels seus fitxers), es xifra amb la seva clau i es
+// puja. El servidor només veu paquets opacs i l'email on enviar l'enllaç.
+
+import {
+  deriveKeys, derivePassphraseKey, randomKey, importKey,
+  encryptJson, decryptJson, encryptBytes, decryptBytes,
+  generatePassphrase, b64encode,
+} from "./crypto.js";
+
+const IDLE_LOCK_MS = 15 * 60 * 1000;
+const MAX_FILE_BYTES = 10_000_000;
+
+const state = {
+  token: null,
+  encKey: null,
+  vault: null,
+  version: 0,
+  status: {},           // id de persona → { releasedAt, openedAt, expiresAt } (del servidor)
+  settings: null,       // { warnDays, releaseDays, lastSeen }
+  draft: null,          // element en edició
+  personDraft: null,    // persona en edició
+  pendingDeletes: [],
+};
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+// ------------------------------------------------------------------ API
+
+async function api(path, { method = "GET", body, auth = true } = {}) {
+  const headers = {};
+  if (body !== undefined) headers["content-type"] = "application/json";
+  if (auth && state.token) headers["authorization"] = `Bearer ${state.token}`;
+  const res = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  let data = null;
+  try { data = await res.json(); } catch { /* cos buit o binari */ }
+  return { status: res.status, data };
+}
+
+// ----------------------------------------------------------------- auth
+
+async function submitLogin(event) {
+  event.preventDefault();
+  const email = $("#login-email").value.trim().toLowerCase();
+  const password = $("#login-password").value;
+  const msg = (t) => { $("#login-message").textContent = t; };
+  if (!email || !password) return msg("Escribe tu email y tu contraseña.");
+
+  setBusy(true, "Derivando las claves en este dispositivo…");
+  try {
+    const { encKey, authHash } = await deriveKeys(email, password);
+    const r = await api("/api/login", { method: "POST", body: { email, authHash }, auth: false });
+    if (r.status !== 200) return msg("Email o contraseña incorrectos.");
+    $("#login-password").value = "";
+    await openVault(r.data.token, encKey);
+  } catch (err) {
+    console.error(err);
+    msg(err.message === "decrypt_failed" ? "No se ha podido descifrar el plan con esta contraseña." : "Algo ha fallado. Vuelve a intentarlo.");
+    clearSecrets();
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function submitRegister(event) {
+  event.preventDefault();
+  const email = $("#register-email").value.trim().toLowerCase();
+  const password = $("#register-password").value;
+  const confirm = $("#register-confirm").value;
+  const msg = (t) => { $("#register-message").textContent = t; };
+
+  if (!email || !password) return msg("Escribe tu email y una contraseña.");
+  if (password.length < 12) return msg("Usa al menos 12 caracteres.");
+  if (password !== confirm) return msg("Las dos contraseñas no coinciden.");
+
+  setBusy(true, "Derivando las claves en este dispositivo…");
+  try {
+    const { encKey, authHash } = await deriveKeys(email, password);
+    const reg = await api("/api/register", { method: "POST", body: { email, authHash }, auth: false });
+    if (reg.status === 409) return msg("Ya existe una cuenta con este email.");
+    if (reg.status !== 201) return msg("No se ha podido crear la cuenta.");
+    const r = await api("/api/login", { method: "POST", body: { email, authHash }, auth: false });
+    if (r.status !== 200) return msg("Cuenta creada, pero no se ha podido entrar. Prueba desde Entrar.");
+    $("#register-password").value = "";
+    $("#register-confirm").value = "";
+    await openVault(r.data.token, encKey);
+  } catch (err) {
+    console.error(err);
+    msg("Algo ha fallado. Vuelve a intentarlo.");
+    clearSecrets();
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function openVault(token, encKey) {
+  state.token = token;
+  state.encKey = encKey;
+  await loadVault();
+  await loadStatus();
+  showScreen("list");
+  touchIdle();
+}
+
+async function logout() {
+  try { await api("/api/session", { method: "DELETE" }); } catch { /* ja tant hi fa */ }
+  lock("Has salido. El plan queda cerrado.");
+}
+
+function lock(message) {
+  clearSecrets();
+  state.vault = null;
+  state.version = 0;
+  state.status = {};
+  state.settings = null;
+  state.draft = null;
+  state.personDraft = null;
+  state.pendingDeletes = [];
+  showScreen("login");
+  $("#login-message").textContent = message || "";
+}
+
+function clearSecrets() {
+  state.token = null;
+  state.encKey = null;
+}
+
+// ---------------------------------------------------------------- vault
+
+async function loadVault() {
+  const r = await api("/api/vault");
+  if (r.status === 404) {
+    state.vault = { v: 2, recipients: [], items: [] };
+    state.version = 0;
+  } else if (r.status === 200) {
+    let vault;
+    try { vault = await decryptJson(state.encKey, r.data.blob); } catch { throw new Error("decrypt_failed"); }
+    state.vault = migrate(vault);
+    state.version = r.data.version;
+  } else if (r.status === 401) {
+    throw new Error("unauthorized");
+  } else {
+    throw new Error("load_failed");
+  }
+  state.pendingDeletes = [];
+  renderList();
+}
+
+// v1 → v2: la persona passa de text lliure a referència; els fitxers antics
+// (xifrats amb la clau del titular, sense clau pròpia) es marquen com a legacy.
+function migrate(vault) {
+  if (vault.v === 2) return vault;
+  return {
+    v: 2,
+    recipients: [],
+    items: (vault.items || []).map((it) => ({
+      id: it.id,
+      title: it.title,
+      recipientId: null,
+      notes: it.recipient ? `${it.notes || ""}\n\n(Antes: para ${it.recipient})`.trim() : (it.notes || ""),
+      files: (it.files || []).map((f) => ({ ...f, key: f.key || null })),
+      updatedAt: it.updatedAt || Date.now(),
+    })),
+  };
+}
+
+async function loadStatus() {
+  const [recs, settings] = await Promise.all([api("/api/recipients"), api("/api/settings")]);
+  state.status = {};
+  if (recs.status === 200) {
+    for (const r of recs.data.recipients) state.status[r.id] = r;
+  }
+  if (settings.status === 200) state.settings = settings.data;
+}
+
+// Cada canvi es xifra i es desa de seguida; després es refan els paquets.
+async function persist() {
+  setBusy(true, "Cifrando y guardando…");
+  try {
+    const blob = await encryptJson(state.encKey, state.vault);
+    const r = await api("/api/vault", { method: "PUT", body: { blob, version: state.version } });
+
+    if (r.status === 200) {
+      state.version = r.data.version;
+      await syncPackages();
+      await flushPendingDeletes();
+      renderList();
+      toast("Guardado.");
+      return true;
+    }
+    if (r.status === 409) {
+      toast("El plan ha cambiado desde otro dispositivo. Se carga la última versión; este cambio no se ha guardado.");
+      await loadVault();
+    } else if (r.status === 401) {
+      lock("La sesión ha caducado. Vuelve a entrar.");
+    } else {
+      toast("No se ha podido guardar. Vuelve a intentarlo.");
+    }
+    return false;
+  } catch (err) {
+    console.error(err);
+    toast("No se ha podido guardar. Revisa la conexión.");
+    return false;
+  } finally {
+    setBusy(false);
+  }
+}
+
+// Un paquet per persona: els seus elements, amb les claus dels seus fitxers.
+async function syncPackages() {
+  for (const p of state.vault.recipients) {
+    const items = state.vault.items
+      .filter((it) => it.recipientId === p.id)
+      .map((it) => ({
+        title: it.title,
+        notes: it.notes,
+        files: it.files.filter((f) => f.key).map((f) => ({ id: f.id, name: f.name, size: f.size, key: f.key })),
+      }));
+    const fileIds = items.flatMap((it) => it.files.map((f) => f.id));
+    const key = await importKey(p.key);
+    const pkg = await encryptJson(key, { v: 1, generatedAt: Date.now(), items });
+    const r = await api(`/api/recipients/${p.id}`, { method: "PUT", body: { email: p.email, package: pkg, fileIds } });
+    if (r.status !== 200) toast(`No se ha podido preparar el paquete de ${p.name}.`);
+  }
+}
+
+async function flushPendingDeletes() {
+  const ids = state.pendingDeletes;
+  state.pendingDeletes = [];
+  for (const id of ids) {
+    try { await api(`/api/files/${id}`, { method: "DELETE" }); } catch { /* orfe tolerable */ }
+  }
+}
+
+// ------------------------------------------------------------ items: edit
+
+function startEdit(id) {
+  const item = id ? state.vault.items.find((it) => it.id === id) : null;
+  state.draft = {
+    id,
+    title: item?.title ?? "",
+    recipientId: item?.recipientId ?? null,
+    notes: item?.notes ?? "",
+    files: [...(item?.files ?? [])],
+    uploaded: [],
+    removed: [],
+  };
+
+  $("#edit-title").textContent = item ? "Editar elemento" : "Nuevo elemento";
+  $("#item-title").value = state.draft.title;
+  $("#item-notes").value = state.draft.notes;
+  $("#item-message").textContent = "";
+  $("#item-files").value = "";
+  fillRecipientSelect(state.draft.recipientId);
+  renderDraftFiles();
+  showScreen("edit");
+  $("#item-title").focus();
+}
+
+function fillRecipientSelect(selectedId) {
+  const sel = $("#item-recipient");
+  sel.replaceChildren(el("option", { value: "" }, "Nadie todavía (solo yo)"));
+  for (const p of state.vault.recipients) {
+    sel.append(el("option", { value: p.id }, `${p.name} · ${p.email}`));
+  }
+  sel.value = selectedId && state.vault.recipients.some((p) => p.id === selectedId) ? selectedId : "";
+  $("#item-recipient-hint").hidden = state.vault.recipients.length > 0;
+}
+
+async function applyItem(event) {
+  event.preventDefault();
+  const d = state.draft;
+  const title = $("#item-title").value.trim();
+  if (!title) { $("#item-message").textContent = "Escribe qué es este elemento."; return; }
+
+  const data = {
+    title,
+    recipientId: $("#item-recipient").value || null,
+    notes: $("#item-notes").value,
+    files: d.files,
+    updatedAt: Date.now(),
+  };
+
+  if (d.id) {
+    const idx = state.vault.items.findIndex((it) => it.id === d.id);
+    if (idx >= 0) state.vault.items[idx] = { ...state.vault.items[idx], ...data };
+  } else {
+    state.vault.items.push({ id: crypto.randomUUID(), ...data });
+  }
+
+  state.pendingDeletes.push(...d.removed);
+  state.draft = null;
+  showScreen("list");
+  await persist();
+}
+
+async function cancelEdit() {
+  const d = state.draft;
+  state.draft = null;
+  for (const id of d.uploaded) {
+    try { await api(`/api/files/${id}`, { method: "DELETE" }); } catch { /* orfe tolerable */ }
+  }
+  showScreen("list");
+}
+
+async function deleteItem(id) {
+  const item = state.vault.items.find((it) => it.id === id);
+  if (!item || !window.confirm(`¿Eliminar "${item.title}" del plan?`)) return;
+  state.vault.items = state.vault.items.filter((it) => it.id !== id);
+  state.pendingDeletes.push(...item.files.map((f) => f.id));
+  renderList();
+  await persist();
+}
+
+// ---------------------------------------------------------------- files
+
+async function addFiles(fileList) {
+  const d = state.draft;
+  for (const file of fileList) {
+    if (file.size > MAX_FILE_BYTES) { toast(`${file.name} supera los 10 MB y no se ha adjuntado.`); continue; }
+    setBusy(true, `Cifrando y subiendo ${file.name}…`);
+    try {
+      const raw = randomKey();
+      const key = await importKey(raw);
+      const sealed = await encryptBytes(key, new Uint8Array(await file.arrayBuffer()));
+      const id = crypto.randomUUID();
+      const res = await fetch(`/api/files/${id}`, {
+        method: "PUT",
+        headers: { authorization: `Bearer ${state.token}`, "content-type": "application/octet-stream" },
+        body: sealed,
+      });
+      if (res.status === 201) {
+        d.files.push({ id, name: file.name, size: file.size, key: b64encode(raw) });
+        d.uploaded.push(id);
+      } else if (res.status === 507) {
+        toast("Has llegado al límite de 100 MB de archivos.");
+      } else if (res.status === 401) {
+        lock("La sesión ha caducado. Vuelve a entrar.");
+        return;
+      } else {
+        toast(`No se ha podido subir ${file.name}.`);
+      }
+    } catch (err) {
+      console.error(err);
+      toast(`No se ha podido subir ${file.name}.`);
+    } finally {
+      setBusy(false);
+    }
+  }
+  $("#item-files").value = "";
+  renderDraftFiles();
+}
+
+function removeDraftFile(id) {
+  const d = state.draft;
+  d.files = d.files.filter((f) => f.id !== id);
+  if (d.uploaded.includes(id)) {
+    d.uploaded = d.uploaded.filter((x) => x !== id);
+    api(`/api/files/${id}`, { method: "DELETE" }).catch(() => {});
+  } else {
+    d.removed.push(id);
+  }
+  renderDraftFiles();
+}
+
+async function downloadFile(f) {
+  setBusy(true, `Descargando y descifrando ${f.name}…`);
+  try {
+    const res = await fetch(`/api/files/${f.id}`, { headers: { authorization: `Bearer ${state.token}` } });
+    if (res.status === 404) return toast("Este archivo ya no está en el servidor.");
+    if (res.status === 401) return lock("La sesión ha caducado. Vuelve a entrar.");
+    if (!res.ok) return toast("No se ha podido descargar el archivo.");
+    const key = f.key ? await importKey(f.key) : state.encKey;   // legacy: xifrat amb la clau del titular
+    const plain = await decryptBytes(key, await res.arrayBuffer());
+    saveAs(plain, f.name);
+  } catch (err) {
+    console.error(err);
+    toast("No se ha podido descifrar el archivo.");
+  } finally {
+    setBusy(false);
+  }
+}
+
+function saveAs(bytes, name) {
+  const url = URL.createObjectURL(new Blob([bytes]));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+// --------------------------------------------------------------- people
+
+function startPersonEdit(id) {
+  const p = id ? state.vault.recipients.find((x) => x.id === id) : null;
+  state.personDraft = { id, name: p?.name ?? "", email: p?.email ?? "" };
+  $("#person-title").textContent = p ? "Editar persona" : "Nueva persona";
+  $("#person-name").value = state.personDraft.name;
+  $("#person-email").value = state.personDraft.email;
+  $("#person-pass").value = "";
+  $("#person-pass-label").textContent = p ? "Nueva frase (déjala vacía para no cambiarla)" : "Su frase";
+  $("#person-message").textContent = "";
+  showScreen("person-edit");
+  $("#person-name").focus();
+}
+
+async function applyPerson(event) {
+  event.preventDefault();
+  const d = state.personDraft;
+  const name = $("#person-name").value.trim();
+  const email = $("#person-email").value.trim().toLowerCase();
+  const pass = $("#person-pass").value.trim();
+  const msg = (t) => { $("#person-message").textContent = t; };
+
+  if (!name) return msg("Escribe su nombre.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return msg("Escribe un email válido.");
+  if (!d.id && pass.length < 12) return msg("La frase debe tener al menos 12 caracteres. Puedes generar una.");
+  if (d.id && pass && pass.length < 12) return msg("La nueva frase debe tener al menos 12 caracteres.");
+
+  const existing = d.id ? state.vault.recipients.find((x) => x.id === d.id) : null;
+  if (existing && existing.email !== email && !pass) {
+    return msg("Si cambias el email, hace falta una frase nueva: la clave se deriva de los dos.");
+  }
+
+  setBusy(true, "Derivando su clave en este dispositivo…");
+  try {
+    let key = existing?.key ?? null;
+    if (pass) key = b64encode(await derivePassphraseKey(email, pass));
+
+    if (existing) {
+      Object.assign(existing, { name, email, key });
+    } else {
+      state.vault.recipients.push({ id: crypto.randomUUID(), name, email, key, createdAt: Date.now() });
+    }
+    $("#person-pass").value = "";
+    state.personDraft = null;
+  } finally {
+    setBusy(false);
+  }
+
+  renderPeople();
+  showScreen("people");
+  const ok = await persist();
+  if (ok) { await loadStatus(); renderPeople(); }
+}
+
+function cancelPersonEdit() {
+  state.personDraft = null;
+  $("#person-pass").value = "";
+  showScreen("people");
+}
+
+async function deletePerson(id) {
+  const p = state.vault.recipients.find((x) => x.id === id);
+  if (!p) return;
+  const assigned = state.vault.items.filter((it) => it.recipientId === id).length;
+  const extra = assigned ? ` Los ${assigned} elementos asignados quedarán sin persona.` : "";
+  if (!window.confirm(`¿Quitar a ${p.name} de las personas de confianza?${extra}`)) return;
+
+  state.vault.recipients = state.vault.recipients.filter((x) => x.id !== id);
+  for (const it of state.vault.items) if (it.recipientId === id) it.recipientId = null;
+  await api(`/api/recipients/${id}`, { method: "DELETE" });
+  renderPeople();
+  const ok = await persist();
+  if (ok) { await loadStatus(); renderPeople(); }
+}
+
+async function releaseNow(id) {
+  const p = state.vault.recipients.find((x) => x.id === id);
+  const n = state.vault.items.filter((it) => it.recipientId === id).length;
+  if (!n) return toast(`${p.name} no tiene ningún elemento asignado todavía.`);
+  if (!window.confirm(`Se enviará ahora a ${p.email} un enlace para abrir sus ${n} elementos. Necesitará su frase. ¿Continuar?`)) return;
+
+  setBusy(true, "Enviando el enlace…");
+  try {
+    const r = await api(`/api/recipients/${id}/release`, { method: "POST" });
+    if (r.status === 200) toast(`Enlace enviado a ${p.email}.`);
+    else if (r.data?.error === "mail_failed") toast("El correo no se ha podido enviar. Revisa la configuración de envío.");
+    else toast("No se ha podido entregar.");
+    await loadStatus();
+    renderPeople();
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function revokeRelease(id) {
+  const p = state.vault.recipients.find((x) => x.id === id);
+  if (!window.confirm(`El enlace enviado a ${p.name} dejará de funcionar. ¿Continuar?`)) return;
+  const r = await api(`/api/recipients/${id}/revoke`, { method: "POST" });
+  toast(r.status === 200 ? "Enlace anulado." : "No se ha podido anular.");
+  await loadStatus();
+  renderPeople();
+}
+
+async function saveSettings(event) {
+  event.preventDefault();
+  const warnDays = Number($("#warn-days").value);
+  const releaseDays = Number($("#release-days").value);
+  const msg = (t) => { $("#settings-message").textContent = t; };
+  if (!Number.isInteger(warnDays) || warnDays < 1) return msg("El aviso tiene que ser al menos 1 día.");
+  if (!Number.isInteger(releaseDays) || releaseDays <= warnDays) return msg("La entrega tiene que ser posterior al aviso.");
+  const r = await api("/api/settings", { method: "PUT", body: { warnDays, releaseDays } });
+  if (r.status === 200) {
+    state.settings = { ...state.settings, warnDays, releaseDays };
+    msg("");
+    toast("Plazos guardados.");
+  } else {
+    msg("No se han podido guardar los plazos.");
+  }
+}
+
+// --------------------------------------------------------------- render
+
+function recipientName(id) {
+  return state.vault.recipients.find((p) => p.id === id)?.name ?? null;
+}
+
+function renderList() {
+  const list = $("#items");
+  list.replaceChildren();
+  const items = state.vault?.items ?? [];
+  $("#empty").hidden = items.length > 0;
+
+  for (const item of items) {
+    const li = el("li", { class: "item" });
+    const head = el("div", { class: "item-head" });
+    head.append(el("h3", {}, item.title));
+    const who = recipientName(item.recipientId);
+    head.append(el("p", { class: who ? "item-recipient" : "item-recipient none" }, who ? `Para ${who}` : "Sin persona asignada"));
+    li.append(head);
+
+    if (item.notes) li.append(el("p", { class: "item-notes" }, item.notes));
+
+    if (item.files.length) {
+      const files = el("div", { class: "item-files" });
+      for (const f of item.files) {
+        const b = el("button", { type: "button", class: "link" }, f.name + (f.key ? "" : " (vuelve a subirlo para compartirlo)"));
+        b.addEventListener("click", () => downloadFile(f));
+        files.append(b);
+      }
+      li.append(files);
+    }
+
+    const actions = el("div", { class: "item-actions" });
+    const edit = el("button", { type: "button", class: "link" }, "Editar");
+    edit.addEventListener("click", () => startEdit(item.id));
+    const del = el("button", { type: "button", class: "link danger" }, "Eliminar");
+    del.addEventListener("click", () => deleteItem(item.id));
+    actions.append(edit, del);
+    li.append(actions);
+    list.append(li);
+  }
+}
+
+function renderDraftFiles() {
+  const list = $("#draft-files");
+  list.replaceChildren();
+  for (const f of state.draft.files) {
+    const li = el("li", { class: "file" });
+    const name = el("span", { class: "name" }, f.name);
+    name.append(el("span", { class: "size" }, formatSize(f.size)));
+    const actions = el("div", { class: "file-actions" });
+    const dl = el("button", { type: "button", class: "link" }, "Descargar");
+    dl.addEventListener("click", () => downloadFile(f));
+    const rm = el("button", { type: "button", class: "link danger" }, "Quitar");
+    rm.addEventListener("click", () => removeDraftFile(f.id));
+    actions.append(dl, rm);
+    li.append(name, actions);
+    list.append(li);
+  }
+}
+
+function renderPeople() {
+  const list = $("#people");
+  list.replaceChildren();
+  const people = state.vault.recipients;
+  $("#people-empty").hidden = people.length > 0;
+
+  for (const p of people) {
+    const li = el("li", { class: "item" });
+    const head = el("div", { class: "item-head" });
+    head.append(el("h3", {}, p.name));
+    head.append(el("p", { class: "item-recipient" }, p.email));
+    li.append(head);
+
+    const n = state.vault.items.filter((it) => it.recipientId === p.id).length;
+    const s = state.status[p.id];
+    let statusText = `${n} ${n === 1 ? "elemento asignado" : "elementos asignados"}.`;
+    if (s?.releasedAt) {
+      const expired = s.expiresAt && s.expiresAt * 1000 < Date.now();
+      statusText += expired
+        ? ` Entregado el ${dateEs(s.releasedAt)}; el enlace ha caducado.`
+        : ` Entregado el ${dateEs(s.releasedAt)}${s.openedAt ? `, abierto el ${dateEs(s.openedAt)}` : ", aún no abierto"}.`;
+    }
+    li.append(el("p", { class: "item-notes" }, statusText));
+
+    const actions = el("div", { class: "item-actions" });
+    const edit = el("button", { type: "button", class: "link" }, "Editar");
+    edit.addEventListener("click", () => startPersonEdit(p.id));
+    actions.append(edit);
+    if (s?.releasedAt) {
+      const rv = el("button", { type: "button", class: "link" }, "Anular enlace");
+      rv.addEventListener("click", () => revokeRelease(p.id));
+      actions.append(rv);
+    }
+    const rel = el("button", { type: "button", class: "link" }, s?.releasedAt ? "Enviar de nuevo" : "Entregar ahora");
+    rel.addEventListener("click", () => releaseNow(p.id));
+    actions.append(rel);
+    const del = el("button", { type: "button", class: "link danger" }, "Quitar");
+    del.addEventListener("click", () => deletePerson(p.id));
+    actions.append(del);
+    li.append(actions);
+    list.append(li);
+  }
+
+  if (state.settings) {
+    $("#warn-days").value = state.settings.warnDays;
+    $("#release-days").value = state.settings.releaseDays;
+    $("#last-seen").textContent = state.settings.lastSeen
+      ? `Última señal registrada: ${dateEs(state.settings.lastSeen)}.`
+      : "";
+  }
+}
+
+function showScreen(name) {
+  for (const s of $$("[data-screen]")) s.hidden = s.dataset.screen !== name;
+  const inside = !["login", "register"].includes(name);
+  $("#top-nav").hidden = !inside;
+  if (inside) {
+    $("#nav-plan").classList.toggle("is-current", name === "list" || name === "edit");
+    $("#nav-people").classList.toggle("is-current", name === "people" || name === "person-edit");
+  }
+  if (name === "login") $("#login-email").focus();
+  if (name === "register") $("#register-email").focus();
+  window.scrollTo({ top: 0 });
+}
+
+function goPeople() {
+  if (state.draft) return toast("Termina o cancela el elemento que estás editando.");
+  renderPeople();
+  showScreen("people");
+}
+
+function goPlan() {
+  if (state.personDraft) return toast("Termina o cancela la persona que estás editando.");
+  renderList();
+  showScreen("list");
+}
+
+function setBusy(on, text = "") {
+  document.body.classList.toggle("is-busy", on);
+  $("#busy").textContent = text;
+  $("#busy").hidden = !on;
+  for (const b of $$("button[type=submit]")) b.disabled = on;
+}
+
+let toastTimer = null;
+function toast(text) {
+  const t = $("#toast");
+  t.textContent = text;
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, 6000);
+}
+
+function el(tag, attrs = {}, text) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function dateEs(epochS) {
+  return new Date(epochS * 1000).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
+}
+
+// ------------------------------------------------------------ idle lock
+
+let idleTimer = null;
+function touchIdle() {
+  if (!state.encKey) return;
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => lock("Plan cerrado por inactividad. Vuelve a entrar."), IDLE_LOCK_MS);
+}
+
+// ---------------------------------------------------------------- boot
+
+function boot() {
+  $("#login-form").addEventListener("submit", submitLogin);
+  $("#register-form").addEventListener("submit", submitRegister);
+  $("#to-register").addEventListener("click", () => { $("#register-message").textContent = ""; showScreen("register"); });
+  $("#to-login").addEventListener("click", () => { $("#login-message").textContent = ""; showScreen("login"); });
+  $("#logout").addEventListener("click", logout);
+  $("#nav-plan").addEventListener("click", goPlan);
+  $("#nav-people").addEventListener("click", goPeople);
+  $("#add").addEventListener("click", () => startEdit(null));
+  $("#item-form").addEventListener("submit", applyItem);
+  $("#item-cancel").addEventListener("click", cancelEdit);
+  $("#item-files").addEventListener("change", (e) => addFiles([...e.target.files]));
+  $("#add-person").addEventListener("click", () => startPersonEdit(null));
+  $("#person-form").addEventListener("submit", applyPerson);
+  $("#person-cancel").addEventListener("click", cancelPersonEdit);
+  $("#person-generate").addEventListener("click", () => { $("#person-pass").value = generatePassphrase(); });
+  $("#settings-form").addEventListener("submit", saveSettings);
+
+  for (const evt of ["click", "keydown", "input"]) document.addEventListener(evt, touchIdle, { passive: true });
+
+  window.addEventListener("beforeunload", (e) => {
+    if (state.draft || state.personDraft) { e.preventDefault(); e.returnValue = ""; }
+  });
+
+  if (!window.isSecureContext || !crypto?.subtle) {
+    showScreen("login");
+    $("#login-message").textContent = "Este navegador no ofrece cifrado seguro (se necesita HTTPS y WebCrypto).";
+    $("#login-submit").disabled = true;
+    $("#to-register").disabled = true;
+    return;
+  }
+
+  showScreen("login");
+}
+
+boot();

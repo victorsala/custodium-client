@@ -1,0 +1,598 @@
+/* Custodium B2C · beta · tokens de la Guia Visual v0.2 */
+
+:root {
+  --ink: #1B2B2E;
+  --slate: #5E6E72;
+  --ivory: #F7F4EE;
+  --surface: #FFFFFF;
+  --night: #0F2A2B;
+  --teal: #1C5D54;
+  --teal-dark: #164A43;
+  --brass: #AE8E5C;
+  --hairline: #E7E2D8;
+  --danger: #8A3B2E;
+  --display: "Fraunces", Georgia, "Times New Roman", serif;
+  --body: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html { background: var(--ivory); }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  width: min(100% - 40px, 640px);
+  margin-inline: auto;
+}
+
+/* Capçalera nit, resta marfil: el gest de firma. */
+.top {
+  background: var(--night);
+  color: var(--ivory);
+}
+
+.top-row {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -.01em;
+}
+
+.brand small {
+  font-family: var(--body);
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(247,244,238,.6);
+  margin-left: 10px;
+}
+
+main { flex: 1; padding: 56px 0 48px; }
+
+h1 {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: clamp(30px, 6vw, 40px);
+  line-height: 1.1;
+  letter-spacing: -.01em;
+  margin: 0 0 16px;
+}
+
+h2 {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 22px;
+  line-height: 1.2;
+  margin: 0 0 20px;
+}
+
+h3 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
+}
+
+p { margin: 0; }
+
+.intro {
+  color: var(--slate);
+  font-size: 17px;
+  max-width: 56ch;
+  margin-bottom: 36px;
+}
+
+/* Formularis */
+
+form { display: grid; gap: 18px; }
+
+label { display: grid; gap: 6px; }
+
+label span {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--slate);
+}
+
+input, textarea {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 12px 14px;
+  width: 100%;
+}
+
+textarea { resize: vertical; line-height: 1.55; }
+
+input:focus-visible, textarea:focus-visible, button:focus-visible {
+  outline: 3px solid rgba(28,93,84,.35);
+  outline-offset: 2px;
+}
+
+input::placeholder, textarea::placeholder { color: #9AA6A9; }
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-top: 6px;
+}
+
+button {
+  font: inherit;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 12px 22px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: var(--teal);
+  color: var(--ivory);
+  cursor: pointer;
+  transition: background-color 160ms ease-out;
+}
+
+button:hover { background: var(--teal-dark); }
+
+button:disabled {
+  background: #B9C3C4;
+  cursor: default;
+}
+
+button.secondary {
+  background: transparent;
+  border-color: var(--hairline);
+  color: var(--teal);
+}
+
+button.secondary:hover { border-color: var(--teal); background: rgba(28,93,84,.04); }
+
+button.link {
+  background: none;
+  padding: 0;
+  min-height: 0;
+  border: 0;
+  color: var(--teal);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+button.link:hover { color: var(--teal-dark); background: none; }
+button.link.danger { color: var(--danger); }
+
+button.ghost {
+  background: transparent;
+  border-color: rgba(247,244,238,.3);
+  color: var(--ivory);
+  min-height: 38px;
+  padding: 8px 16px;
+  font-weight: 500;
+}
+
+button.ghost:hover { background: rgba(255,255,255,.06); }
+
+.message {
+  color: var(--danger);
+  font-size: 15px;
+  min-height: 1.2em;
+}
+
+.notice {
+  margin-top: 40px;
+  padding-left: 16px;
+  border-left: 1px solid var(--brass);
+  color: var(--slate);
+  font-size: 14px;
+  max-width: 52ch;
+}
+
+/* Vault */
+
+.vault-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.vault-head h1 { margin: 0; }
+
+.vault-tools { display: flex; align-items: center; gap: 16px; }
+
+.dirty {
+  font-size: 13px;
+  color: var(--brass);
+  font-weight: 500;
+}
+
+.items {
+  list-style: none;
+  margin: 0 0 28px;
+  padding: 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.item {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--hairline);
+  display: grid;
+  gap: 10px;
+}
+
+.item.is-editing { opacity: .5; }
+
+.item-recipient {
+  font-size: 14px;
+  color: var(--teal);
+  margin-top: 2px;
+}
+
+.item-notes {
+  color: var(--slate);
+  font-size: 15px;
+  white-space: pre-wrap;
+  max-width: 60ch;
+}
+
+.item-actions { display: flex; gap: 18px; font-size: 14px; }
+
+.item-form {
+  margin-top: 8px;
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+}
+
+/* Peu i estats */
+
+.foot {
+  padding: 28px 0 40px;
+  border-top: 1px solid var(--hairline);
+  color: var(--slate);
+  font-size: 13px;
+  display: grid;
+  gap: 4px;
+}
+
+.busy, .toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(100% - 40px, 520px);
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  z-index: 10;
+}
+
+.busy {
+  top: 80px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  color: var(--slate);
+}
+
+.toast {
+  bottom: 24px;
+  background: var(--night);
+  color: var(--ivory);
+}
+
+body.is-busy main { pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+
+/* v2 · pantalles separades i adjunts */
+
+label span em {
+  font-style: normal;
+  font-weight: 400;
+  color: #8A9699;
+}
+
+.switch {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid var(--hairline);
+  color: var(--slate);
+  font-size: 15px;
+}
+
+.notice { margin-top: 4px; }
+
+.item-files {
+  font-size: 14px;
+  color: var(--slate);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.item-files button.link { font-size: 14px; }
+
+.files-block { display: grid; gap: 10px; }
+
+.files-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--slate);
+}
+
+.files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+
+.files:empty { display: none; }
+
+.file {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--hairline);
+  font-size: 15px;
+}
+
+.file:last-child { border-bottom: 1px solid var(--hairline); }
+
+.file .name { overflow-wrap: anywhere; }
+.file .size { color: var(--slate); font-size: 13px; margin-left: 8px; white-space: nowrap; }
+.file .file-actions { display: flex; gap: 14px; flex-shrink: 0; }
+
+.file-pick {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  cursor: pointer;
+}
+
+.file-pick .secondary-look {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 12px 22px;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  color: var(--teal);
+  font-weight: 600;
+  transition: border-color 160ms ease-out;
+}
+
+.file-pick:hover .secondary-look { border-color: var(--teal); }
+
+.file-pick:focus-within .secondary-look {
+  outline: 3px solid rgba(28,93,84,.35);
+  outline-offset: 2px;
+}
+
+.file-pick small { color: var(--slate); font-size: 13px; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* v3 · navegació, persones, terminis */
+
+.top-nav { display: flex; gap: 8px; align-items: center; }
+
+button.ghost.is-current {
+  background: rgba(247,244,238,.1);
+  border-color: transparent;
+}
+
+select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 12px 14px;
+  width: 100%;
+}
+
+select:focus-visible {
+  outline: 3px solid rgba(28,93,84,.35);
+  outline-offset: 2px;
+}
+
+.hint {
+  color: var(--slate);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+label .hint { margin-top: 2px; }
+
+.item-recipient.none { color: #9AA6A9; }
+
+.pass-block {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+}
+
+.pass-block label { width: 100%; }
+
+.pass-block input {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  letter-spacing: .04em;
+}
+
+.pass-block .notice { margin-top: 4px; }
+
+.settings {
+  margin-top: 56px;
+  padding-top: 32px;
+  border-top: 1px solid var(--hairline);
+}
+
+.settings h2 { margin-bottom: 8px; }
+
+.settings-row {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.with-unit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.with-unit input { width: 96px; }
+
+.with-unit em {
+  font-style: normal;
+  color: var(--slate);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.settings .actions { margin-top: 4px; }
+
+.foot a { color: var(--teal); }
+.intro a { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
+
+
+/* v3.1 · retocs */
+
+/* hidden guanya sempre, també sobre display:flex/grid dels components */
+[hidden] { display: none !important; }
+
+.top-row { flex-wrap: wrap; row-gap: 10px; }
+
+@media (max-width: 480px) {
+  button.ghost { padding: 6px 12px; min-height: 34px; font-size: 14px; }
+  .brand { font-size: 20px; }
+}
+
+/* Capçalera de secció: títol a l'esquerra, acció principal a la dreta */
+.vault-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 24px;
+  margin-bottom: 28px;
+}
+
+.vault-head h1 { margin: 0; }
+
+/* Missatges d'estat: línies de text, no botons */
+.busy, .toast {
+  position: fixed;
+  left: 0;
+  right: 0;
+  transform: none;
+  max-width: none;
+  padding: 10px 20px;
+  border-radius: 0;
+  text-align: center;
+  font-size: 14px;
+  z-index: 10;
+}
+
+.busy {
+  top: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--hairline);
+  color: var(--slate);
+}
+
+.toast {
+  bottom: 0;
+  background: var(--ivory);
+  border-top: 1px solid var(--brass);
+  color: var(--ink);
+}
+
+.toast::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brass);
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+
+/* v3.1 · retocs */
+
+/* L'atribut hidden mana sempre, també sobre elements amb display propi. */
+[hidden] { display: none !important; }
+
+.vault-head {
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.vault-head button { flex-shrink: 0; }
+
+/* Missatges d'estat: una franja de text sota la capçalera, no un botó. */
+.busy, .toast {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  transform: none;
+  max-width: none;
+  padding: 10px 20px;
+  border-radius: 0;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+  z-index: 10;
+}
+
+.busy {
+  background: var(--ivory);
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--slate);
+}
+
+.toast {
+  bottom: auto;
+  background: var(--ivory);
+  border-bottom: 1px solid var(--brass);
+  color: var(--ink);
+}
