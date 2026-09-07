@@ -14,6 +14,8 @@
 // Fitxers: clau aleatòria pròpia per fitxer. La clau viatja dins del pla i
 // dins del paquet de la persona que ha de rebre'l. Un sol objecte a R2.
 
+import { WORDS } from "./words.js";
+
 export const BLOB_VERSION = 1;
 const PBKDF2_ITERATIONS = 600_000;
 
@@ -43,7 +45,7 @@ export async function deriveKeys(email, password) {
 
 // Clau d'una persona de confiança a partir de la seva frase. Retorna 32 bytes.
 export async function derivePassphraseKey(email, passphrase) {
-  return new Uint8Array(await pbkdf2(passphrase, email));
+  return new Uint8Array(await pbkdf2(normalizePassphrase(passphrase), email));
 }
 
 async function pbkdf2(secret, saltText) {
@@ -92,13 +94,25 @@ export async function decryptBytes(key, bytes) {
   return new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: buf.slice(0, 12) }, key, buf.slice(12)));
 }
 
-// Frase llegible per escriure en paper: 4 blocs de 4 caràcters (base32 sense
-// caràcters confusos), ~80 bits.
+// Frase per escriure en paper: 6 paraules a l'atzar de la llista BIP39 en
+// castellà (2.048 paraules) → 66 bits. Es copia sense errors i, amb les 600.000
+// iteracions de PBKDF2, queda fora de l'abast d'un atac fora de línia.
 export function generatePassphrase() {
-  const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  const chars = Array.from(bytes, (b) => alphabet[b % alphabet.length]);
-  return [0, 4, 8, 12].map((i) => chars.slice(i, i + 4).join("")).join("-");
+  const idx = new Uint16Array(6);
+  crypto.getRandomValues(idx);
+  return Array.from(idx, (n) => WORDS[n % 2048]).join(" ");
+}
+
+// Abans de derivar la clau: minúscules, sense accents, un sol espai entre
+// paraules. Així "Árbol  casa" i "arbol casa" donen la mateixa clau.
+export function normalizePassphrase(text) {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .join(" ");
 }
 
 export function b64encode(bytes) {

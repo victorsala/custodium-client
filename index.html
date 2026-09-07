@@ -43,8 +43,12 @@
       <p class="intro">Todo lo que guardes se cifra en este dispositivo antes de enviarse. Custodium guarda el plan, nunca las claves.</p>
       <form id="register-form" novalidate>
         <label><span>Email</span><input id="register-email" type="email" autocomplete="username" required></label>
-        <label><span>Contraseña <em>(12 caracteres o más)</em></span><input id="register-password" type="password" autocomplete="new-password" required></label>
+        <label><span>Contraseña <em>(16 caracteres o más)</em></span><input id="register-password" type="password" autocomplete="new-password" required></label>
         <label><span>Repite la contraseña</span><input id="register-confirm" type="password" autocomplete="new-password" required></label>
+        <p class="hint">
+          <button id="register-generate" type="button" class="link">Generar una frase de seis palabras</button>
+          — más fuerte y más fácil de recordar que una contraseña inventada. Guárdala en tu gestor de contraseñas.
+        </p>
         <p class="notice">
           No hay recuperación de contraseña. Si la pierdes, el plan es irrecuperable:
           nadie, tampoco Custodium, puede descifrarlo. Guárdala donde solo tú puedas encontrarla.
@@ -59,7 +63,14 @@
     <section data-screen="list" hidden>
       <div class="vault-head">
         <h1>Tu plan</h1>
-        <button id="add" type="button">+ Añadir elemento</button>
+        <div class="vault-tools">
+          <button id="export" type="button" class="link">Exportar</button>
+          <button id="add" type="button">+ Añadir elemento</button>
+        </div>
+      </div>
+      <div id="release-notice" class="release-notice" hidden>
+        <p id="release-notice-text"></p>
+        <button id="release-notice-go" type="button" class="link">Ver en Personas</button>
       </div>
       <p id="empty" class="intro">
         Aún no hay nada. Añade lo que alguien necesitaría saber si un día no pudieras actuar:
@@ -136,11 +147,12 @@
         <div class="pass-block">
           <label>
             <span id="person-pass-label">Su frase</span>
-            <input id="person-pass" type="text" autocomplete="off" spellcheck="false">
+            <input id="person-pass" type="text" autocomplete="off" spellcheck="false" autocapitalize="off">
           </label>
           <button id="person-generate" type="button" class="link">Generar una frase</button>
           <p class="notice">
-            Escríbela en papel y dásela en persona. No se guarda en ningún sitio legible y no se puede recuperar:
+            Seis palabras al azar. Escríbelas en papel y dáselo en persona; no las envíes por mensaje ni por correo.
+            Al abrir no importan mayúsculas ni acentos. No se guarda en ningún sitio legible y no se puede recuperar:
             si la pierde, pierde su parte del plan. Tú tampoco la verás más después de guardar.
           </p>
         </div>

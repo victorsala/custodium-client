@@ -82,7 +82,7 @@ async function submitRegister(event) {
   const msg = (t) => { $("#register-message").textContent = t; };
 
   if (!email || !password) return msg("Escribe tu email y una contraseña.");
-  if (password.length < 12) return msg("Usa al menos 12 caracteres.");
+  if (password.length < 16) return msg("Usa al menos 16 caracteres, o genera una frase de seis palabras.");
   if (password !== confirm) return msg("Las dos contraseñas no coinciden.");
 
   setBusy(true, "Derivando las claves en este dispositivo…");
@@ -110,6 +110,7 @@ async function openVault(token, encKey) {
   state.encKey = encKey;
   await loadVault();
   await loadStatus();
+  renderList();
   showScreen("list");
   touchIdle();
 }
@@ -429,8 +430,9 @@ async function applyPerson(event) {
 
   if (!name) return msg("Escribe su nombre.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return msg("Escribe un email válido.");
-  if (!d.id && pass.length < 12) return msg("La frase debe tener al menos 12 caracteres. Puedes generar una.");
-  if (d.id && pass && pass.length < 12) return msg("La nueva frase debe tener al menos 12 caracteres.");
+  const words = pass ? pass.split(/\s+/).length : 0;
+  if (!d.id && (words < 6 || pass.length < 20)) return msg("La frase debe tener al menos 6 palabras. Pulsa \"Generar una frase\".");
+  if (d.id && pass && (words < 6 || pass.length < 20)) return msg("La nueva frase debe tener al menos 6 palabras.");
 
   const existing = d.id ? state.vault.recipients.find((x) => x.id === d.id) : null;
   if (existing && existing.email !== email && !pass) {
@@ -506,6 +508,7 @@ async function revokeRelease(id) {
   toast(r.status === 200 ? "Enlace anulado." : "No se ha podido anular.");
   await loadStatus();
   renderPeople();
+  renderReleaseNotice();
 }
 
 async function saveSettings(event) {
@@ -525,10 +528,38 @@ async function saveSettings(event) {
   }
 }
 
+// --------------------------------------------------------------- export
+
+// Còpia del pla en clar, per al titular. Inclou les claus de persones i
+// fitxers: amb aquest fitxer i els adjunts es pot reconstruir tot sense Custodium.
+function exportPlan() {
+  if (!window.confirm("Se descargará tu plan completo en claro (sin cifrar), incluidas las claves. Guárdalo solo en un sitio seguro. ¿Continuar?")) return;
+  const data = {
+    exportedAt: new Date().toISOString(),
+    note: "Plan de Custodium en claro. Contiene las claves de las personas de confianza y de los archivos. No lo envíes ni lo dejes en un sitio compartido.",
+    recipients: state.vault.recipients,
+    items: state.vault.items.map((it) => ({ ...it, recipient: recipientName(it.recipientId) })),
+  };
+  const bytes = new TextEncoder().encode(JSON.stringify(data, null, 2));
+  saveAs(bytes, `custodium-plan-${new Date().toISOString().slice(0, 10)}.json`);
+}
+
 // --------------------------------------------------------------- render
 
 function recipientName(id) {
   return state.vault.recipients.find((p) => p.id === id)?.name ?? null;
+}
+
+function renderReleaseNotice() {
+  const active = state.vault.recipients
+    .map((p) => ({ p, s: state.status[p.id] }))
+    .filter(({ s }) => s?.releasedAt && !(s.expiresAt && s.expiresAt * 1000 < Date.now()));
+  $("#release-notice").hidden = active.length === 0;
+  if (!active.length) return;
+  const parts = active.map(({ p, s }) => `${p.name} (${dateEs(s.releasedAt)}${s.openedAt ? ", abierto" : ", no abierto"})`);
+  $("#release-notice-text").textContent =
+    (active.length === 1 ? "Hay un paquete entregado a " : "Hay paquetes entregados a ") + parts.join(", ") +
+    ". Si no era tu intención, anula el enlace.";
 }
 
 function renderList() {
@@ -536,6 +567,7 @@ function renderList() {
   list.replaceChildren();
   const items = state.vault?.items ?? [];
   $("#empty").hidden = items.length > 0;
+  renderReleaseNotice();
 
   for (const item of items) {
     const li = el("li", { class: "item" });
@@ -710,12 +742,23 @@ function touchIdle() {
 function boot() {
   $("#login-form").addEventListener("submit", submitLogin);
   $("#register-form").addEventListener("submit", submitRegister);
-  $("#to-register").addEventListener("click", () => { $("#register-message").textContent = ""; showScreen("register"); });
+  $("#to-register").addEventListener("click", () => {
+    $("#register-message").textContent = "";
+    for (const id of ["#register-password", "#register-confirm"]) { $(id).type = "password"; $(id).value = ""; }
+    showScreen("register");
+  });
   $("#to-login").addEventListener("click", () => { $("#login-message").textContent = ""; showScreen("login"); });
+  $("#register-generate").addEventListener("click", () => {
+    const phrase = generatePassphrase();
+    for (const id of ["#register-password", "#register-confirm"]) { $(id).type = "text"; $(id).value = phrase; }
+    $("#register-message").textContent = "Apúntala antes de continuar. Se muestra en claro solo ahora.";
+  });
   $("#logout").addEventListener("click", logout);
   $("#nav-plan").addEventListener("click", goPlan);
   $("#nav-people").addEventListener("click", goPeople);
   $("#add").addEventListener("click", () => startEdit(null));
+  $("#export").addEventListener("click", exportPlan);
+  $("#release-notice-go").addEventListener("click", goPeople);
   $("#item-form").addEventListener("submit", applyItem);
   $("#item-cancel").addEventListener("click", cancelEdit);
   $("#item-files").addEventListener("change", (e) => addFiles([...e.target.files]));

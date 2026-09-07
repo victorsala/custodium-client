@@ -450,8 +450,9 @@ label .hint { margin-top: 2px; }
 .pass-block label { width: 100%; }
 
 .pass-block input {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  letter-spacing: .04em;
+  font-family: var(--display);
+  font-size: 20px;
+  letter-spacing: .01em;
 }
 
 .pass-block .notice { margin-top: 4px; }
@@ -596,3 +597,26 @@ label .hint { margin-top: 2px; }
   border-bottom: 1px solid var(--brass);
   color: var(--ink);
 }
+
+
+/* v3.3 · exportar i avís d'entrega */
+
+.vault-tools { display: flex; align-items: center; gap: 22px; }
+
+.release-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 20px;
+  margin-bottom: 28px;
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--brass);
+  border-radius: 12px;
+  font-size: 15px;
+}
+
+.release-notice p { color: var(--ink); }
+
+.hint button.link { font-size: 14px; }
