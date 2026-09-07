@@ -620,3 +620,22 @@ label .hint { margin-top: 2px; }
 .release-notice p { color: var(--ink); }
 
 .hint button.link { font-size: 14px; }
+
+
+/* v3.4 · cuenta */
+
+.account-data {
+  margin: 0 0 12px;
+  padding: 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.account-data > div {
+  display: flex;
+  gap: 24px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.account-data dt { color: var(--slate); font-size: 14px; min-width: 96px; }
+.account-data dd { margin: 0; }

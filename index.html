@@ -17,6 +17,7 @@
       <nav class="top-nav" id="top-nav" hidden>
         <button id="nav-plan" type="button" class="ghost">Tu plan</button>
         <button id="nav-people" type="button" class="ghost">Personas</button>
+        <button id="nav-account" type="button" class="ghost">Cuenta</button>
         <button id="logout" type="button" class="ghost">Salir</button>
       </nav>
     </div>
@@ -162,6 +163,37 @@
           <button type="submit">Listo</button>
           <button id="person-cancel" type="button" class="link">Cancelar</button>
         </div>
+      </form>
+    </section>
+
+    <!-- Cuenta -->
+    <section data-screen="account" hidden>
+      <div class="vault-head"><h1>Tu cuenta</h1></div>
+
+      <dl class="account-data">
+        <div><dt>Email</dt><dd id="account-email"></dd></div>
+      </dl>
+      <p class="hint">
+        El email forma parte de la derivación de tus claves, así que por ahora no se puede cambiar.
+        Aquí irán también, más adelante, tus datos de contacto y de pago.
+      </p>
+
+      <form id="password-form" class="settings" novalidate>
+        <h2>Cambiar la contraseña</h2>
+        <p class="hint">
+          El plan se vuelve a cifrar con la nueva contraseña en este dispositivo. Las personas de confianza y los archivos no se ven afectados.
+          Las sesiones abiertas en otros dispositivos se cierran.
+        </p>
+        <label><span>Contraseña actual</span><input id="pw-current" type="password" autocomplete="current-password" required></label>
+        <label><span>Nueva contraseña <em>(16 caracteres o más)</em></span><input id="pw-new" type="password" autocomplete="new-password" required></label>
+        <label><span>Repite la nueva contraseña</span><input id="pw-confirm" type="password" autocomplete="new-password" required></label>
+        <p class="hint">
+          <button id="pw-generate" type="button" class="link">Generar una frase de seis palabras</button>
+          — guárdala en tu gestor de contraseñas antes de continuar.
+        </p>
+        <p class="notice">Sigue sin haber recuperación: si pierdes la nueva contraseña, pierdes el plan.</p>
+        <p id="pw-message" class="message" aria-live="polite"></p>
+        <div class="actions"><button type="submit">Cambiar la contraseña</button></div>
       </form>
     </section>
 

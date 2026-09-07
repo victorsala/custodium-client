@@ -25,6 +25,7 @@ const MAX_FILE_BYTES = 10_000_000;
 const state = {
   token: null,
   encKey: null,
+  email: null,
   vault: null,
   version: 0,
   status: {},           // id de persona → { releasedAt, openedAt, expiresAt } (del servidor)
@@ -64,6 +65,7 @@ async function submitLogin(event) {
     const r = await api("/api/login", { method: "POST", body: { email, authHash }, auth: false });
     if (r.status !== 200) return msg("Email o contraseña incorrectos.");
     $("#login-password").value = "";
+    state.email = email;
     await openVault(r.data.token, encKey);
   } catch (err) {
     console.error(err);
@@ -95,6 +97,7 @@ async function submitRegister(event) {
     if (r.status !== 200) return msg("Cuenta creada, pero no se ha podido entrar. Prueba desde Entrar.");
     $("#register-password").value = "";
     $("#register-confirm").value = "";
+    state.email = email;
     await openVault(r.data.token, encKey);
   } catch (err) {
     console.error(err);
@@ -136,6 +139,7 @@ function lock(message) {
 function clearSecrets() {
   state.token = null;
   state.encKey = null;
+  state.email = null;
 }
 
 // ---------------------------------------------------------------- vault
@@ -528,6 +532,57 @@ async function saveSettings(event) {
   }
 }
 
+// -------------------------------------------------------------- account
+
+function goAccount() {
+  if (state.draft) return toast("Termina o cancela el elemento que estás editando.");
+  if (state.personDraft) return toast("Termina o cancela la persona que estás editando.");
+  $("#account-email").textContent = state.email;
+  for (const id of ["#pw-current", "#pw-new", "#pw-confirm"]) { $(id).type = "password"; $(id).value = ""; }
+  $("#pw-message").textContent = "";
+  showScreen("account");
+}
+
+async function changePassword(event) {
+  event.preventDefault();
+  const current = $("#pw-current").value;
+  const next = $("#pw-new").value;
+  const confirm = $("#pw-confirm").value;
+  const msg = (t) => { $("#pw-message").textContent = t; };
+
+  if (!current) return msg("Escribe tu contraseña actual.");
+  if (next.length < 16) return msg("La nueva contraseña debe tener al menos 16 caracteres, o genera una frase.");
+  if (next !== confirm) return msg("Las dos contraseñas nuevas no coinciden.");
+  if (next === current) return msg("La nueva contraseña es igual que la actual.");
+
+  setBusy(true, "Derivando las claves y cifrando de nuevo el plan…");
+  try {
+    const old = await deriveKeys(state.email, current);
+    const fresh = await deriveKeys(state.email, next);
+    const blob = await encryptJson(fresh.encKey, state.vault);
+    const r = await api("/api/password", {
+      method: "POST",
+      body: { authHash: old.authHash, newAuthHash: fresh.authHash, blob, version: state.version },
+    });
+
+    if (r.status === 401) return msg("La contraseña actual no es correcta.");
+    if (r.status === 409) { toast("El plan ha cambiado desde otro dispositivo. Se recarga; vuelve a intentarlo."); await loadVault(); return; }
+    if (r.status !== 200) return msg("No se ha podido cambiar la contraseña.");
+
+    state.token = r.data.token;
+    state.encKey = fresh.encKey;
+    state.version = r.data.version;
+    for (const id of ["#pw-current", "#pw-new", "#pw-confirm"]) { $(id).type = "password"; $(id).value = ""; }
+    msg("");
+    toast("Contraseña cambiada. El plan se ha cifrado de nuevo.");
+  } catch (err) {
+    console.error(err);
+    msg("Algo ha fallado. Vuelve a intentarlo.");
+  } finally {
+    setBusy(false);
+  }
+}
+
 // --------------------------------------------------------------- export
 
 // Còpia del pla en clar, per al titular. Inclou les claus de persones i
@@ -677,6 +732,7 @@ function showScreen(name) {
   if (inside) {
     $("#nav-plan").classList.toggle("is-current", name === "list" || name === "edit");
     $("#nav-people").classList.toggle("is-current", name === "people" || name === "person-edit");
+    $("#nav-account").classList.toggle("is-current", name === "account");
   }
   if (name === "login") $("#login-email").focus();
   if (name === "register") $("#register-email").focus();
@@ -756,6 +812,13 @@ function boot() {
   $("#logout").addEventListener("click", logout);
   $("#nav-plan").addEventListener("click", goPlan);
   $("#nav-people").addEventListener("click", goPeople);
+  $("#nav-account").addEventListener("click", goAccount);
+  $("#password-form").addEventListener("submit", changePassword);
+  $("#pw-generate").addEventListener("click", () => {
+    const phrase = generatePassphrase();
+    for (const id of ["#pw-new", "#pw-confirm"]) { $(id).type = "text"; $(id).value = phrase; }
+    $("#pw-message").textContent = "Apúntala antes de continuar. Se muestra en claro solo ahora.";
+  });
   $("#add").addEventListener("click", () => startEdit(null));
   $("#export").addEventListener("click", exportPlan);
   $("#release-notice-go").addEventListener("click", goPeople);
