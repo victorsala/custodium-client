@@ -22,6 +22,7 @@ import { zipSync } from "./fflate.js";
 
 const IDLE_LOCK_MS = 15 * 60 * 1000;
 const MAX_FILE_BYTES = 50_000_000;
+const MAX_RECIPIENTS = 20;           // el servidor imposa el mateix límit
 
 const state = {
   token: null,
@@ -169,6 +170,14 @@ async function loadVault() {
   }
   state.pendingDeletes = [];
   renderList();
+  await reconcileFiles();
+}
+
+// Neteja oportunista: el servidor esborra els fitxers de més de 7 dies que el
+// pla ja no apunta (pujats i abandonats en tancar la pestanya a mitja edició).
+async function reconcileFiles() {
+  const ids = state.vault.items.flatMap((it) => it.files.map((f) => f.id));
+  try { await api("/api/files/reconcile", { method: "POST", body: { ids } }); } catch { /* no és crític */ }
 }
 
 // v1 → v2: la persona passa de text lliure a referència; els fitxers antics
@@ -523,14 +532,29 @@ async function deletePerson(id) {
   const extra = assigned ? ` Los ${assigned} elementos asignados quedarán sin persona.` : "";
   if (!window.confirm(`¿Quitar a ${p.name} de las personas de confianza?${extra}`)) return;
 
+  // Primer es desa el pla sense la persona; només llavors s'esborra del servidor.
+  // Així un desat fallit no es carrega el paquet (ni un enllaç actiu) d'una
+  // persona que continua sent al pla.
+  const mutated = state.vault;
+  const prevRecipients = state.vault.recipients;
+  const prevAssignments = new Map(state.vault.items.map((it) => [it, it.recipientIds]));
   state.vault.recipients = state.vault.recipients.filter((x) => x.id !== id);
   for (const it of state.vault.items) it.recipientIds = it.recipientIds.filter((x) => x !== id);
-  await api(`/api/recipients/${id}`, { method: "DELETE" });
+
   state.personDraft = null;
   renderPeople();
   showScreen("people");
   const ok = await persist();
-  if (ok) { await loadStatus(); renderPeople(); }
+  if (ok) {
+    await api(`/api/recipients/${id}`, { method: "DELETE" });
+    await loadStatus();
+  } else if (state.vault === mutated) {
+    // El desat ha fallat sense recarregar el pla: es desfà el canvi local.
+    state.vault.recipients = prevRecipients;
+    for (const [it, rids] of prevAssignments) it.recipientIds = rids;
+    toast(`${p.name} sigue en tu plan: no se ha podido guardar el cambio.`);
+  }
+  renderPeople();
 }
 
 async function releaseNow(id) {
@@ -879,6 +903,9 @@ function renderPeople() {
   list.replaceChildren();
   const people = state.vault.recipients;
   $("#people-empty").hidden = people.length > 0;
+  const atLimit = people.length >= MAX_RECIPIENTS;
+  $("#add-person").hidden = atLimit;
+  $("#people-limit").hidden = !atLimit;
 
   for (const p of people) {
     const li = el("li", { class: "item" });
