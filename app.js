@@ -1,4 +1,4 @@
-// app.js — Custodium B2C · v3
+// app.js — Custodium B2C · v4
 //
 // Tot l'estat viu en memòria. Tancar o recarregar la pestanya bloqueja el pla.
 //
@@ -6,8 +6,8 @@
 //
 // Pla (xifrat amb la clau del titular):
 //   { v: 2,
-//     recipients: [ { id, name, email, key, createdAt } ],           key = derivada de la seva frase, base64
-//     items: [ { id, title, recipientId|null, notes, files: [ { id, name, size, key } ], updatedAt } ] }
+//     recipients: [ { id, name, email, phone, key, phrase, createdAt } ],   key = derivada de la seva frase, base64
+//     items: [ { id, title, recipientIds: [], notes, files: [ { id, name, size, key } ], updatedAt } ] }
 //
 // A cada desat, per a cada persona es construeix un paquet amb els seus
 // elements (i les claus dels seus fitxers), es xifra amb la seva clau i es
@@ -18,9 +18,10 @@ import {
   encryptJson, decryptJson, encryptBytes, decryptBytes,
   generatePassphrase, normalizePassphrase, b64encode,
 } from "./crypto.js";
+import { zipSync } from "./fflate.js";
 
 const IDLE_LOCK_MS = 15 * 60 * 1000;
-const MAX_FILE_BYTES = 10_000_000;
+const MAX_FILE_BYTES = 50_000_000;
 
 const state = {
   token: null,
@@ -180,7 +181,7 @@ function migrate(vault) {
     items: (vault.items || []).map((it) => ({
       id: it.id,
       title: it.title,
-      recipientId: null,
+      recipientIds: [],
       notes: it.recipient ? `${it.notes || ""}\n\n(Antes: para ${it.recipient})`.trim() : (it.notes || ""),
       files: (it.files || []).map((f) => ({ ...f, key: f.key || null })),
       updatedAt: it.updatedAt || Date.now(),
@@ -234,7 +235,7 @@ async function persist() {
 async function syncPackages() {
   for (const p of state.vault.recipients) {
     const items = state.vault.items
-      .filter((it) => it.recipientId === p.id)
+      .filter((it) => it.recipientIds.includes(p.id))
       .map((it) => ({
         title: it.title,
         notes: it.notes,
@@ -243,7 +244,7 @@ async function syncPackages() {
     const fileIds = items.flatMap((it) => it.files.map((f) => f.id));
     const key = await importKey(p.key);
     const pkg = await encryptJson(key, { v: 1, generatedAt: Date.now(), items });
-    const r = await api(`/api/recipients/${p.id}`, { method: "PUT", body: { email: p.email, package: pkg, fileIds } });
+    const r = await api(`/api/recipients/${p.id}`, { method: "PUT", body: { email: p.email, phone: p.phone || null, package: pkg, fileIds } });
     if (r.status !== 200) toast(`No se ha podido preparar el paquete de ${p.name}.`);
   }
 }
@@ -263,7 +264,7 @@ function startEdit(id) {
   state.draft = {
     id,
     title: item?.title ?? "",
-    recipientId: item?.recipientId ?? null,
+    recipientIds: [...(item?.recipientIds ?? [])],
     notes: item?.notes ?? "",
     files: [...(item?.files ?? [])],
     uploaded: [],
@@ -275,20 +276,27 @@ function startEdit(id) {
   $("#item-notes").value = state.draft.notes;
   $("#item-message").textContent = "";
   $("#item-files").value = "";
-  fillRecipientSelect(state.draft.recipientId);
+  fillRecipientChecks(state.draft.recipientIds);
   renderDraftFiles();
   showScreen("edit");
   $("#item-title").focus();
 }
 
-function fillRecipientSelect(selectedId) {
-  const sel = $("#item-recipient");
-  sel.replaceChildren(el("option", { value: "" }, "Nadie todavía (solo yo)"));
+function fillRecipientChecks(selected) {
+  const box = $("#item-recipients");
+  box.replaceChildren();
   for (const p of state.vault.recipients) {
-    sel.append(el("option", { value: p.id }, `${p.name} · ${p.email}`));
+    const label = el("label", { class: "check" });
+    const input = el("input", { type: "checkbox", value: p.id });
+    input.checked = selected.includes(p.id);
+    label.append(input, el("span", {}, `${p.name} · ${p.email}`));
+    box.append(label);
   }
-  sel.value = selectedId && state.vault.recipients.some((p) => p.id === selectedId) ? selectedId : "";
   $("#item-recipient-hint").hidden = state.vault.recipients.length > 0;
+}
+
+function checkedRecipientIds() {
+  return [...$$("#item-recipients input:checked")].map((i) => i.value);
 }
 
 async function applyItem(event) {
@@ -299,7 +307,7 @@ async function applyItem(event) {
 
   const data = {
     title,
-    recipientId: $("#item-recipient").value || null,
+    recipientIds: checkedRecipientIds(),
     notes: $("#item-notes").value,
     files: d.files,
     updatedAt: Date.now(),
@@ -341,7 +349,7 @@ async function deleteItem(id) {
 async function addFiles(fileList) {
   const d = state.draft;
   for (const file of fileList) {
-    if (file.size > MAX_FILE_BYTES) { toast(`${file.name} supera los 10 MB y no se ha adjuntado.`); continue; }
+    if (file.size > MAX_FILE_BYTES) { toast(`${file.name} supera los 50 MB y no se ha adjuntado.`); continue; }
     setBusy(true, `Cifrando y subiendo ${file.name}…`);
     try {
       const raw = randomKey();
@@ -357,7 +365,7 @@ async function addFiles(fileList) {
         d.files.push({ id, name: file.name, size: file.size, key: b64encode(raw) });
         d.uploaded.push(id);
       } else if (res.status === 507) {
-        toast("Has llegado al límite de 100 MB de archivos.");
+        toast("Has llegado al límite de 1 GB de archivos.");
       } else if (res.status === 401) {
         lock("La sesión ha caducado. Vuelve a entrar.");
         return;
@@ -424,6 +432,7 @@ function startPersonEdit(id) {
   $("#person-title").textContent = p ? "Editar persona" : "Nueva persona";
   $("#person-name").value = state.personDraft.name;
   $("#person-email").value = state.personDraft.email;
+  $("#person-phone").value = p?.phone ?? "";
   $("#person-pass").value = p ? "" : generatePassphrase();
   $("#person-pass-label").textContent = p ? "Nueva frase (vacía = no cambiarla)" : "Su frase";
   $("#person-generate").textContent = p ? "Generar una frase nueva" : "Generar otra";
@@ -437,11 +446,13 @@ async function applyPerson(event) {
   const d = state.personDraft;
   const name = $("#person-name").value.trim();
   const email = $("#person-email").value.trim().toLowerCase();
+  const phone = normalizePhone($("#person-phone").value);
   const pass = $("#person-pass").value.trim();
   const msg = (t) => { $("#person-message").textContent = t; };
 
   if (!name) return msg("Escribe su nombre.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return msg("Escribe un email válido.");
+  if (phone === false) return msg("El móvil debe ir en formato internacional, por ejemplo +34 600 000 000.");
   const words = pass ? pass.split(/\s+/).length : 0;
   if (!d.id && words !== 6) return msg("Falta la frase. Pulsa \"Generar otra\".");
   if (d.id && pass && words !== 6) return msg("La frase no es válida. Genera una nueva.");
@@ -461,9 +472,9 @@ async function applyPerson(event) {
     }
 
     if (existing) {
-      Object.assign(existing, { name, email, key, phrase });
+      Object.assign(existing, { name, email, phone, key, phrase });
     } else {
-      state.vault.recipients.push({ id: crypto.randomUUID(), name, email, key, phrase, createdAt: Date.now() });
+      state.vault.recipients.push({ id: crypto.randomUUID(), name, email, phone, key, phrase, createdAt: Date.now() });
     }
     $("#person-pass").value = "";
     state.personDraft = null;
@@ -486,12 +497,12 @@ function cancelPersonEdit() {
 async function deletePerson(id) {
   const p = state.vault.recipients.find((x) => x.id === id);
   if (!p) return;
-  const assigned = state.vault.items.filter((it) => it.recipientId === id).length;
+  const assigned = state.vault.items.filter((it) => it.recipientIds.includes(id)).length;
   const extra = assigned ? ` Los ${assigned} elementos asignados quedarán sin persona.` : "";
   if (!window.confirm(`¿Quitar a ${p.name} de las personas de confianza?${extra}`)) return;
 
   state.vault.recipients = state.vault.recipients.filter((x) => x.id !== id);
-  for (const it of state.vault.items) if (it.recipientId === id) it.recipientId = null;
+  for (const it of state.vault.items) it.recipientIds = it.recipientIds.filter((x) => x !== id);
   await api(`/api/recipients/${id}`, { method: "DELETE" });
   renderPeople();
   const ok = await persist();
@@ -500,7 +511,7 @@ async function deletePerson(id) {
 
 async function releaseNow(id) {
   const p = state.vault.recipients.find((x) => x.id === id);
-  const n = state.vault.items.filter((it) => it.recipientId === id).length;
+  const n = state.vault.items.filter((it) => it.recipientIds.includes(id)).length;
   if (!n) return toast(`${p.name} no tiene ningún elemento asignado todavía.`);
   if (!window.confirm(`Se enviará ahora a ${p.email} un enlace para abrir sus ${n} elementos. Necesitará su frase. ¿Continuar?`)) return;
 
@@ -613,9 +624,32 @@ function goAccount() {
   if (state.draft) return toast("Termina o cancela el elemento que estás editando.");
   if (state.personDraft) return toast("Termina o cancela la persona que estás editando.");
   $("#account-email").textContent = state.email;
+  $("#account-phone").value = state.settings?.phone ?? "";
+  $("#phone-message").textContent = "";
   for (const id of ["#pw-current", "#pw-new", "#pw-confirm"]) { $(id).type = "password"; $(id).value = ""; }
   $("#pw-message").textContent = "";
   showScreen("account");
+}
+
+function normalizePhone(value) {
+  const v = String(value || "").replace(/[\s.-]/g, "");
+  if (!v) return null;
+  return /^\+[1-9]\d{6,14}$/.test(v) ? v : false;
+}
+
+async function savePhone(event) {
+  event.preventDefault();
+  const phone = normalizePhone($("#account-phone").value);
+  const msg = (t) => { $("#phone-message").textContent = t; };
+  if (phone === false) return msg("Formato internacional, por ejemplo +34 600 000 000.");
+  const r = await api("/api/settings", { method: "PUT", body: { phone } });
+  if (r.status === 200) {
+    state.settings = { ...state.settings, phone };
+    msg("");
+    toast(phone ? "Móvil guardado." : "Móvil eliminado.");
+  } else {
+    msg("No se ha podido guardar el móvil.");
+  }
 }
 
 async function changePassword(event) {
@@ -661,18 +695,66 @@ async function changePassword(event) {
 
 // --------------------------------------------------------------- export
 
-// Còpia del pla en clar, per al titular. Inclou les claus de persones i
-// fitxers: amb aquest fitxer i els adjunts es pot reconstruir tot sense Custodium.
-function exportPlan() {
-  if (!window.confirm("Se descargará tu plan completo en claro (sin cifrar), incluidas las claves. Guárdalo solo en un sitio seguro. ¿Continuar?")) return;
-  const data = {
-    exportedAt: new Date().toISOString(),
-    note: "Plan de Custodium en claro. Contiene las claves de las personas de confianza y de los archivos. No lo envíes ni lo dejes en un sitio compartido.",
-    recipients: state.vault.recipients,
-    items: state.vault.items.map((it) => ({ ...it, recipient: recipientName(it.recipientId) })),
-  };
-  const bytes = new TextEncoder().encode(JSON.stringify(data, null, 2));
-  saveAs(bytes, `custodium-plan-${new Date().toISOString().slice(0, 10)}.json`);
+// Còpia completa i xifrada, per guardar fora de Custodium: el pla del titular,
+// un paquet per persona, tots els fitxers xifrats i l'obridor autònom. Qui
+// obri el zip amb abrir.html i el seu email + frase (o contrasenya) veu només
+// el que és seu. Custodium no cal per obrir-lo.
+async function exportBundle() {
+  const nFiles = state.vault.items.reduce((n, it) => n + it.files.length, 0);
+  if (!window.confirm(`Se descargará una copia cifrada de todo el plan (${state.vault.items.length} elementos, ${nFiles} archivos) con un abridor que funciona sin Custodium. ¿Continuar?`)) return;
+
+  setBusy(true, "Preparando la copia…");
+  try {
+    const files = {};
+    const te = new TextEncoder();
+
+    files["plan.json"] = te.encode(JSON.stringify(await encryptJson(state.encKey, state.vault)));
+
+    for (const p of state.vault.recipients) {
+      const items = state.vault.items
+        .filter((it) => it.recipientIds.includes(p.id))
+        .map((it) => ({ title: it.title, notes: it.notes, files: it.files.filter((f) => f.key).map((f) => ({ id: f.id, name: f.name, size: f.size, key: f.key })) }));
+      const pkg = await encryptJson(await importKey(p.key), { v: 1, generatedAt: Date.now(), items });
+      files[`paquetes/${p.id}.json`] = te.encode(JSON.stringify(pkg));
+    }
+
+    const seen = new Set();
+    for (const it of state.vault.items) {
+      for (const f of it.files) {
+        if (seen.has(f.id)) continue;
+        seen.add(f.id);
+        setBusy(true, `Descargando ${f.name}…`);
+        const res = await fetch(`/api/files/${f.id}`, { headers: { authorization: `Bearer ${state.token}` } });
+        if (res.status === 401) return lock("La sesión ha caducado. Vuelve a entrar.");
+        if (!res.ok) { toast(`No se ha podido descargar ${f.name}; se omite.`); continue; }
+        files[`archivos/${f.id}`] = new Uint8Array(await res.arrayBuffer());
+      }
+    }
+
+    const opener = await fetch("/abrir-offline.html").then((r) => r.text());
+    files["abrir.html"] = te.encode(opener);
+    files["LEEME.txt"] = te.encode([
+      "Copia cifrada de un plan de Custodium.",
+      "",
+      "Para abrirla no hace falta Custodium ni conexión a internet:",
+      "1. Abre abrir.html con cualquier navegador (doble clic).",
+      "2. Selecciona este mismo archivo .zip (o la carpeta descomprimida).",
+      "3. Escribe tu email y tu frase (o tu contraseña, si eres el titular).",
+      "",
+      "Cada persona solo puede abrir lo que le corresponde. Sin la frase, nadie puede leer nada.",
+      `Exportado el ${new Date().toLocaleString("es-ES")}.`,
+    ].join("\n"));
+
+    setBusy(true, "Comprimiendo…");
+    const zip = zipSync(files, { level: 0 });
+    saveAs(zip, `custodium-${new Date().toISOString().slice(0, 10)}.zip`);
+    toast("Copia descargada.");
+  } catch (err) {
+    console.error(err);
+    toast("No se ha podido preparar la copia.");
+  } finally {
+    setBusy(false);
+  }
 }
 
 // --------------------------------------------------------------- render
@@ -704,8 +786,8 @@ function renderList() {
     const li = el("li", { class: "item" });
     const head = el("div", { class: "item-head" });
     head.append(el("h3", {}, item.title));
-    const who = recipientName(item.recipientId);
-    head.append(el("p", { class: who ? "item-recipient" : "item-recipient none" }, who ? `Para ${who}` : "Sin persona asignada"));
+    const who = item.recipientIds.map(recipientName).filter(Boolean).join(", ");
+    head.append(el("p", { class: who ? "item-recipient" : "item-recipient none" }, who ? `Para ${who}` : "Solo para ti"));
     li.append(head);
 
     if (item.notes) li.append(el("p", { class: "item-notes" }, item.notes));
@@ -762,7 +844,7 @@ function renderPeople() {
     head.append(el("p", { class: "item-recipient" }, p.email));
     li.append(head);
 
-    const n = state.vault.items.filter((it) => it.recipientId === p.id).length;
+    const n = state.vault.items.filter((it) => it.recipientIds.includes(p.id)).length;
     const s = state.status[p.id];
     let statusText = `${n} ${n === 1 ? "elemento asignado" : "elementos asignados"}.`;
     if (s?.releasedAt) {
@@ -904,7 +986,8 @@ function boot() {
     $("#pw-message").textContent = "Apúntala antes de continuar. Se muestra en claro solo ahora.";
   });
   $("#add").addEventListener("click", () => startEdit(null));
-  $("#export").addEventListener("click", exportPlan);
+  $("#export").addEventListener("click", exportBundle);
+  $("#phone-form").addEventListener("submit", savePhone);
   $("#release-notice-go").addEventListener("click", goPeople);
   $("#item-form").addEventListener("submit", applyItem);
   $("#item-cancel").addEventListener("click", cancelEdit);

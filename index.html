@@ -62,7 +62,7 @@
       <div class="vault-head">
         <h1>Tu plan</h1>
         <div class="vault-tools">
-          <button id="export" type="button" class="link">Exportar</button>
+          <button id="export" type="button" class="link">Exportar copia</button>
           <button id="add" type="button">+ Añadir elemento</button>
         </div>
       </div>
@@ -82,11 +82,11 @@
       <h1 id="edit-title">Nuevo elemento</h1>
       <form id="item-form" novalidate>
         <label><span>Qué es</span><input id="item-title" type="text" required placeholder="Cuenta, documento, dominio, wallet…"></label>
-        <label>
-          <span>Persona de confianza</span>
-          <select id="item-recipient"></select>
-          <small id="item-recipient-hint" class="hint">Quien debe recibir este elemento cuando no puedas actuar. Añade personas desde "Personas".</small>
-        </label>
+        <fieldset class="checks">
+          <legend>Personas que deben recibirlo</legend>
+          <div id="item-recipients"></div>
+          <small id="item-recipient-hint" class="hint">Aún no hay personas de confianza. Añádelas desde "Personas"; mientras tanto el elemento es solo para ti.</small>
+        </fieldset>
         <label><span>Instrucciones</span><textarea id="item-notes" rows="6" placeholder="Dónde está, cómo acceder, qué hacer con ello."></textarea></label>
         <div class="files-block">
           <span class="files-label">Archivos adjuntos</span>
@@ -94,7 +94,7 @@
           <label class="file-pick">
             <input id="item-files" type="file" multiple class="visually-hidden">
             <span class="secondary-look">Adjuntar archivos</span>
-            <small>Hasta 10 MB por archivo. Se cifran aquí antes de subirse.</small>
+            <small>Hasta 50 MB por archivo. Se cifran aquí antes de subirse.</small>
           </label>
         </div>
         <p id="item-message" class="message" aria-live="polite"></p>
@@ -141,6 +141,7 @@
       <form id="person-form" novalidate>
         <label><span>Nombre</span><input id="person-name" type="text" required placeholder="Cómo la llamas"></label>
         <label><span>Email</span><input id="person-email" type="email" required><small class="hint">Aquí recibirá el enlace para abrir su parte del plan.</small></label>
+        <label><span>Móvil <em>(opcional)</em></span><input id="person-phone" type="tel" placeholder="+34 600 000 000"><small class="hint">Si lo pones, recibirá también un SMS avisando de que le ha llegado el correo. Sin enlaces.</small></label>
 
         <div class="pass-block">
           <label>
@@ -172,8 +173,17 @@
       </dl>
       <p class="hint">
         El email forma parte de la derivación de tus claves, así que por ahora no se puede cambiar.
-        Aquí irán también, más adelante, tus datos de contacto y de pago.
       </p>
+
+      <form id="phone-form" class="settings" novalidate>
+        <h2>Móvil para avisos</h2>
+        <p class="hint">
+          Si dejas de entrar, además del correo te avisaremos por SMS. Es un canal independiente del correo: si un filtro de spam se traga el aviso, el SMS llega igual. Sin enlaces.
+        </p>
+        <label><span>Móvil <em>(opcional)</em></span><input id="account-phone" type="tel" placeholder="+34 600 000 000"></label>
+        <p id="phone-message" class="message" aria-live="polite"></p>
+        <div class="actions"><button type="submit" class="secondary">Guardar móvil</button></div>
+      </form>
 
       <form id="password-form" class="settings" novalidate>
         <h2>Cambiar la contraseña</h2>
