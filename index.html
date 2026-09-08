@@ -269,6 +269,14 @@
         <p class="hint">Lo que el servidor ha registrado sobre tu cuenta. Sirve para detectar accesos que no reconozcas.</p>
         <ul id="events" class="events"></ul>
       </div>
+
+      <form id="delete-form" class="settings" novalidate>
+        <h2>Eliminar la cuenta</h2>
+        <p class="hint">Se borrará tu plan, tus archivos, tus personas de confianza y los enlaces que hayan recibido no funcionarán. Esta acción no se puede deshacer. Si quieres conservar una copia, descárgala antes desde «Tu plan».</p>
+        <label><span>Contraseña actual</span><input id="delete-password" type="password" autocomplete="current-password" required></label>
+        <p id="delete-message" class="message" aria-live="polite"></p>
+        <div class="actions"><button type="submit" class="danger">Eliminar mi cuenta</button></div>
+      </form>
     </section>
 
   </main>

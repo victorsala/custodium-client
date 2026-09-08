@@ -714,6 +714,31 @@ async function closeSessions() {
   else toast("No se han podido cerrar las sesiones. Prueba de nuevo.");
 }
 
+async function deleteAccount(event) {
+  event.preventDefault();
+  const password = $("#delete-password").value;
+  const msg = (t) => { $("#delete-message").textContent = t; };
+  if (!password) return msg("Escribe tu contraseña actual.");
+
+  const warning = "Se borrará tu plan, tus archivos, tus personas de confianza y los enlaces que hayan recibido no funcionarán. Esta acción no se puede deshacer. Si quieres conservar una copia, descárgala antes desde «Tu plan».";
+  if (!window.confirm(warning)) return;
+
+  setBusy(true, "Eliminando la cuenta…");
+  try {
+    const { authHash } = await deriveKeys(state.email, password);
+    const r = await api("/api/account", { method: "DELETE", body: { authHash } });
+    if (r.status === 401) return msg("La contraseña no es correcta.");
+    if (r.status !== 200) return msg("No se ha podido eliminar la cuenta. Prueba de nuevo.");
+    $("#delete-password").value = "";
+    lock("Tu cuenta se ha eliminado.");
+  } catch (err) {
+    console.error(err);
+    msg("Algo ha fallado. Vuelve a intentarlo.");
+  } finally {
+    setBusy(false);
+  }
+}
+
 const EVENT_TEXTS = {
   login: () => "Entrada",
   login_failed: () => "Intento de entrada fallido",
@@ -1129,6 +1154,7 @@ function boot() {
   $("#password-form").addEventListener("submit", changePassword);
   $("#pw-own").addEventListener("click", () => preferOwnPassword("pw"));
   $("#close-sessions").addEventListener("click", closeSessions);
+  $("#delete-form").addEventListener("submit", deleteAccount);
   $("#add").addEventListener("click", () => startEdit(null));
   $("#export").addEventListener("click", exportBundle);
   $("#phone-form").addEventListener("submit", savePhone);

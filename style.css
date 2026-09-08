@@ -195,6 +195,14 @@ button.link {
 button.link:hover { color: var(--teal-dark); background: none; }
 button.link.danger { color: var(--danger); }
 
+button.danger {
+  background: transparent;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+button.danger:hover { background: rgba(138,59,46,.06); }
+
 button.ghost {
   background: transparent;
   border-color: rgba(247,244,238,.3);
