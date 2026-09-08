@@ -656,9 +656,13 @@ function goAccount() {
   showScreen("account");
 }
 
+// Es queden només els dígits; "00" al davant passa a "+". Els autocompletats
+// afegeixen espais no separables, guions Unicode i marques invisibles.
 function normalizePhone(value) {
-  const v = String(value || "").replace(/[\s.-]/g, "");
-  if (!v) return null;
+  let digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return null;
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  const v = "+" + digits;
   return /^\+[1-9]\d{6,14}$/.test(v) ? v : false;
 }
 
