@@ -25,12 +25,13 @@
     <!-- Entrar -->
     <section data-screen="login" hidden>
       <h1>Abre tu plan.</h1>
-      <p class="intro">La contraseña no sale de este dispositivo. Con ella se descifra el plan aquí, en tu navegador.</p>
+      <p class="intro">Tu plan se descifra aquí, en tu navegador.</p>
       <form id="login-form" novalidate>
         <label><span>Email</span><input id="login-email" type="email" autocomplete="username" required></label>
         <label><span>Contraseña</span><input id="login-password" type="password" autocomplete="current-password" required></label>
         <p id="login-message" class="message" aria-live="polite"></p>
         <div class="actions"><button id="login-submit" type="submit">Entrar</button></div>
+        <p class="hint">Tu contraseña no se envía a Custodium.</p>
       </form>
       <p class="switch">¿Primera vez? <button id="to-register" type="button" class="link">Crear una cuenta</button></p>
     </section>
@@ -38,18 +39,28 @@
     <!-- Crear cuenta -->
     <section data-screen="register" hidden>
       <h1>Crea tu cuenta.</h1>
-      <p class="intro">Todo lo que guardes se cifra en este dispositivo antes de enviarse. Custodium guarda el plan, nunca las claves.</p>
+      <p class="intro">El contenido de tu plan se cifrará en tu navegador antes de enviarse a Custodium.</p>
       <form id="register-form" novalidate>
-        <label><span>Email</span><input id="register-email" type="email" autocomplete="username" required></label>
-        <label><span>Contraseña <em>(16 caracteres o más)</em></span><input id="register-password" type="password" autocomplete="new-password" required></label>
-        <label><span>Repite la contraseña</span><input id="register-confirm" type="password" autocomplete="new-password" required></label>
-        <p class="hint">
-          <button id="register-generate" type="button" class="link">Generar una frase de seis palabras</button>
-          — más fuerte y más fácil de recordar que una contraseña inventada. Guárdala en tu gestor de contraseñas.
-        </p>
+        <label>
+          <span>Email</span>
+          <input id="register-email" type="email" autocomplete="username" required>
+          <small class="hint">Usa un correo que consultes habitualmente. Aquí recibirás los avisos de tu plan.</small>
+        </label>
+
+        <div class="group">
+          <label><span>Contraseña <em>(16 caracteres o más)</em></span><input id="register-password" type="password" autocomplete="new-password" required></label>
+          <p class="hint">
+            <button id="register-generate" type="button" class="link">Generar una frase de seis palabras</button>
+            — más fuerte y más fácil de recordar que una contraseña inventada. Guárdala en tu gestor de contraseñas.
+          </p>
+          <label><span>Repite la contraseña</span><input id="register-confirm" type="password" autocomplete="new-password" required></label>
+        </div>
+
         <p class="notice">
-          No hay recuperación de contraseña. Si la pierdes, el plan es irrecuperable:
-          nadie, tampoco Custodium, puede descifrarlo. Guárdala donde solo tú puedas encontrarla.
+          Guarda tu contraseña antes de continuar.<br>
+          Custodium no puede recuperarla ni restablecerla.<br>
+          Si la pierdes, perderás el acceso a tu plan.<br>
+          Guárdala en tu gestor de contraseñas.
         </p>
         <p id="register-message" class="message" aria-live="polite"></p>
         <div class="actions"><button id="register-submit" type="submit">Crear cuenta</button></div>
@@ -112,18 +123,21 @@
         <button id="add-person" type="button">+ Añadir persona</button>
       </div>
       <p class="intro">
-        Cada persona tiene su propia frase, distinta de tu contraseña. Con ella abrirá solo los elementos que le hayas asignado,
-        y solo cuando el plan se le entregue.
+        Decide quién recibirá cada información si no puedes actuar. Cada persona tendrá acceso solo a los elementos que le asignes.
       </p>
 
       <p id="people-empty" class="hint">Aún no has añadido a nadie.</p>
       <ul id="people" class="items"></ul>
 
       <form id="settings-form" class="settings" novalidate>
-        <h2>Cuándo se entrega</h2>
+        <h2>Entrega por inactividad</h2>
         <p class="hint">
-          Si dejas de entrar, primero te avisamos por correo. Si no respondes, entregamos a cada persona su parte del plan.
-          Entrar aquí o pulsar el botón del correo cuenta como señal de que sigues ahí.
+          Si pasa el plazo que has definido sin que confirmes que sigues aquí, Custodium te enviará avisos.
+          Si continúas sin responder, enviará a cada persona un enlace para abrir sus elementos con su frase.
+        </p>
+        <p class="callout">
+          Los dos plazos se cuentan desde tu última actividad o confirmación.
+          Entrar en tu cuenta o pulsar «Sigo aquí» en un aviso reinicia ambos plazos.
         </p>
         <div class="settings-row">
           <label><span>Primer aviso</span><span class="with-unit"><input id="warn-days" type="number" min="1" max="365" required><em>días sin entrar</em></span></label>
@@ -162,6 +176,13 @@
           <button id="person-cancel" type="button" class="link">Cancelar</button>
         </div>
       </form>
+
+      <div id="person-tools" class="settings" hidden>
+        <h2>Estado y acciones</h2>
+        <p id="person-status" class="item-notes"></p>
+        <div id="person-reveal"></div>
+        <div id="person-actions" class="item-actions"></div>
+      </div>
     </section>
 
     <!-- Cuenta -->
@@ -207,8 +228,8 @@
   </main>
 
   <footer class="wrap foot">
-    <p>Guardamos el plan, nunca las claves.</p>
-    <p>Cerrar la pestaña cierra el plan. Se necesita la contraseña para volver a abrirlo.</p>
+    <p>Guardamos tu plan cifrado, nunca las claves.</p>
+    <p>El contenido se descifra en tu navegador, no en nuestros servidores.</p>
   </footer>
 
   <p id="busy" class="busy" hidden aria-live="polite"></p>

@@ -718,3 +718,44 @@ label .hint { margin-top: 2px; }
 }
 
 .check input { width: 18px; height: 18px; margin: 0; accent-color: var(--teal); }
+
+
+/* v4.1 · textos i espais de registre */
+
+.group {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  padding-top: 22px;
+  border-top: 1px solid var(--hairline);
+}
+
+form > .hint { margin-top: -4px; }
+
+.notice br + br { display: none; }
+
+
+/* v4.2 · personas */
+
+.item-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.item-row button.link { font-size: 14px; flex-shrink: 0; }
+
+.status { color: var(--ink); font-weight: 500; }
+
+.callout {
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-left: 2px solid var(--brass);
+  border-radius: 0 10px 10px 0;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+#person-tools .item-actions { flex-wrap: wrap; }

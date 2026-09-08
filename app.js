@@ -437,6 +437,8 @@ function startPersonEdit(id) {
   $("#person-pass-label").textContent = p ? "Nueva frase (vacía = no cambiarla)" : "Su frase";
   $("#person-generate").textContent = p ? "Generar una frase nueva" : "Generar otra";
   $("#person-message").textContent = "";
+  state.reveal = {};
+  renderPersonTools();
   showScreen("person-edit");
   $("#person-name").focus();
 }
@@ -489,8 +491,11 @@ async function applyPerson(event) {
 }
 
 function cancelPersonEdit() {
+  clearTimeout(revealTimer);
+  state.reveal = {};
   state.personDraft = null;
   $("#person-pass").value = "";
+  renderPeople();
   showScreen("people");
 }
 
@@ -504,7 +509,9 @@ async function deletePerson(id) {
   state.vault.recipients = state.vault.recipients.filter((x) => x.id !== id);
   for (const it of state.vault.items) it.recipientIds = it.recipientIds.filter((x) => x !== id);
   await api(`/api/recipients/${id}`, { method: "DELETE" });
+  state.personDraft = null;
   renderPeople();
+  showScreen("people");
   const ok = await persist();
   if (ok) { await loadStatus(); renderPeople(); }
 }
@@ -522,7 +529,8 @@ async function releaseNow(id) {
     else if (r.data?.error === "mail_failed") toast("El correo no se ha podido enviar. Revisa la configuración de envío.");
     else toast("No se ha podido entregar.");
     await loadStatus();
-    renderPeople();
+    renderPersonTools();
+    renderReleaseNotice();
   } finally {
     setBusy(false);
   }
@@ -534,7 +542,7 @@ async function revokeRelease(id) {
   const r = await api(`/api/recipients/${id}/revoke`, { method: "POST" });
   toast(r.status === 200 ? "Enlace anulado." : "No se ha podido anular.");
   await loadStatus();
-  renderPeople();
+  renderPersonTools();
   renderReleaseNotice();
 }
 
@@ -544,7 +552,7 @@ let revealTimer = null;
 
 function askReveal(id) {
   state.reveal = { [id]: "ask" };
-  renderPeople();
+  renderPersonTools();
   $(`#reveal-pass-${id}`)?.focus();
 }
 
@@ -558,7 +566,7 @@ async function confirmReveal(id) {
     input.value = "";
     if (authHash !== state.authHash) return toast("La contraseña no es correcta.");
     state.reveal = { [id]: "shown" };
-    renderPeople();
+    renderPersonTools();
     clearTimeout(revealTimer);
     revealTimer = setTimeout(hideReveal, 60_000);
   } finally {
@@ -569,10 +577,10 @@ async function confirmReveal(id) {
 function hideReveal() {
   clearTimeout(revealTimer);
   state.reveal = {};
-  renderPeople();
+  if (state.personDraft) renderPersonTools();
 }
 
-function renderReveal(li, p) {
+function renderReveal(p) {
   const mode = state.reveal[p.id];
   const box = el("div", { class: "reveal" });
 
@@ -831,6 +839,24 @@ function renderDraftFiles() {
   }
 }
 
+function personStatus(p) {
+  const n = state.vault.items.filter((it) => it.recipientIds.includes(p.id)).length;
+  const s = state.status[p.id];
+  let label, date = null;
+  if (s?.releasedAt) {
+    if (s.expiresAt && s.expiresAt * 1000 < Date.now()) { label = "Enlace caducado"; date = s.expiresAt; }
+    else if (s.openedAt) { label = "Acceso abierto"; date = s.openedAt; }
+    else { label = "Acceso enviado"; date = s.releasedAt; }
+  } else if (s?.revokedAt) {
+    label = "Enlace anulado"; date = s.revokedAt;
+  } else if (!n) {
+    label = "Sin elementos asignados";
+  } else {
+    label = "Sin entregar";
+  }
+  return { n, label, date, released: Boolean(s?.releasedAt) };
+}
+
 function renderPeople() {
   const list = $("#people");
   list.replaceChildren();
@@ -839,45 +865,20 @@ function renderPeople() {
 
   for (const p of people) {
     const li = el("li", { class: "item" });
-    const head = el("div", { class: "item-head" });
-    head.append(el("h3", {}, p.name));
-    head.append(el("p", { class: "item-recipient" }, p.email));
-    li.append(head);
-
-    const n = state.vault.items.filter((it) => it.recipientIds.includes(p.id)).length;
-    const s = state.status[p.id];
-    let statusText = `${n} ${n === 1 ? "elemento asignado" : "elementos asignados"}.`;
-    if (s?.releasedAt) {
-      const expired = s.expiresAt && s.expiresAt * 1000 < Date.now();
-      statusText += expired
-        ? ` Entregado el ${dateEs(s.releasedAt)}; el enlace ha caducado.`
-        : ` Entregado el ${dateEs(s.releasedAt)}${s.openedAt ? `, abierto el ${dateEs(s.openedAt)}` : ", aún no abierto"}.`;
-    }
-    li.append(el("p", { class: "item-notes" }, statusText));
-
-    const actions = el("div", { class: "item-actions" });
+    const row = el("div", { class: "item-row" });
+    row.append(el("h3", {}, p.name));
     const edit = el("button", { type: "button", class: "link" }, "Editar");
     edit.addEventListener("click", () => startPersonEdit(p.id));
-    actions.append(edit);
-    if (!state.reveal[p.id]) {
-      const show = el("button", { type: "button", class: "link" }, "Mostrar frase");
-      show.addEventListener("click", () => askReveal(p.id));
-      actions.append(show);
-    }
-    if (s?.releasedAt) {
-      const rv = el("button", { type: "button", class: "link" }, "Anular enlace");
-      rv.addEventListener("click", () => revokeRelease(p.id));
-      actions.append(rv);
-    }
-    const rel = el("button", { type: "button", class: "link" }, s?.releasedAt ? "Enviar de nuevo" : "Entregar ahora");
-    rel.addEventListener("click", () => releaseNow(p.id));
-    actions.append(rel);
-    const del = el("button", { type: "button", class: "link danger" }, "Quitar");
-    del.addEventListener("click", () => deletePerson(p.id));
-    actions.append(del);
-    li.append(actions);
-    const reveal = renderReveal(li, p);
-    if (reveal) li.append(reveal);
+    row.append(edit);
+    li.append(row);
+    li.append(el("p", { class: "item-recipient" }, p.email));
+
+    const st = personStatus(p);
+    const line = el("p", { class: "item-notes" });
+    line.append(el("span", { class: "status" }, st.label));
+    if (st.date) line.append(` · ${dateEs(st.date)}`);
+    if (st.n) line.append(` · ${st.n} ${st.n === 1 ? "elemento" : "elementos"}`);
+    li.append(line);
     list.append(li);
   }
 
@@ -885,9 +886,44 @@ function renderPeople() {
     $("#warn-days").value = state.settings.warnDays;
     $("#release-days").value = state.settings.releaseDays;
     $("#last-seen").textContent = state.settings.lastSeen
-      ? `Última señal registrada: ${dateEs(state.settings.lastSeen)}.`
+      ? `Última actividad registrada: ${dateEs(state.settings.lastSeen)}.`
       : "";
   }
+}
+
+// Fitxa de la persona: estat, frase, entrega, anul·lació i baixa.
+function renderPersonTools() {
+  const id = state.personDraft?.id;
+  const p = id ? state.vault.recipients.find((x) => x.id === id) : null;
+  $("#person-tools").hidden = !p;
+  if (!p) return;
+
+  const st = personStatus(p);
+  $("#person-status").textContent = `${st.label}${st.date ? ` · ${dateEs(st.date)}` : ""} · ${st.n} ${st.n === 1 ? "elemento asignado" : "elementos asignados"}.`;
+
+  const reveal = $("#person-reveal");
+  reveal.replaceChildren();
+  const box = renderReveal(p);
+  if (box) reveal.append(box);
+
+  const actions = $("#person-actions");
+  actions.replaceChildren();
+  if (!state.reveal[p.id]) {
+    const show = el("button", { type: "button", class: "link" }, "Mostrar frase");
+    show.addEventListener("click", () => askReveal(p.id));
+    actions.append(show);
+  }
+  const rel = el("button", { type: "button", class: "link" }, st.released ? "Enviar de nuevo" : "Entregar ahora");
+  rel.addEventListener("click", () => releaseNow(p.id));
+  actions.append(rel);
+  if (st.released) {
+    const rv = el("button", { type: "button", class: "link" }, "Anular enlace");
+    rv.addEventListener("click", () => revokeRelease(p.id));
+    actions.append(rv);
+  }
+  const del = el("button", { type: "button", class: "link danger" }, "Quitar persona");
+  del.addEventListener("click", () => deletePerson(p.id));
+  actions.append(del);
 }
 
 function showScreen(name) {
