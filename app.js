@@ -89,7 +89,7 @@ async function submitRegister(event) {
   const msg = (t) => { $("#register-message").textContent = t; };
 
   if (!email || !password) return msg("Escribe tu email y una contraseña.");
-  if (password.length < 16) return msg("Usa al menos 16 caracteres, o genera una frase de seis palabras.");
+  if (password.length < 16) return msg("La contraseña debe tener al menos 16 caracteres.");
   if (password !== confirm) return msg("Las dos contraseñas no coinciden.");
 
   setBusy(true, "Derivando las claves en este dispositivo…");
@@ -675,9 +675,42 @@ function goAccount() {
   $("#account-email").textContent = state.email;
   $("#account-phone").value = state.settings?.phone ?? "";
   $("#phone-message").textContent = "";
-  for (const id of ["#pw-current", "#pw-new", "#pw-confirm"]) { $(id).type = "password"; $(id).value = ""; }
+  $("#pw-current").type = "password";
+  $("#pw-current").value = "";
+  proposePassphrase("pw");
   $("#pw-message").textContent = "";
   showScreen("account");
+}
+
+// La contrasenya proposada és una frase de sis paraules ja escrita i visible:
+// s'apunta millor que una d'inventada. Qui prefereixi la seva passa al mode
+// clàssic (camps buits i ocults, mínim de 16 caràcters).
+// prefix: "register" (crear compte) o "pw" (nova contrasenya a Cuenta).
+function passFields(prefix) {
+  const pass = prefix === "register" ? "#register-password" : "#pw-new";
+  return [pass, prefix === "register" ? "#register-confirm" : "#pw-confirm", `#${prefix}-proposed`, `#${prefix}-own-hint`];
+}
+
+function proposePassphrase(prefix) {
+  const [pass, confirm, proposed, ownHint] = passFields(prefix);
+  const phrase = generatePassphrase();
+  for (const sel of [pass, confirm]) { $(sel).type = "text"; $(sel).value = phrase; }
+  $(proposed).hidden = false;
+  $(ownHint).hidden = true;
+}
+
+function preferOwnPassword(prefix) {
+  const [pass, confirm, proposed, ownHint] = passFields(prefix);
+  for (const sel of [pass, confirm]) { $(sel).type = "password"; $(sel).value = ""; }
+  $(proposed).hidden = true;
+  $(ownHint).hidden = false;
+  $(pass).focus();
+}
+
+async function closeSessions() {
+  const r = await api("/api/sessions", { method: "DELETE" });
+  if (r.status === 200) toast("Sesiones cerradas en los demás dispositivos.");
+  else toast("No se han podido cerrar las sesiones. Prueba de nuevo.");
 }
 
 // Cal el prefix internacional: "+" o "00" al davant; sense prefix es rebutja
@@ -717,7 +750,7 @@ async function changePassword(event) {
   const msg = (t) => { $("#pw-message").textContent = t; };
 
   if (!current) return msg("Escribe tu contraseña actual.");
-  if (next.length < 16) return msg("La nueva contraseña debe tener al menos 16 caracteres, o genera una frase.");
+  if (next.length < 16) return msg("La nueva contraseña debe tener al menos 16 caracteres.");
   if (next !== confirm) return msg("Las dos contraseñas nuevas no coinciden.");
   if (next === current) return msg("La nueva contraseña es igual que la actual.");
 
@@ -739,7 +772,8 @@ async function changePassword(event) {
     state.encKey = fresh.encKey;
     state.authHash = fresh.authHash;
     state.version = r.data.version;
-    for (const id of ["#pw-current", "#pw-new", "#pw-confirm"]) { $(id).type = "password"; $(id).value = ""; }
+    $("#pw-current").value = "";
+    proposePassphrase("pw");
     msg("");
     toast("Contraseña cambiada. El plan se ha cifrado de nuevo.");
   } catch (err) {
@@ -1050,25 +1084,18 @@ function boot() {
   $("#register-form").addEventListener("submit", submitRegister);
   $("#to-register").addEventListener("click", () => {
     $("#register-message").textContent = "";
-    for (const id of ["#register-password", "#register-confirm"]) { $(id).type = "password"; $(id).value = ""; }
+    proposePassphrase("register");
     showScreen("register");
   });
   $("#to-login").addEventListener("click", () => { $("#login-message").textContent = ""; showScreen("login"); });
-  $("#register-generate").addEventListener("click", () => {
-    const phrase = generatePassphrase();
-    for (const id of ["#register-password", "#register-confirm"]) { $(id).type = "text"; $(id).value = phrase; }
-    $("#register-message").textContent = "Apúntala antes de continuar. Se muestra en claro solo ahora.";
-  });
+  $("#register-own").addEventListener("click", () => preferOwnPassword("register"));
   $("#logout").addEventListener("click", logout);
   $("#nav-plan").addEventListener("click", goPlan);
   $("#nav-people").addEventListener("click", goPeople);
   $("#nav-account").addEventListener("click", goAccount);
   $("#password-form").addEventListener("submit", changePassword);
-  $("#pw-generate").addEventListener("click", () => {
-    const phrase = generatePassphrase();
-    for (const id of ["#pw-new", "#pw-confirm"]) { $(id).type = "text"; $(id).value = phrase; }
-    $("#pw-message").textContent = "Apúntala antes de continuar. Se muestra en claro solo ahora.";
-  });
+  $("#pw-own").addEventListener("click", () => preferOwnPassword("pw"));
+  $("#close-sessions").addEventListener("click", closeSessions);
   $("#add").addEventListener("click", () => startEdit(null));
   $("#export").addEventListener("click", exportBundle);
   $("#phone-form").addEventListener("submit", savePhone);

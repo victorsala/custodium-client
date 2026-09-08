@@ -48,12 +48,14 @@
         </label>
 
         <div class="group">
-          <label><span>Contraseña <em>(16 caracteres o más)</em></span><input id="register-password" type="password" autocomplete="new-password" required></label>
-          <p class="hint">
-            <button id="register-generate" type="button" class="link">Generar una frase de seis palabras</button>
-            — más fuerte y más fácil de recordar que una contraseña inventada. Guárdala en tu gestor de contraseñas.
+          <label><span>Contraseña</span><input id="register-password" type="text" autocomplete="new-password" spellcheck="false" required></label>
+          <label><span>Repite la contraseña</span><input id="register-confirm" type="text" autocomplete="new-password" spellcheck="false" required></label>
+          <p id="register-proposed" class="hint">
+            Te proponemos una frase de seis palabras: más fuerte y más fácil de recordar que una contraseña inventada.
+            Apúntala antes de continuar.
+            <button id="register-own" type="button" class="link">prefiero escribir la mía</button>
           </p>
-          <label><span>Repite la contraseña</span><input id="register-confirm" type="password" autocomplete="new-password" required></label>
+          <p id="register-own-hint" class="hint" hidden>Escribe una contraseña de 16 caracteres o más y guárdala en tu gestor de contraseñas.</p>
         </div>
 
         <p class="notice">
@@ -235,12 +237,14 @@
         <label><span>Contraseña actual</span><input id="pw-current" type="password" autocomplete="current-password" required></label>
 
         <div class="group">
-          <label><span>Nueva contraseña <em>(16 caracteres o más)</em></span><input id="pw-new" type="password" autocomplete="new-password" required></label>
-          <p class="hint">
-            <button id="pw-generate" type="button" class="link">Generar una frase de seis palabras</button>
-            — más fuerte y más fácil de recordar que una contraseña inventada. Guárdala en tu gestor de contraseñas.
+          <label><span>Nueva contraseña</span><input id="pw-new" type="text" autocomplete="new-password" spellcheck="false" required></label>
+          <label><span>Repite la nueva contraseña</span><input id="pw-confirm" type="text" autocomplete="new-password" spellcheck="false" required></label>
+          <p id="pw-proposed" class="hint">
+            Te proponemos una frase de seis palabras: más fuerte y más fácil de recordar que una contraseña inventada.
+            Apúntala antes de continuar.
+            <button id="pw-own" type="button" class="link">prefiero escribir la mía</button>
           </p>
-          <label><span>Repite la nueva contraseña</span><input id="pw-confirm" type="password" autocomplete="new-password" required></label>
+          <p id="pw-own-hint" class="hint" hidden>Escribe una contraseña de 16 caracteres o más y guárdala en tu gestor de contraseñas.</p>
         </div>
 
         <p class="notice">
@@ -253,6 +257,12 @@
         <p id="pw-message" class="message" aria-live="polite"></p>
         <div class="actions"><button type="submit">Cambiar la contraseña</button></div>
       </form>
+
+      <div class="settings">
+        <h2>Sesiones</h2>
+        <div class="actions"><button id="close-sessions" type="button" class="secondary">Cerrar todas las sesiones</button></div>
+        <p class="hint">Cierra tu plan en cualquier otro dispositivo donde lo hayas abierto.</p>
+      </div>
     </section>
 
   </main>
