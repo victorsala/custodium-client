@@ -424,8 +424,9 @@ function startPersonEdit(id) {
   $("#person-title").textContent = p ? "Editar persona" : "Nueva persona";
   $("#person-name").value = state.personDraft.name;
   $("#person-email").value = state.personDraft.email;
-  $("#person-pass").value = "";
-  $("#person-pass-label").textContent = p ? "Nueva frase (déjala vacía para no cambiarla)" : "Su frase";
+  $("#person-pass").value = p ? "" : generatePassphrase();
+  $("#person-pass-label").textContent = p ? "Nueva frase (vacía = no cambiarla)" : "Su frase";
+  $("#person-generate").textContent = p ? "Generar una frase nueva" : "Generar otra";
   $("#person-message").textContent = "";
   showScreen("person-edit");
   $("#person-name").focus();
@@ -442,8 +443,8 @@ async function applyPerson(event) {
   if (!name) return msg("Escribe su nombre.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return msg("Escribe un email válido.");
   const words = pass ? pass.split(/\s+/).length : 0;
-  if (!d.id && (words < 6 || pass.length < 20)) return msg("La frase debe tener al menos 6 palabras. Pulsa \"Generar una frase\".");
-  if (d.id && pass && (words < 6 || pass.length < 20)) return msg("La nueva frase debe tener al menos 6 palabras.");
+  if (!d.id && words !== 6) return msg("Falta la frase. Pulsa \"Generar otra\".");
+  if (d.id && pass && words !== 6) return msg("La frase no es válida. Genera una nueva.");
 
   const existing = d.id ? state.vault.recipients.find((x) => x.id === d.id) : null;
   if (existing && existing.email !== email && !pass) {

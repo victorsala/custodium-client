@@ -1,5 +1,22 @@
 /* Custodium B2C · beta · tokens de la Guia Visual v0.2 */
 
+/* Fonts autoallotjades (variables, subconjunt llatí). Cap petició a tercers. */
+@font-face {
+  font-family: "Fraunces";
+  src: url("/fonts/Fraunces.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --ink: #1B2B2E;
   --slate: #5E6E72;
