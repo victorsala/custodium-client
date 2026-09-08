@@ -731,9 +731,11 @@ const EVENT_TEXTS = {
 
 async function loadEvents() {
   const list = $("#events");
-  list.textContent = "";
+  // No es buida la llista fins que arriben dades noves: si la resposta triga
+  // o falla, es continua veient l'última versió en lloc d'un buit.
   const r = await api("/api/events");
   if (r.status !== 200) return;
+  list.textContent = "";
   for (const e of r.data.events) {
     const d = new Date(e.createdAt * 1000);
     const hour = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
