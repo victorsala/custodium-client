@@ -30,3 +30,8 @@ if (!token) {
   $("#confirm").addEventListener("click", confirm);
   showScreen("ask");
 }
+
+// El deploy escriu /VERSION amb el hash del commit publicat a custodium-client.
+fetch("/VERSION").then((r) => (r.ok ? r.text() : "")).then((v) => {
+  if (v) $("#version").textContent = `versión ${v.trim().slice(0, 12)}`;
+}).catch(() => {});

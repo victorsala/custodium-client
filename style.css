@@ -514,6 +514,7 @@ label .hint { margin-top: 2px; }
 .settings .actions { margin-top: 4px; }
 
 .foot a { color: var(--teal); }
+.foot .version { font-size: 11px; opacity: .55; }
 .intro a { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
 
 

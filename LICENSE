@@ -1,0 +1,24 @@
+Custodium Client License (source-available)
+
+Copyright (c) 2026 Víctor Sala
+
+This source code is made available so that anyone can read it, audit it,
+and verify that it matches what b2c.custodium.space serves to browsers.
+
+Permission is granted, free of charge, to:
+
+  1. View, download, and study this source code.
+  2. Run it locally for the purpose of auditing or verifying the service.
+  3. Use the file "abrir-offline.html" as distributed inside a Custodium
+     export, to open your own encrypted copy.
+
+No other rights are granted. In particular, you may not redistribute,
+modify, sublicense, sell, or operate a service based on this code without
+prior written permission from the copyright holder.
+
+Third-party components included in this repository keep their own
+licenses; see THIRD_PARTY.md.
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE USE OF THIS SOFTWARE.
