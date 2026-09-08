@@ -278,6 +278,7 @@ function startEdit(id) {
   $("#item-files").value = "";
   fillRecipientChecks(state.draft.recipientIds);
   renderDraftFiles();
+  $("#item-tools").hidden = !item;
   showScreen("edit");
   $("#item-title").focus();
 }
@@ -333,6 +334,22 @@ async function cancelEdit() {
     try { await api(`/api/files/${id}`, { method: "DELETE" }); } catch { /* orfe tolerable */ }
   }
   showScreen("list");
+}
+
+async function deleteFromEdit() {
+  const d = state.draft;
+  if (!d?.id) return;
+  const item = state.vault.items.find((it) => it.id === d.id);
+  if (!item || !window.confirm(`¿Eliminar "${item.title}" del plan?`)) return;
+  for (const fid of d.uploaded) {
+    try { await api(`/api/files/${fid}`, { method: "DELETE" }); } catch { /* orfe tolerable */ }
+  }
+  state.draft = null;
+  state.vault.items = state.vault.items.filter((it) => it.id !== item.id);
+  state.pendingDeletes.push(...item.files.map((f) => f.id));
+  renderList();
+  showScreen("list");
+  await persist();
 }
 
 async function deleteItem(id) {
@@ -792,11 +809,14 @@ function renderList() {
 
   for (const item of items) {
     const li = el("li", { class: "item" });
-    const head = el("div", { class: "item-head" });
-    head.append(el("h3", {}, item.title));
+    const row = el("div", { class: "item-row" });
+    row.append(el("h3", {}, item.title));
+    const edit = el("button", { type: "button", class: "link" }, "Editar");
+    edit.addEventListener("click", () => startEdit(item.id));
+    row.append(edit);
+    li.append(row);
     const who = item.recipientIds.map(recipientName).filter(Boolean).join(", ");
-    head.append(el("p", { class: who ? "item-recipient" : "item-recipient none" }, who ? `Para ${who}` : "Solo para ti"));
-    li.append(head);
+    li.append(el("p", { class: who ? "item-recipient" : "item-recipient none" }, who ? `Para ${who}` : "Solo para ti"));
 
     if (item.notes) li.append(el("p", { class: "item-notes" }, item.notes));
 
@@ -810,13 +830,6 @@ function renderList() {
       li.append(files);
     }
 
-    const actions = el("div", { class: "item-actions" });
-    const edit = el("button", { type: "button", class: "link" }, "Editar");
-    edit.addEventListener("click", () => startEdit(item.id));
-    const del = el("button", { type: "button", class: "link danger" }, "Eliminar");
-    del.addEventListener("click", () => deleteItem(item.id));
-    actions.append(edit, del);
-    li.append(actions);
     list.append(li);
   }
 }
@@ -1027,6 +1040,7 @@ function boot() {
   $("#release-notice-go").addEventListener("click", goPeople);
   $("#item-form").addEventListener("submit", applyItem);
   $("#item-cancel").addEventListener("click", cancelEdit);
+  $("#item-delete").addEventListener("click", deleteFromEdit);
   $("#item-files").addEventListener("change", (e) => addFiles([...e.target.files]));
   $("#add-person").addEventListener("click", () => startPersonEdit(null));
   $("#person-form").addEventListener("submit", applyPerson);

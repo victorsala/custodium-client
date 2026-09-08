@@ -72,20 +72,35 @@
     <section data-screen="list" hidden>
       <div class="vault-head">
         <h1>Tu plan</h1>
-        <div class="vault-tools">
-          <button id="export" type="button" class="link">Exportar copia</button>
-          <button id="add" type="button">+ Añadir elemento</button>
-        </div>
+        <button id="add" type="button">+ Añadir elemento</button>
       </div>
+      <p class="intro">
+        Organiza tus cuentas, documentos e instrucciones para que tus personas de confianza sepan qué hacer si no puedes actuar.
+        Asigna cada elemento a quien deba recibirlo.
+      </p>
       <div id="release-notice" class="release-notice" hidden>
         <p id="release-notice-text"></p>
         <button id="release-notice-go" type="button" class="link">Ver en Personas</button>
       </div>
-      <p id="empty" class="intro">
+      <p id="empty" class="hint">
         Aún no hay nada. Añade lo que alguien necesitaría saber si un día no pudieras actuar:
         dónde está cada cosa, cómo acceder y a quién corresponde.
       </p>
       <ul id="items" class="items"></ul>
+
+      <section class="settings">
+        <h2>Una copia fuera de Custodium</h2>
+        <p class="hint">
+          Descarga una copia cifrada de tu plan y sus archivos. Incluye todo lo necesario para abrirla sin conexión,
+          aunque Custodium deje de estar disponible.
+        </p>
+        <div class="actions"><button id="export" type="button" class="secondary">Descargar copia cifrada</button></div>
+        <p class="hint">
+          Para abrirla necesitarás tu contraseña. Cada persona de confianza podrá abrir su parte con su propia frase,
+          sin esperar al envío de acceso de Custodium.
+        </p>
+        <p class="hint">Vuelve a descargarla cuando hagas cambios importantes.</p>
+      </section>
     </section>
 
     <!-- Añadir / editar elemento -->
@@ -114,6 +129,10 @@
           <button id="item-cancel" type="button" class="link">Cancelar</button>
         </div>
       </form>
+
+      <div id="item-tools" class="settings" hidden>
+        <div class="actions"><button id="item-delete" type="button" class="link danger">Eliminar este elemento</button></div>
+      </div>
     </section>
 
     <!-- Personas -->
