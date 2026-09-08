@@ -680,12 +680,16 @@ function goAccount() {
   showScreen("account");
 }
 
-// Es queden només els dígits; "00" al davant passa a "+". Els autocompletats
-// afegeixen espais no separables, guions Unicode i marques invisibles.
+// Cal el prefix internacional: "+" o "00" al davant; sense prefix es rebutja
+// (no es pot endevinar el país). Es descarta tot el que no sigui dígit o "+",
+// perquè els autocompletats afegeixen espais no separables, guions Unicode i
+// marques invisibles.
 function normalizePhone(value) {
-  let digits = String(value || "").replace(/\D/g, "");
-  if (!digits) return null;
-  if (digits.startsWith("00")) digits = digits.slice(2);
+  const text = String(value || "").replace(/[^\d+]/g, "");
+  if (!text) return null;
+  if (!text.startsWith("+") && !text.startsWith("00")) return false;
+  let digits = text.replace(/\D/g, "");
+  if (text.startsWith("00")) digits = digits.slice(2);
   const v = "+" + digits;
   return /^\+[1-9]\d{6,14}$/.test(v) ? v : false;
 }
