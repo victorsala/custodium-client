@@ -174,7 +174,7 @@
       <form id="person-form" novalidate>
         <label><span>Nombre</span><input id="person-name" type="text" required placeholder="Cómo la llamas"></label>
         <label><span>Email</span><input id="person-email" type="email" required><small class="hint">Aquí recibirá el enlace para abrir su parte del plan.</small></label>
-        <label><span>Móvil <em>(opcional)</em></span><input id="person-phone" type="tel" placeholder="+34 600 000 000"><small class="hint">Si lo pones, recibirá también un SMS avisando de que le ha llegado el correo. Sin enlaces.</small></label>
+        <label><span>Número de móvil — opcional</span><input id="person-phone" type="tel" placeholder="+34 600 000 000"><small class="hint">Incluye el prefijo internacional, por ejemplo, +34. Si lo pones, recibirá un SMS avisando de que le ha llegado el correo. Sin enlaces ni contenido del plan.</small></label>
 
         <div class="pass-block">
           <label>
@@ -207,38 +207,48 @@
     <!-- Cuenta -->
     <section data-screen="account" hidden>
       <div class="vault-head"><h1>Tu cuenta</h1></div>
+      <p class="intro">Gestiona tus datos de contacto y la contraseña con la que abres tu plan.</p>
 
       <dl class="account-data">
         <div><dt>Email</dt><dd id="account-email"></dd></div>
       </dl>
-      <p class="hint">
-        El email forma parte de la derivación de tus claves, así que por ahora no se puede cambiar.
-      </p>
+      <p class="hint">En esta beta, el correo electrónico no se puede cambiar.</p>
 
       <form id="phone-form" class="settings" novalidate>
         <h2>Móvil para avisos</h2>
         <p class="hint">
-          Si dejas de entrar, además del correo te avisaremos por SMS. Es un canal independiente del correo: si un filtro de spam se traga el aviso, el SMS llega igual. Sin enlaces.
+          Si dejas de entrar, además del correo te avisaremos por SMS. Es un canal independiente del correo: si un filtro de spam se traga el aviso, el SMS llega igual.
         </p>
-        <label><span>Móvil <em>(opcional)</em></span><input id="account-phone" type="tel" placeholder="+34 600 000 000"></label>
+        <label>
+          <span>Número de móvil — opcional</span>
+          <input id="account-phone" type="tel" placeholder="+34 600 000 000">
+          <small class="hint">Incluye el prefijo internacional, por ejemplo, +34. Los SMS no contienen enlaces ni contenido del plan.</small>
+        </label>
         <p id="phone-message" class="message" aria-live="polite"></p>
         <div class="actions"><button type="submit" class="secondary">Guardar móvil</button></div>
       </form>
 
       <form id="password-form" class="settings" novalidate>
         <h2>Cambiar la contraseña</h2>
-        <p class="hint">
-          El plan se vuelve a cifrar con la nueva contraseña en este dispositivo. Las personas de confianza y los archivos no se ven afectados.
-          Las sesiones abiertas en otros dispositivos se cierran.
-        </p>
+        <p class="hint">Puedes cambiar la contraseña con la que abres tu plan. Las frases de tus personas de confianza no cambiarán.</p>
         <label><span>Contraseña actual</span><input id="pw-current" type="password" autocomplete="current-password" required></label>
-        <label><span>Nueva contraseña <em>(16 caracteres o más)</em></span><input id="pw-new" type="password" autocomplete="new-password" required></label>
-        <label><span>Repite la nueva contraseña</span><input id="pw-confirm" type="password" autocomplete="new-password" required></label>
-        <p class="hint">
-          <button id="pw-generate" type="button" class="link">Generar una frase de seis palabras</button>
-          — guárdala en tu gestor de contraseñas antes de continuar.
+
+        <div class="group">
+          <label><span>Nueva contraseña <em>(16 caracteres o más)</em></span><input id="pw-new" type="password" autocomplete="new-password" required></label>
+          <p class="hint">
+            <button id="pw-generate" type="button" class="link">Generar una frase de seis palabras</button>
+            — más fuerte y más fácil de recordar que una contraseña inventada. Guárdala en tu gestor de contraseñas.
+          </p>
+          <label><span>Repite la nueva contraseña</span><input id="pw-confirm" type="password" autocomplete="new-password" required></label>
+        </div>
+
+        <p class="notice">
+          Guarda tu contraseña antes de continuar.<br>
+          Custodium no puede recuperarla ni restablecerla.<br>
+          Si la pierdes, perderás el acceso a tu plan.<br>
+          Guárdala en tu gestor de contraseñas.
         </p>
-        <p class="notice">Sigue sin haber recuperación: si pierdes la nueva contraseña, pierdes el plan.</p>
+        <p class="hint">Al cambiar la contraseña, se cerrarán las demás sesiones de tu cuenta.</p>
         <p id="pw-message" class="message" aria-live="polite"></p>
         <div class="actions"><button type="submit">Cambiar la contraseña</button></div>
       </form>
