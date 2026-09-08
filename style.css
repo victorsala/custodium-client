@@ -766,3 +766,15 @@ form > .hint { margin-top: -4px; }
 .settings > .hint { margin-bottom: 8px; }
 .settings .actions { margin: 16px 0 18px; }
 .settings .actions + .hint { margin-bottom: 8px; }
+
+/* Actividad reciente (Cuenta) */
+.events {
+  list-style: none;
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--slate);
+}
+.events li {
+  padding: 7px 0;
+  border-top: 1px solid var(--hairline);
+}

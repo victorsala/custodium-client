@@ -680,6 +680,7 @@ function goAccount() {
   proposePassphrase("pw");
   $("#pw-message").textContent = "";
   showScreen("account");
+  loadEvents(); // en segon pla: la pantalla no s'ha d'esperar
 }
 
 // La contrasenya proposada és una frase de sis paraules ja escrita i visible:
@@ -711,6 +712,36 @@ async function closeSessions() {
   const r = await api("/api/sessions", { method: "DELETE" });
   if (r.status === 200) toast("Sesiones cerradas en los demás dispositivos.");
   else toast("No se han podido cerrar las sesiones. Prueba de nuevo.");
+}
+
+const EVENT_TEXTS = {
+  login: () => "Entrada",
+  login_failed: () => "Intento de entrada fallido",
+  password_changed: () => "Contraseña cambiada",
+  sessions_closed: () => "Sesiones cerradas",
+  phone_changed: () => "Móvil actualizado",
+  settings_changed: () => "Plazos actualizados",
+  release_manual: (d) => `Acceso enviado a ${d}`,
+  release_auto: (d) => `Acceso entregado automáticamente a ${d}`,
+  release_revoked: (d) => `Enlace anulado para ${d}`,
+  release_opened: (d) => `Acceso abierto por ${d}`,
+  warning_sent: () => "Aviso de inactividad enviado",
+  checkin: () => "Confirmación «sigo aquí»",
+};
+
+async function loadEvents() {
+  const list = $("#events");
+  list.textContent = "";
+  const r = await api("/api/events");
+  if (r.status !== 200) return;
+  for (const e of r.data.events) {
+    const d = new Date(e.createdAt * 1000);
+    const hour = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const text = (EVENT_TEXTS[e.kind] || (() => e.kind))(e.detail);
+    const li = document.createElement("li");
+    li.textContent = `${dateEs(e.createdAt)}, ${hour} — ${text}${e.country ? ` (${e.country})` : ""}`;
+    list.appendChild(li);
+  }
 }
 
 // Cal el prefix internacional: "+" o "00" al davant; sense prefix es rebutja
