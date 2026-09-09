@@ -47,15 +47,17 @@ El servidor guarda `SHA-256(sal aleatòria || authHash)` (una segona sal, `auth_
 
 | On | Què | Pot llegir-ho el servidor? |
 | :--- | :--- | :--- |
-| D1 `users` | email, mòbil (opcional), sal de derivació de claus, hash d'autenticació amb sal, última senyal de vida, terminis | sí (no és sensible) |
+| D1 `users` | email, mòbil (opcional), sal de derivació de claus, hash d'autenticació amb sal, última senyal de vida, terminis | sí (dades personals) |
 | D1 `pending_signups` | altes en curs: email, hash amb sal del codi enviat, intents, codis enviats, caducitat | sí (mai el codi en clar) |
 | D1 `vaults` | el pla, xifrat amb encKey | no |
 | D1 `recipients` | email i mòbil (opcional) de la persona, el seu paquet xifrat, llista d'ids de fitxer | només email, mòbil i ids |
 | D1 `files` | id i mida de cada fitxer | sí (només mida) |
-| D1 `events` | registre d'activitat: tipus d'acció, email de la persona si escau, país de la petició (mai IP ni user-agent), data | sí (no és sensible) |
+| D1 `events` | registre d'activitat: tipus d'acció, email de la persona si escau, país de la petició (mai IP ni user-agent), data | sí (dades personals) |
 | R2 | els bytes xifrats de cada fitxer, sota `userId/fileId` | no |
 
 Ni el nom ni el tipus dels fitxers arriben al servidor: viuen dins del pla.
+
+Que el servidor no pugui llegir el contingut no vol dir que no tingui res: correus, mòbils, país de connexió, dates d'activitat i les relacions entre titular i persones de confiança són dades personals, i les d'una persona de confiança ho són d'algú que no ha obert cap compte. Es guarden perquè sense elles no es pot avisar ni entregar, no per cap altre motiu; s'esborren amb el compte (`DELETE /api/account`, backup inclòs) i la política de privacitat de la beta (fase 3) n'ha de descriure la retenció.
 
 ### 2.4 Format del pla (en clar, dins del navegador)
 
@@ -376,4 +378,5 @@ R2: tauler → bucket → Objects → seleccionar tot → Delete.
 - Els paquets es refan sencers a cada desat (bé per a pocs elements, no per a milers).
 - Els fitxers es pugen i s'exporten sencers en memòria (50 MB per fitxer és el límit pràctic en mòbil; l'exportació d'1 GB necessita un ordinador).
 - Sense clau de recuperació ni per al titular ni per a les persones: decisió de disseny, no un oblit. L'exportació és la còpia de seguretat del titular.
+- El servidor conserva metadades personals (correus, mòbils, país, activitat, relacions titular–persones). Xifrar el contingut no elimina la responsabilitat sobre aquestes dades.
 - Cap auditoria externa de la criptografia. Els paràmetres són estàndard (PBKDF2 600k, HKDF, AES-256-GCM, WebCrypto natiu), però el codi no l'ha revisat ningú de fora.
