@@ -92,14 +92,77 @@ async function submitLogin(event) {
   }
 }
 
-async function submitRegister(event) {
+// Alta en dos passos. Primer l'email: el servidor hi envia un codi de sis
+// xifres (o, si ja té compte, un correu que ho diu; la resposta és la mateixa
+// en els dos casos). Després el codi i la contrasenya; les claus es deriven
+// només llavors.
+let signupEmail = null;
+
+async function startRegister(event) {
   event.preventDefault();
   const email = $("#register-email").value.trim().toLowerCase();
+  const msg = (t) => { $("#register-start-message").textContent = t; };
+  if (!email) return msg("Escribe tu email.");
+
+  setBusy(true, "Enviando el código…");
+  try {
+    if (!(await requestCode(email, msg))) return;
+    signupEmail = email;
+    $("#register-sent-email").textContent = email;
+    $("#register-code").value = "";
+    $("#register-message").textContent = "";
+    proposePassphrase("register");
+    showRegisterStep(2);
+  } catch (err) {
+    console.error(err);
+    msg("Algo ha fallado. Vuelve a intentarlo.");
+  } finally {
+    setBusy(false);
+  }
+}
+
+// Demana un codi per a l'email. Retorna true si el servidor l'ha acceptat; el
+// límit (tres per hora) val igual per a un email amb compte que sense.
+async function requestCode(email, msg) {
+  const r = await api("/api/register/start", { method: "POST", body: { email }, auth: false });
+  if (r.status === 429) { msg("Ya hemos enviado varios códigos a este correo en la última hora. Revisa la carpeta de spam o vuelve a intentarlo más tarde."); return false; }
+  if (r.status !== 200) { msg("No se ha podido enviar el código. Vuelve a intentarlo."); return false; }
+  return true;
+}
+
+async function resendCode() {
+  const msg = (t) => { $("#register-message").textContent = t; };
+  setBusy(true, "Enviando otro código…");
+  try {
+    if (await requestCode(signupEmail, msg)) {
+      $("#register-code").value = "";
+      msg("Te hemos enviado otro código. Solo vale el último.");
+      $("#register-code").focus();
+    }
+  } catch (err) {
+    console.error(err);
+    msg("Algo ha fallado. Vuelve a intentarlo.");
+  } finally {
+    setBusy(false);
+  }
+}
+
+function showRegisterStep(step) {
+  $("#register-start-form").hidden = step !== 1;
+  $("#register-form").hidden = step !== 2;
+  $(step === 1 ? "#register-email" : "#register-code").focus();
+}
+
+async function submitRegister(event) {
+  event.preventDefault();
+  const email = signupEmail;
+  const code = $("#register-code").value.trim();
   const password = $("#register-password").value;
   const confirm = $("#register-confirm").value;
   const msg = (t) => { $("#register-message").textContent = t; };
 
-  if (!email || !password) return msg("Escribe tu email y una contraseña.");
+  if (!/^\d{6}$/.test(code)) return msg("Escribe el código de seis cifras que te hemos enviado.");
+  if (!password) return msg("Escribe una contraseña.");
   if (password.length < 16) return msg("La contraseña debe tener al menos 16 caracteres.");
   if (password !== confirm) return msg("Las dos contraseñas no coinciden.");
 
@@ -108,13 +171,17 @@ async function submitRegister(event) {
     // La sal és la que el servidor ja dóna per a aquest email; l'alta la fixa al compte.
     const salt = await fetchSalt(email);
     const { encKey, authHash } = await deriveKeys(salt, password);
-    const reg = await api("/api/register", { method: "POST", body: { email, authHash }, auth: false });
-    if (reg.status === 409) return msg("Ya existe una cuenta con este email.");
+    const reg = await api("/api/register", { method: "POST", body: { email, authHash, code }, auth: false });
+    if (reg.status === 400 && reg.data?.error === "invalid_code") return msg("El código no es correcto.");
+    if (reg.status === 400 && reg.data?.error === "code_expired") return msg("El código ha caducado. Pide uno nuevo con «No me ha llegado».");
+    if (reg.status === 400 && reg.data?.error === "too_many_attempts") return msg("Demasiados intentos con este código. Pide uno nuevo con «No me ha llegado».");
     if (reg.status !== 201) return msg("No se ha podido crear la cuenta.");
     const r = await api("/api/login", { method: "POST", body: { email, authHash }, auth: false });
     if (r.status !== 200) return msg("Cuenta creada, pero no se ha podido entrar. Prueba desde Entrar.");
     $("#register-password").value = "";
     $("#register-confirm").value = "";
+    $("#register-code").value = "";
+    signupEmail = null;
     state.email = email;
     state.kdfSalt = salt;
     state.authHash = authHash;
@@ -1160,10 +1227,14 @@ function touchIdle() {
 
 function boot() {
   $("#login-form").addEventListener("submit", submitLogin);
+  $("#register-start-form").addEventListener("submit", startRegister);
   $("#register-form").addEventListener("submit", submitRegister);
+  $("#register-resend").addEventListener("click", resendCode);
+  $("#register-back").addEventListener("click", () => { $("#register-start-message").textContent = ""; showRegisterStep(1); });
   $("#to-register").addEventListener("click", () => {
+    $("#register-start-message").textContent = "";
     $("#register-message").textContent = "";
-    proposePassphrase("register");
+    showRegisterStep(1);
     showScreen("register");
   });
   $("#to-login").addEventListener("click", () => { $("#login-message").textContent = ""; showScreen("login"); });

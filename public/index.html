@@ -40,11 +40,25 @@
     <section data-screen="register" hidden>
       <h1>Crea tu cuenta.</h1>
       <p class="intro">El contenido de tu plan se cifrará en tu navegador antes de enviarse a Custodium.</p>
-      <form id="register-form" novalidate>
+
+      <!-- Paso 1: el email. Se envía un código para comprobar que es suyo. -->
+      <form id="register-start-form" novalidate>
         <label>
           <span>Email</span>
           <input id="register-email" type="email" autocomplete="username" required>
-          <small class="hint">Usa un correo que consultes habitualmente. Aquí recibirás los avisos de tu plan.</small>
+          <small class="hint">Usa un correo que consultes habitualmente. Aquí recibirás los avisos de tu plan. Te enviaremos un código para comprobarlo.</small>
+        </label>
+        <p id="register-start-message" class="message" aria-live="polite"></p>
+        <div class="actions"><button id="register-start-submit" type="submit">Enviar código</button></div>
+      </form>
+
+      <!-- Paso 2: el código y la contraseña. Las claves se derivan aquí, no antes. -->
+      <form id="register-form" novalidate hidden>
+        <p class="intro">Te hemos enviado un código a <strong id="register-sent-email"></strong>. Si no lo ves, mira en la carpeta de spam.</p>
+        <label>
+          <span>Código (seis cifras)</span>
+          <input id="register-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" spellcheck="false" required>
+          <small class="hint">Caduca en 15 minutos. <button id="register-resend" type="button" class="link">No me ha llegado</button> · <button id="register-back" type="button" class="link">Cambiar el email</button></small>
         </label>
 
         <div class="group">

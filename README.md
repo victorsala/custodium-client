@@ -48,6 +48,7 @@ El servidor guarda `SHA-256(sal aleatòria || authHash)` (una segona sal, `auth_
 | On | Què | Pot llegir-ho el servidor? |
 | :--- | :--- | :--- |
 | D1 `users` | email, mòbil (opcional), sal de derivació de claus, hash d'autenticació amb sal, última senyal de vida, terminis | sí (no és sensible) |
+| D1 `pending_signups` | altes en curs: email, hash amb sal del codi enviat, intents, codis enviats, caducitat | sí (mai el codi en clar) |
 | D1 `vaults` | el pla, xifrat amb encKey | no |
 | D1 `recipients` | email i mòbil (opcional) de la persona, el seu paquet xifrat, llista d'ids de fitxer | només email, mòbil i ids |
 | D1 `files` | id i mida de cada fitxer | sí (només mida) |
@@ -89,14 +90,15 @@ A cada desat, per a cada persona, el navegador construeix `{ items: [ { title, n
 - **Anular:** el titular pot anul·lar l'enllaç des de "Personas". Entrar de nou no anul·la res automàticament.
 - **Pausa d'emergència:** amb la fila `pause_releases` de la taula `system` (D1) a `'1'`, el cron continua avisant però no entrega res; s'activa amb un `UPDATE`, sense deploy (vegeu §5). Les entregues manuals ("Entregar ahora") no es pausen.
 - El botó "Sigo aquí" és un botó de veritat (POST), no l'enllaç: els escàners de correu obren enllaços sols i comptarien com a senyal.
-- Els correus mai contenen contingut, només enllaços. Surten de `avisos@custodium.space` via Resend.
+- Els correus mai contenen contingut, només enllaços (i, a l'alta, el codi de sis xifres). Surten de `avisos@custodium.space` via Resend.
 - **SMS** (opcional, si hi ha mòbil): al titular, amb l'avís; a la persona, en entregar ("te ha llegado un correo; mira también el spam"). Sense enllaços ni accents. Canal independent del correu: cobreix el filtre de spam i el compte de correu compromès. Un error d'SMS no atura res.
 
 ### 2.7 API
 
 ```
 GET    /api/salt?email=             —                             { salt }   sal del compte; indistingible si l'email no existeix
-POST   /api/register                { email, authHash }           201 | 409   deriva authHash amb la sal de GET /api/salt
+POST   /api/register/start          { email }                     { ok } | 429 too_many_codes   envia el codi (§3); 3 per email i hora
+POST   /api/register                { email, authHash, code }     201 | 400 invalid_code | code_expired | too_many_attempts
 POST   /api/login                   { email, authHash }           { token, expiresAt } | 401
 DELETE /api/session                 Bearer                        { ok }
 DELETE /api/sessions                Bearer                        { ok }   tanca les altres sessions
@@ -122,6 +124,8 @@ GET    /api/release/:token/files/:id  —                           bytes | 404
 GET    /api/env                     —                             { env }   "production" | "staging"
 ```
 
+Alta amb verificació de l'email: `/api/register/start` genera un codi de sis xifres, en guarda `SHA-256(sal || codi)` a `pending_signups` (caduca als 15 minuts) i l'envia per correu. Si l'email ja té compte no envia cap codi sinó "Ya existe una cuenta con este correo" (amb l'enllaç per entrar i el recordatori que la contrasenya no es pot recuperar), però la resposta és la mateixa (`200 { ok }`) i la fila es crea igual sense codi, perquè ni la resposta ni el límit de codis diguin si el compte existeix. `/api/register` compara el codi en temps constant i compta els intents: a la cinquena fallada el codi queda inservible (`too_many_attempts`) i cal demanar-ne un de nou; només amb el codi bo es crea l'usuari (amb la seva `kdf_salt`) i s'esborra la fila. Per això no hi ha cap `409 email_exists`: per a un email amb compte no existeix cap codi vàlid, i la resposta és la d'un codi dolent. El cron diari esborra les files amb el codi caducat i la finestra del límit (una hora) passada.
+
 Sessió: token aleatori de 32 bytes, 24 hores, guardat hashejat; cada petició autenticada la renova, així que només caduca després d'un dia sencer sense obrir el pla. Límits: pla 1 MB, fitxer 50 MB, 1 GB per titular, 20 persones (`too_many_recipients`). Concurrència optimista al pla (`version`): dos dispositius no es trepitgen.
 
 ### 2.8 Client
@@ -136,7 +140,7 @@ Fitxers orfes: si es tanca la pestanya a mitja edició, un fitxer pujat pot qued
 
 ### Titular
 
-1. **Crear compte.** Email i contrasenya. Els camps surten ja omplerts amb una frase de sis paraules generada al navegador, visible, amb l'avís "Apúntala antes de continuar"; l'enllaç "prefiero escribir la mía" buida els camps, els oculta i exigeix 16+ caràcters. No hi ha recuperació: guarda-la al gestor de contrasenyes.
+1. **Crear compte**, en dos passos. (1) Email → "Enviar código": arriba un correu amb un codi de sis xifres que caduca en 15 minuts (si l'email ja té compte, arriba un correu que ho diu i cap codi; la pantalla no ho distingeix). (2) "Te hemos enviado un código a …": el codi i la contrasenya. Els camps de contrasenya surten ja omplerts amb una frase de sis paraules generada al navegador, visible, amb l'avís "Apúntala antes de continuar"; l'enllaç "prefiero escribir la mía" buida els camps, els oculta i exigeix 16+ caràcters. "No me ha llegado" envia un altre codi (només val l'últim; tres per hora com a màxim); "Cambiar el email" torna al pas 1. Cinc codis equivocats i cal demanar-ne un de nou. Les claus es deriven només al pas 2. No hi ha recuperació de la contrasenya: guarda-la al gestor de contrasenyes.
 2. **Afegir elements.** "+ Añadir elemento": què és, persones que l'han de rebre (caselles; cap = només per a tu), instruccions, fitxers (fins a 50 MB). "Listo" xifra i desa al moment. No hi ha botó de desar.
 3. **Persones.** "+ Añadir persona": nom, email, mòbil opcional (per a l'SMS d'avís) i frase. La frase la genera sempre el sistema, sis paraules a l'atzar (llista BIP39 en castellà, 2.048 paraules → 66 bits), tipus `ebano deporte nacar cien organo vagar`; no es pot escriure a mà ("Generar otra" en dona una altra). Escriu-les en paper i dona-l'hi en persona; mai per missatge. En obrir, no importen majúscules, accents ni espais. La frase queda guardada dins del teu pla (xifrada, com la resta): "Mostrar frase" la torna a ensenyar després de demanar-te la contrasenya, durant un minut, per comprovar el paper o tornar-lo a escriure.
 4. **Terminis.** A "Personas → Entrega por inactividad": primer avís (8 dies per defecte) i entrega (21). L'entrega ha de ser posterior a l'avís. Els dos terminis compten des de l'última activitat o confirmació; entrar o pulsar "Sigo aquí" els reinicia.
@@ -206,7 +210,9 @@ El zip i el sobre amb la frase han d'estar en mans diferents: cap dels dos, sol,
 BASE=https://b2c.custodium.space
 HASH=$(openssl rand -base64 32)
 curl -s $BASE/api/salt?email=jo@example.com                     # {"salt":"…"}, la mateixa abans i després de l'alta
-curl -s -X POST $BASE/api/register -H 'content-type: application/json' -d "{\"email\":\"jo@example.com\",\"authHash\":\"$HASH\"}"
+curl -s -X POST $BASE/api/register/start -H 'content-type: application/json' -d '{"email":"jo@example.com"}'   # {"ok":true}; el codi arriba al correu
+CODE=123456   # el del correu
+curl -s -X POST $BASE/api/register -H 'content-type: application/json' -d "{\"email\":\"jo@example.com\",\"authHash\":\"$HASH\",\"code\":\"$CODE\"}"
 TOKEN=$(curl -s -X POST $BASE/api/login -H 'content-type: application/json' -d "{\"email\":\"jo@example.com\",\"authHash\":\"$HASH\"}" | sed 's/.*"token":"\([^"]*\)".*/\1/')
 curl -s $BASE/api/vault -H "authorization: Bearer $TOKEN"      # {"error":"no_vault"}
 ```
@@ -326,7 +332,8 @@ Les migracions ja aplicades es poden esborrar del repo un cop consolidades; `git
 
 Zona `custodium.space` → Security → WAF → Rate limiting rules → Create rule:
 
-- Expressió: `(http.host eq "b2c.custodium.space" and http.request.uri.path in {"/api/salt" "/api/login" "/api/register" "/api/password"})`
+- Expressió: `(http.host eq "b2c.custodium.space" and http.request.uri.path in {"/api/salt" "/api/register/start" "/api/login" "/api/register" "/api/password"})`
+- `/api/register/start` hi ha de ser: envia un correu a qualsevol adreça sense autenticar. El límit de tres codis per email i hora és del Worker; el del WAF, per IP, és el que atura un enviament massiu a adreces diferents.
 - `/api/salt` hi ha de ser: respon a qualsevol email sense autenticar i, tot i que la sal falsa no delata res, és la primera petició de cada intent d'entrada i no ha de poder-se martellejar.
 - Característica: IP. Límit: el més estricte que permeti el pla (al pla gratuït, p. ex. 5 peticions per 10 segons). Acció: Block.
 
@@ -351,7 +358,7 @@ npx wrangler r2 object put custodium-b2c-files/USERID/FILEID --file restaurat.bi
 ### Buidar-ho tot
 
 ```sh
-npx wrangler d1 execute custodium-b2c --remote --command "DELETE FROM sessions; DELETE FROM events; DELETE FROM recipients; DELETE FROM files; DELETE FROM vaults; DELETE FROM users;"
+npx wrangler d1 execute custodium-b2c --remote --command "DELETE FROM sessions; DELETE FROM events; DELETE FROM recipients; DELETE FROM files; DELETE FROM vaults; DELETE FROM users; DELETE FROM pending_signups;"
 ```
 
 R2: tauler → bucket → Objects → seleccionar tot → Delete.
@@ -361,7 +368,7 @@ R2: tauler → bucket → Objects → seleccionar tot → Delete.
 ## 6. Límits coneguts de la beta
 
 - Una sola contrasenya per titular, sense segon factor.
-- Rate limiting via regla al WAF de Cloudflare (`/api/salt`, `/api/login`, `/api/register`, `/api/password`); vegeu §5.
+- Rate limiting via regla al WAF de Cloudflare (`/api/salt`, `/api/register/start`, `/api/login`, `/api/register`, `/api/password`); vegeu §5.
 - Els paquets es refan sencers a cada desat (bé per a pocs elements, no per a milers).
 - Els fitxers es pugen i s'exporten sencers en memòria (50 MB per fitxer és el límit pràctic en mòbil; l'exportació d'1 GB necessita un ordinador).
 - Sense clau de recuperació ni per al titular ni per a les persones: decisió de disseny, no un oblit. L'exportació és la còpia de seguretat del titular.

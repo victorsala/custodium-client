@@ -1,4 +1,4 @@
--- Custodium B2C · esquema D1 · estat consolidat (9 setembre 2026, inclou migration-20260908, -20260908b, -20260909, -20260909b i -20260909c)
+-- Custodium B2C · esquema D1 · estat consolidat (9 setembre 2026, inclou migration-20260908, -20260908b, -20260909, -20260909b, -20260909c i -20260909d)
 -- Crea la base de dades tal com és avui. Per a una D1 nova:
 --   npx wrangler d1 execute <nom> --remote --file=schema.sql
 -- La base de dades de producció ja té tot això aplicat (migracions v1–v5, consolidades aquí).
@@ -25,6 +25,18 @@ CREATE TABLE IF NOT EXISTS users (
   kdf_salt            TEXT                        -- sal de la derivació de claus del titular: HMAC(SALT_PEPPER, email)
                                                   -- truncat a 16 bytes, base64, fixat a l'alta (README §2.2). NULL només
                                                   -- en files anteriors a migration-20260909c, que s'esborren
+);
+
+-- Altes en curs: el compte no es crea fins que el codi enviat per correu ha
+-- tornat (README §2.7). Una fila per email; el cron diari esborra les que ja
+-- no serveixen (codi caducat i finestra del límit passada).
+CREATE TABLE IF NOT EXISTS pending_signups (
+  email       TEXT PRIMARY KEY,
+  code_hash   TEXT,                         -- "sal.hash" (base64): SHA-256(sal || codi). NULL si l'email ja tenia compte
+  attempts    INTEGER NOT NULL DEFAULT 0,   -- verificacions fallides del codi vigent; a 5 cal demanar-ne un de nou
+  sends       INTEGER NOT NULL DEFAULT 0,   -- codis enviats dins la finestra d'una hora que comença a created_at (màxim 3)
+  expires_at  INTEGER,                      -- caducitat del codi (15 min)
+  created_at  INTEGER NOT NULL              -- inici de la finestra del límit de codis
 );
 
 CREATE TABLE IF NOT EXISTS sessions (

@@ -4,7 +4,8 @@
 // No veu mai contrasenyes, frases, contingut ni fitxers en clar.
 //
 //   GET    /api/salt?email=           —                        → { salt }   sal de derivació del compte (base64, 16 bytes)
-//   POST   /api/register              { email, authHash }      → 201 | 409
+//   POST   /api/register/start        { email }                → { ok } | 429   envia un codi de 6 xifres per correu (o "ja tens compte")
+//   POST   /api/register              { email, authHash, code } → 201 | 400 invalid_code | code_expired | too_many_attempts
 //   POST   /api/login                 { email, authHash }      → { token, expiresAt } | 401
 //   DELETE /api/session               Bearer                   → { ok }
 //   POST   /api/password              { authHash, newAuthHash, blob, version } → { token, version } | 401 | 409
@@ -45,6 +46,10 @@ const MAX_FILE_BYTES = 50_000_000;       // 50 MB per fitxer (escàners notarial
 const MAX_USER_BYTES = 1_000_000_000;    // 1 GB per titular
 const MAX_FILE_IDS = 500;
 const MAX_RECIPIENTS = 20;
+const SIGNUP_CODE_TTL_S = 15 * 60;        // el codi de l'alta caduca als 15 minuts
+const SIGNUP_MAX_ATTEMPTS = 5;            // verificacions fallides per codi; després cal demanar-ne un de nou
+const SIGNUP_MAX_SENDS = 3;               // codis per email dins de la finestra
+const SIGNUP_WINDOW_S = 3600;             // finestra del límit de codis: una hora
 
 // SITE, MAIL_FROM i ENV viuen a wrangler.toml ([vars], per entorn).
 // SALT_PEPPER és un secret (wrangler secret put): clau de l'HMAC del qual surt
@@ -66,6 +71,7 @@ export default {
     try {
       if (pathname === "/api/env"      && method === "GET") return json({ env: env.ENV || "production" });
       if (pathname === "/api/salt"     && method === "GET") return await getSalt(request, env);
+      if (pathname === "/api/register/start" && method === "POST") return await startSignup(request, env);
       if (pathname === "/api/register" && method === "POST") return await register(request, env);
       if (pathname === "/api/login"    && method === "POST") return await login(request, env);
       if (pathname === "/api/session"  && method === "DELETE") return await logout(request, env);
@@ -124,24 +130,106 @@ export default {
 
 // ---------------------------------------------------------------- auth
 
-// A l'alta, la sal de derivació (kdf_salt) és la mateixa que /api/salt ja
-// donava per a aquest email abans que existís el compte: el client l'ha
-// demanat, ha derivat l'authHash amb ella, i aquí es fixa a la fila del
-// compte. Des d'ara és la fila la que mana (vegeu accountSalt).
+// Primer pas de l'alta: un codi de sis xifres al correu, per comprovar que
+// l'email és de qui el demana abans de crear res. El codi es guarda hashejat
+// amb sal a pending_signups i caduca als 15 minuts. Si l'email ja té compte no
+// s'envia cap codi sinó un "ja tens compte", però la resposta és la mateixa
+// (200 { ok }) i la fila de pending_signups es crea igual, sense codi: ni la
+// resposta ni el límit de codis diuen si el compte existeix. Res es desa fins
+// que Resend ha acceptat el correu. Cobert per la regla del WAF (README §5).
+async function startSignup(request, env) {
+  const email = parseEmail((await readJson(request))?.email);
+  const ts = now();
+  const [user, pending] = await Promise.all([
+    env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first(),
+    env.DB.prepare("SELECT sends, created_at FROM pending_signups WHERE email = ?").bind(email).first(),
+  ]);
+
+  // Límit de codis: la finestra d'una hora comença amb el primer codi i es
+  // reinicia quan ha passat. Val igual per als emails amb compte.
+  const inWindow = pending && ts - pending.created_at < SIGNUP_WINDOW_S;
+  const sends = inWindow ? pending.sends : 0;
+  if (sends >= SIGNUP_MAX_SENDS) throw new HttpError(429, "too_many_codes");
+  const windowStart = inWindow ? pending.created_at : ts;
+
+  let codeHash = null;
+  let expiresAt = ts;
+  if (user) {
+    await sendMail(env, email, "Ya tienes una cuenta en Custodium",
+      `Ya existe una cuenta con este correo.\n\nSi eres tú, entra en ${env.SITE}.\nSi has olvidado la contraseña, no hay forma de recuperarla: tu plan sigue cifrado con ella.\nSi no has sido tú, ignora este mensaje.`);
+  } else {
+    const code = signupCode();
+    const salt = randomBytes(16);
+    codeHash = `${b64.encode(salt)}.${b64.encode(await hashSignupCode(salt, code))}`;
+    expiresAt = ts + SIGNUP_CODE_TTL_S;
+    await sendMail(env, email, "Tu código para crear la cuenta en Custodium",
+      `Tu código para crear la cuenta en Custodium: ${code}. Caduca en 15 minutos. Si no has sido tú, ignora este mensaje.`);
+  }
+
+  await env.DB
+    .prepare("INSERT OR REPLACE INTO pending_signups (email, code_hash, attempts, sends, expires_at, created_at) VALUES (?, ?, 0, ?, ?, ?)")
+    .bind(email, codeHash, sends + 1, expiresAt, windowStart)
+    .run();
+  return json({ ok: true });
+}
+
+// Sis xifres a l'atzar, amb zeros al davant si cal. Rebutja la cua de
+// l'espai d'un Uint32 perquè totes les xifres siguin igual de probables.
+function signupCode() {
+  const buf = new Uint32Array(1);
+  do crypto.getRandomValues(buf); while (buf[0] >= 4_294_000_000);
+  return String(buf[0] % 1_000_000).padStart(6, "0");
+}
+
+async function hashSignupCode(salt, code) {
+  return sha256(salt, new TextEncoder().encode(code));
+}
+
+// Veredicte sobre un codi d'alta: "ok", o per què no. Cinc verificacions per
+// codi: a la cinquena fallida (i a partir d'aquí, encara que el codi sigui bo)
+// cal demanar-ne un de nou. Comparació en temps constant.
+async function verifySignupCode(pending, code, ts) {
+  if (!pending?.code_hash) return "invalid_code";
+  if (pending.attempts >= SIGNUP_MAX_ATTEMPTS) return "too_many_attempts";
+  if (pending.expires_at < ts) return "code_expired";
+  const [salt, hash] = pending.code_hash.split(".").map((part) => b64.decode(part));
+  if (salt && hash && timingSafeEqual(await hashSignupCode(salt, code), hash)) return "ok";
+  return pending.attempts + 1 >= SIGNUP_MAX_ATTEMPTS ? "too_many_attempts" : "invalid_code";
+}
+
+// Segon pas de l'alta: només amb el codi bo es crea el compte. La sal de
+// derivació (kdf_salt) és la mateixa que /api/salt ja donava per a aquest
+// email abans que existís el compte: el client l'ha demanat, ha derivat
+// l'authHash amb ella, i aquí es fixa a la fila. Des d'ara mana la fila
+// (vegeu accountSalt). Cap 409 "ja existeix": per a un email amb compte no hi
+// ha cap codi vàlid, i la resposta és la d'un codi dolent.
 async function register(request, env) {
-  const { email, authHash } = parseCredentials(await readJson(request));
+  const body = await readJson(request);
+  const { email, authHash } = parseCredentials(body);
+  const code = typeof body?.code === "string" ? body.code.trim() : "";
+  if (!/^\d{6}$/.test(code)) throw new HttpError(400, "bad_code");
+  const ts = now();
+
+  const pending = await env.DB.prepare("SELECT code_hash, attempts, expires_at FROM pending_signups WHERE email = ?").bind(email).first();
+  const verdict = await verifySignupCode(pending, code, ts);
+  if (verdict !== "ok") {
+    if (verdict !== "code_expired") await env.DB.prepare("UPDATE pending_signups SET attempts = attempts + 1 WHERE email = ?").bind(email).run();
+    throw new HttpError(400, verdict);
+  }
+
   const kdfSalt = await accountSalt(env, email);
   const salt = randomBytes(16);
   const hash = await sha256(salt, authHash);
-  const ts = now();
 
   try {
-    await env.DB
-      .prepare("INSERT INTO users (id, email, auth_salt, auth_hash, kdf_salt, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .bind(crypto.randomUUID(), email, b64.encode(salt), b64.encode(hash), kdfSalt, ts, ts)
-      .run();
+    await env.DB.batch([
+      env.DB
+        .prepare("INSERT INTO users (id, email, auth_salt, auth_hash, kdf_salt, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .bind(crypto.randomUUID(), email, b64.encode(salt), b64.encode(hash), kdfSalt, ts, ts),
+      env.DB.prepare("DELETE FROM pending_signups WHERE email = ?").bind(email),
+    ]);
   } catch (err) {
-    if (isUniqueViolation(err)) throw new HttpError(409, "email_exists");
+    if (isUniqueViolation(err)) throw new HttpError(400, "invalid_code");
     throw err;
   }
   return json({ ok: true }, 201);
@@ -829,6 +917,14 @@ async function runTriggers(env) {
     } catch (err) {
       console.error("trigger failed for user", u.id, err);
     }
+  }
+
+  // Altes no completades: la fila ja no serveix quan el codi ha caducat i la
+  // finestra del límit de codis (una hora) també ha passat.
+  try {
+    await env.DB.prepare("DELETE FROM pending_signups WHERE expires_at < ? AND created_at < ?").bind(ts, ts - SIGNUP_WINDOW_S).run();
+  } catch (err) {
+    console.error("neteja de pending_signups", err);
   }
 }
 
