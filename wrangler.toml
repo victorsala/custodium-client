@@ -11,6 +11,13 @@ routes = [
 [assets]
 directory = "./public"
 
+# Variables per entorn (no secrets). ENV encén la franja d'avís del client a
+# staging; SITE i MAIL_FROM fan que els correus de cada entorn apuntin a ell mateix.
+[vars]
+ENV = "production"
+SITE = "https://b2c.custodium.space"
+MAIL_FROM = "Custodium <avisos@custodium.space>"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "custodium-b2c"
@@ -35,3 +42,37 @@ bucket_name = "custodium-b2c-files-backup"
 crons = ["0 8 * * *", "0 3 * * SUN"]
 
 # Secret (no va aquí): npx wrangler secret put RESEND_API_KEY
+
+# ------------------------- staging -------------------------
+# Mateix codi, dades i secrets separats. El desplega la CI a cada push a main
+# (.github/workflows/ci.yml); README §5. Els secrets es posen amb
+#   npx wrangler secret put RESEND_API_KEY --env staging   (i SMS_* si cal)
+[env.staging]
+name = "custodium-b2c-staging"
+routes = [
+  { pattern = "b2c-staging.custodium.space", custom_domain = true }
+]
+
+[env.staging.assets]
+directory = "./public"
+
+[env.staging.vars]
+ENV = "staging"
+SITE = "https://b2c-staging.custodium.space"
+MAIL_FROM = "Custodium staging <avisos@custodium.space>"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "custodium-b2c-staging"
+database_id = "6b80cc70-e365-470a-a0f5-f3c9264704bf"
+
+[[env.staging.r2_buckets]]
+binding = "FILES"
+bucket_name = "custodium-b2c-staging-files"
+
+[[env.staging.r2_buckets]]
+binding = "FILES_BACKUP"
+bucket_name = "custodium-b2c-staging-files-backup"
+
+[env.staging.triggers]
+crons = ["0 8 * * *", "0 3 * * SUN"]

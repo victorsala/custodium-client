@@ -24,6 +24,7 @@
 //   POST   /api/checkin               { token }                → { ok }   (botó "Sigo aquí" del correu)
 //   GET    /api/release/:token        —                        → { from, email, package } | 404
 //   GET    /api/release/:token/files/:id  —                    → bytes | 404
+//   GET    /api/env                   —                        → { env }   "production" | "staging" (franja del client)
 //
 // Cron diari (scheduled): avisa el titular a partir de warn_days sense entrar,
 // cada 3 dies; entrega a totes les persones a partir de release_days si s'han
@@ -44,8 +45,7 @@ const MAX_USER_BYTES = 1_000_000_000;    // 1 GB per titular
 const MAX_FILE_IDS = 500;
 const MAX_RECIPIENTS = 20;
 
-const SITE = "https://b2c.custodium.space";
-const MAIL_FROM = "Custodium <avisos@custodium.space>";
+// SITE, MAIL_FROM i ENV viuen a wrangler.toml ([vars], per entorn).
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+[1-9]\d{6,14}$/;    // format internacional, p. ex. +34600000000
@@ -59,6 +59,7 @@ export default {
     if (!pathname.startsWith("/api/")) return new Response("Not found", { status: 404 });
 
     try {
+      if (pathname === "/api/env"      && method === "GET") return json({ env: env.ENV || "production" });
       if (pathname === "/api/register" && method === "POST") return await register(request, env);
       if (pathname === "/api/login"    && method === "POST") return await login(request, env);
       if (pathname === "/api/session"  && method === "DELETE") return await logout(request, env);
@@ -632,7 +633,7 @@ async function releaseRecipient(env, user, rec, mode) {
   // automàtiques queden pendents fins que notifyOwnerOfPendingReleases l'envia.
   const ownerNotifiedAt = mode === "manual" ? ts : null;
 
-  const link = `${SITE}/abrir.html?t=${b64.encodeUrl(token)}`;
+  const link = `${env.SITE}/abrir.html?t=${b64.encodeUrl(token)}`;
   const intro = mode === "manual"
     ? `${user.email} ha preparado en Custodium información para ti y te la entrega ahora.`
     : `${user.email} preparó en Custodium información para ti, para cuando no pudiera actuar. Ha pasado el plazo que fijó sin dar señales, y por eso recibes este mensaje.`;
@@ -669,7 +670,7 @@ async function notifyOwnerReleased(env, user, emails) {
     ...emails.map((e) => `  ${e}`),
     "",
     "Si es un error, entra en tu cuenta y anula el acceso:",
-    SITE,
+    env.SITE,
     "",
     "Custodium · Guardamos el plan, nunca las claves.",
   ].join("\n"));
@@ -705,7 +706,7 @@ async function sendWarning(env, user, ts, idleS, releaseAfterS) {
   const deadline = user.last_seen + releaseAfterS;
 
   const days = Math.floor(idleS / 86400);
-  const link = `${SITE}/aqui.html?t=${b64.encodeUrl(token)}`;
+  const link = `${env.SITE}/aqui.html?t=${b64.encodeUrl(token)}`;
 
   await sendMail(env, user.email, "Custodium — ¿sigues ahí?", [
     `No has entrado en Custodium desde hace ${days} días.`,
@@ -825,7 +826,7 @@ async function sendMail(env, to, subject, text) {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({ from: MAIL_FROM, to: [to], subject, text }),
+    body: JSON.stringify({ from: env.MAIL_FROM, to: [to], subject, text }),
   });
   if (!res.ok) {
     console.error("resend error", res.status, await res.text());

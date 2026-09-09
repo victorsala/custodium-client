@@ -787,3 +787,19 @@ form > .hint { margin-top: -4px; }
   padding: 7px 0;
   border-top: 1px solid var(--hairline);
 }
+
+/* Franja fixa de staging (la injecta app.js quan /api/env respon "staging"). */
+.env-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--brass);
+  color: var(--night);
+  font: 600 0.85rem/1.4 var(--body);
+  text-align: center;
+  padding: 0.4rem 0.75rem;
+}
+
+body.has-env-banner { padding-top: 2.2rem; }

@@ -1192,3 +1192,13 @@ boot();
 fetch("/VERSION").then((r) => (r.ok ? r.text() : "")).then((v) => {
   if (v) $("#version").textContent = `versión ${v.trim().slice(0, 12)}`;
 }).catch(() => {});
+
+// A staging, franja fixa d'avís; a producció no apareix mai.
+fetch("/api/env").then((r) => (r.ok ? r.json() : null)).then((d) => {
+  if (d?.env !== "staging") return;
+  const bar = document.createElement("div");
+  bar.className = "env-banner";
+  bar.textContent = "Entorno de pruebas · los datos pueden borrarse sin aviso";
+  document.body.prepend(bar);
+  document.body.classList.add("has-env-banner");
+}).catch(() => {});

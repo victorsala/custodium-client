@@ -1,7 +1,7 @@
 #!/bin/sh
 # Construeix el commit del mirall públic (victorsala/custodium-client): l'arbre
-# del commit actual sense CLAUDE.md, encadenat a l'últim commit publicat (la
-# branca local public-mirror, que és la història del repo públic).
+# del commit actual sense CLAUDE.md ni .github/, encadenat a l'últim commit
+# publicat (la branca local public-mirror, que és la història del repo públic).
 #
 # Escriu el hash a stdout: `npm run deploy` el desa a public/VERSION, i després
 # es publica amb `git push origin-public public-mirror:main`. Si l'arbre no ha
@@ -19,7 +19,7 @@ PARENT=$(git rev-parse -q --verify refs/heads/public-mirror) || {
 }
 
 git read-tree HEAD
-git rm -r --cached -q --ignore-unmatch CLAUDE.md
+git rm -r --cached -q --ignore-unmatch CLAUDE.md .github
 TREE=$(git write-tree)
 
 if [ "$TREE" = "$(git rev-parse "$PARENT^{tree}")" ]; then

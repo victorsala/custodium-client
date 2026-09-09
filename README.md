@@ -116,13 +116,14 @@ POST   /api/recipients/:id/revoke   Bearer                        { ok }   anul�
 POST   /api/checkin                 { token }                     { ok }   botó del correu d'avís
 GET    /api/release/:token          —                             { from, email, package } | 404
 GET    /api/release/:token/files/:id  —                           bytes | 404
+GET    /api/env                     —                             { env }   "production" | "staging"
 ```
 
 Sessió: token aleatori de 32 bytes, 24 hores, guardat hashejat; cada petició autenticada la renova, així que només caduca després d'un dia sencer sense obrir el pla. Límits: pla 1 MB, fitxer 50 MB, 1 GB per titular, 20 persones (`too_many_recipients`). Concurrència optimista al pla (`version`): dos dispositius no es trepitgen.
 
 ### 2.8 Client
 
-Sense frameworks ni dependències. Tot l'estat viu en memòria: tancar la pestanya tanca el pla; 15 minuts d'inactivitat també. `_headers` fixa una CSP estricta: scripts, estils, fonts i connexions només del propi origen, sense iframes. Les fonts (Fraunces i Inter, variables, subconjunt llatí) són a `public/fonts/`: el client no fa cap petició a tercers.
+Sense frameworks ni dependències. Tot l'estat viu en memòria: tancar la pestanya tanca el pla; 15 minuts d'inactivitat també. `_headers` fixa una CSP estricta: scripts, estils, fonts i connexions només del propi origen, sense iframes. Les fonts (Fraunces i Inter, variables, subconjunt llatí) són a `public/fonts/`: el client no fa cap petició a tercers. A staging, `app.js` pregunta `/api/env` i mostra una franja fixa d'avís ("Entorno de pruebas · los datos pueden borrarse sin aviso"); a producció no apareix mai.
 
 Fitxers orfes: si es tanca la pestanya a mitja edició, un fitxer pujat pot quedar al servidor sense que cap pla l'apunti. En obrir el pla, el client envia la llista d'ids vius i la versió del pla (`POST /api/files/reconcile`); el servidor només esborra els d'aquell usuari que no hi siguin i tinguin més de 7 dies si aquella versió encara és l'actual. Amb un `409 version_conflict` no esborra res.
 
@@ -219,8 +220,10 @@ public/             Client estàtic: index.html, app.js, crypto.js, words.js, ff
                     README (bilingüe, amb la verificació), LICENSE (source-available) i THIRD_PARTY.md.
                     VERSION l'escriu el deploy (gitignored).
 scripts/            public-commit.sh: construeix el commit del mirall públic (vegeu "Desplegar un canvi")
+.github/workflows/  ci.yml (tests + deploy a staging) i deploy-production.yml (botó de producció).
+                    No es publica al mirall.
 schema.sql          Esquema D1 consolidat (l'estat actual; per crear una D1 nova)
-wrangler.toml       Bindings (D1 "DB", R2 "FILES" i "FILES_BACKUP"), domini, crons
+wrangler.toml       Bindings (D1 "DB", R2 "FILES" i "FILES_BACKUP"), domini, crons, [vars] i [env.staging]
 ```
 
 ### Requisits (ja fets)
@@ -229,18 +232,68 @@ wrangler.toml       Bindings (D1 "DB", R2 "FILES" i "FILES_BACKUP"), domini, cro
 - Resend: domini `custodium.space` verificat; remitent `avisos@custodium.space`.
 - `wrangler` com a dependència local (`npm install -D wrangler`), sense instal·lació global.
 
+### Entorns
+
+| | Producció | Staging |
+| :--- | :--- | :--- |
+| Web | b2c.custodium.space | b2c-staging.custodium.space |
+| Worker | custodium-b2c | custodium-b2c-staging |
+| D1 | custodium-b2c | custodium-b2c-staging |
+| R2 | custodium-b2c-files i -files-backup | custodium-b2c-staging-files i -backup |
+| Es desplega | botó **deploy-production** (Actions) | la CI, a cada push a `main` amb tests verds |
+| `/VERSION` | hash del commit del mirall públic | hash del commit de `main` desplegat |
+
+Mateix codi i mateixos crons; dades i secrets separats. `ENV`, `SITE` i `MAIL_FROM` són `[vars]` per entorn a `wrangler.toml`; amb `ENV = "staging"` el client mostra la franja d'avís. Les migracions s'apliquen a cada entorn a mà (a staging: `npx wrangler d1 execute custodium-b2c-staging --remote --file=…`, idealment abans que a producció).
+
 ### Desplegar un canvi
 
 ```sh
 git add -A && git commit -m "què has canviat"
-npm run deploy        # construeix el commit del mirall públic, n'escriu el hash a public/VERSION i fa wrangler deploy
-git push
-git push origin-public public-mirror:main   # publica el mirall a victorsala/custodium-client
+git push              # la CI passa els tests i, a main, desplega staging
 ```
 
-Es fa el commit **abans** del deploy perquè `public/VERSION` (que no es versiona: és un artefacte del deploy) contingui el hash del commit que realment es desplega. Aquest hash és el d'un commit del **mirall públic** [victorsala/custodium-client](https://github.com/victorsala/custodium-client): `scripts/public-commit.sh` pren l'arbre del commit actual, en treu `CLAUDE.md` i l'encadena a la branca local `public-mirror` (la història del repo públic); si l'arbre no ha canviat, reutilitza el commit anterior. Qualsevol pot fer `git checkout` d'aquell commit, comparar fitxer a fitxer el contingut de `public/` amb el que serveix `b2c.custodium.space` (instruccions a `public/README.md`) i llegir el Worker (`src/index.js`) desplegat amb aquella mateixa versió. El peu de totes les pàgines mostra la versió; `abrir-offline.html` no la mostra expressament (ha de funcionar sense servidor i la seva CSP no permet connexions).
+Comprovar staging: `https://b2c-staging.custodium.space/VERSION` ha de retornar el hash del commit, i la web ha de funcionar (amb la franja d'avís). Producció, sempre amb el botó: GitHub → Actions → **deploy-production** → Run workflow. Mai automàtic; les migracions en queden fora i van sempre abans, a mà i amb confirmació.
 
-En un checkout nou, la branca `public-mirror` es crea un sol cop amb `git fetch origin-public main && git branch public-mirror FETCH_HEAD`.
+El workflow de producció repeteix els tests i fa el que feia `npm run deploy` en local: `scripts/public-commit.sh` pren l'arbre del commit, en treu `CLAUDE.md` i `.github/` i l'encadena a la història del **mirall públic** [victorsala/custodium-client](https://github.com/victorsala/custodium-client) (si l'arbre no ha canviat, reutilitza el commit anterior); escriu el hash resultant a `public/VERSION` (que no es versiona: és un artefacte del deploy), fa `wrangler deploy`, comprova que `/VERSION` respon exactament aquell hash i, només llavors, publica el mirall. Qualsevol pot fer `git checkout` d'aquell hash al repo públic, comparar fitxer a fitxer el contingut de `public/` amb el que serveix `b2c.custodium.space` (instruccions a `public/README.md`) i llegir el Worker (`src/index.js`) desplegat amb aquella mateixa versió. El peu de totes les pàgines mostra la versió; `abrir-offline.html` no la mostra expressament (ha de funcionar sense servidor i la seva CSP no permet connexions).
+
+**Deploy local d'emergència** (si GitHub Actions no hi és): sincronitzar el mirall i fer-ho a mà —
+
+```sh
+git fetch origin-public main && git branch -f public-mirror FETCH_HEAD
+npm run deploy        # mirall + public/VERSION + wrangler deploy
+git push origin-public public-mirror:main
+```
+
+### Token de Cloudflare i secrets de GitHub (un sol cop)
+
+Els workflows despleguen amb un token d'API de Cloudflare de permisos mínims. Crear-lo a dash.cloudflare.com → My Profile → API Tokens → Create Token → Custom token:
+
+- Account · **Workers Scripts** · Edit
+- Account · **D1** · Edit
+- Account · **Workers R2 Storage** · Edit
+- Zone · **Workers Routes** · Edit
+- Account Resources: només aquest compte. Zone Resources: només `custodium.space`.
+
+I a GitHub, custodium-b2c → Settings → Secrets and variables → Actions:
+
+- `CLOUDFLARE_API_TOKEN` — el token acabat de crear.
+- `CLOUDFLARE_ACCOUNT_ID` — l'id del compte (a la barra lateral del tauler; no és secret, però així no viu al repo).
+- `MIRROR_PUSH_TOKEN` — fine-grained PAT (github.com → Settings → Developer settings → Fine-grained tokens) amb accés només a `victorsala/custodium-client` i permís **Contents: Read and write**: és el que fa servir el workflow de producció per publicar el mirall.
+
+### Secrets de staging (un sol cop)
+
+En ordre — primer el correu, imprescindible; els SMS opcionals (els tres o cap):
+
+```sh
+npx wrangler secret put RESEND_API_KEY --env staging
+npx wrangler secret put SMS_USER --env staging
+npx wrangler secret put SMS_PASS --env staging
+npx wrangler secret put SMS_FROM --env staging
+```
+
+### Branca main (sense protecció, de moment)
+
+Les branques protegides no existeixen en repos privats del pla Free de GitHub. De moment `main` no n'exigeix cap: la garantia real és la CI — staging no es desplega sense tests verds, i producció només surt amb el botó. Quan hi hagi un segon col·laborador, activar la protecció (amb GitHub Pro, o fent públic el repo) amb l'status check `test` obligatori, `enforce_admins: true` i flux de PR.
 
 ### Pausar les entregues automàtiques
 
