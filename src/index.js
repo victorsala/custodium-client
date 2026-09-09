@@ -13,7 +13,7 @@
 //   PUT    /api/files/:id             bytes xifrats            → 201 | 409 | 413 | 507
 //   GET    /api/files/:id             Bearer                   → bytes | 404
 //   DELETE /api/files/:id             Bearer                   → { ok }
-//   POST   /api/files/reconcile       { ids }                  → { deleted }  esborra orfes de >7 dies no inclosos a ids
+//   POST   /api/files/reconcile       { ids, version }         → { deleted } | 409  esborra orfes de >7 dies no inclosos a ids
 //   GET    /api/settings              Bearer                   → { warnDays, releaseDays, phone, lastSeen }
 //   PUT    /api/settings              { warnDays?, releaseDays?, phone? } → { ok }
 //   GET    /api/recipients            Bearer                   → { recipients: [ { id, email, releasedAt, openedAt, expiresAt } ] }
@@ -408,9 +408,19 @@ async function reconcileFiles(request, env) {
   const { userId } = await authenticate(request, env);
   const body = await readJson(request);
   const ids = body?.ids;
+  const version = body?.version;
   if (!Array.isArray(ids) || ids.length > 5000 || !ids.every((x) => typeof x === "string" && UUID_RE.test(x))) {
     throw new HttpError(400, "bad_ids");
   }
+  if (!Number.isInteger(version) || version < 0) throw new HttpError(400, "bad_version");
+
+  // Un dispositiu amb un pla antic no pot decidir quins fitxers ja no s'usen.
+  // Sense pla encara desat, la versió implícita és 0, com a putVault.
+  const vault = await env.DB.prepare("SELECT version FROM vaults WHERE user_id = ?").bind(userId).first();
+  if (!reconcileVersionMatches(version, vault?.version)) {
+    throw new HttpError(409, "version_conflict", { currentVersion: vault?.version ?? 0 });
+  }
+
   const live = new Set(ids);
   const old = await env.DB
     .prepare("SELECT id FROM files WHERE user_id = ? AND created_at < ?")
@@ -424,6 +434,10 @@ async function reconcileFiles(request, env) {
     deleted++;
   }
   return json({ deleted });
+}
+
+function reconcileVersionMatches(requestedVersion, vaultVersion) {
+  return requestedVersion === (vaultVersion ?? 0);
 }
 
 async function streamFile(env, ownerId, id) {
@@ -614,6 +628,9 @@ async function releaseRecipient(env, user, rec, mode) {
   const hash = b64.encode(await sha256(token));
   const ts = now();
   const expiresAt = ts + RELEASE_TTL_S;
+  // Una entrega manual no necessita un segon avís al mateix titular. Les
+  // automàtiques queden pendents fins que notifyOwnerOfPendingReleases l'envia.
+  const ownerNotifiedAt = mode === "manual" ? ts : null;
 
   const link = `${SITE}/abrir.html?t=${b64.encodeUrl(token)}`;
   const intro = mode === "manual"
@@ -637,8 +654,8 @@ async function releaseRecipient(env, user, rec, mode) {
   }
 
   await env.DB
-    .prepare("UPDATE recipients SET released_at = ?, token_hash = ?, token_expires_at = ?, opened_at = NULL, revoked_at = NULL, updated_at = ? WHERE id = ?")
-    .bind(ts, hash, expiresAt, ts, rec.id)
+    .prepare("UPDATE recipients SET released_at = ?, token_hash = ?, token_expires_at = ?, opened_at = NULL, revoked_at = NULL, owner_notified_at = ?, updated_at = ? WHERE id = ?")
+    .bind(ts, hash, expiresAt, ownerNotifiedAt, ts, rec.id)
     .run();
 }
 
@@ -661,6 +678,23 @@ async function notifyOwnerReleased(env, user, emails) {
     const n = emails.length;
     await sendSms(env, user.phone, `Custodium: se ha entregado tu plan a ${n} ${n === 1 ? "persona" : "personas"} de confianza. Si es un error, entra en tu cuenta y anula el acceso.`);
   }
+}
+
+// Reuneix totes les entregues automàtiques que encara no s'han comunicat al
+// titular. Només les marca després que Resend accepti un únic correu amb la
+// llista completa; si falla, continuen pendents per al cron següent.
+async function notifyOwnerOfPendingReleases(env, user) {
+  const pending = await env.DB
+    .prepare("SELECT id, email FROM recipients WHERE user_id = ? AND released_at IS NOT NULL AND owner_notified_at IS NULL ORDER BY created_at")
+    .bind(user.id)
+    .all();
+  if (!pending.results.length) return;
+
+  await notifyOwnerReleased(env, user, pending.results.map((r) => r.email));
+  const ts = now();
+  await env.DB.batch(pending.results.map((r) => env.DB
+    .prepare("UPDATE recipients SET owner_notified_at = ? WHERE id = ? AND owner_notified_at IS NULL")
+    .bind(ts, r.id)));
 }
 
 // Envia primer i desa després: un avís que no ha sortit no compta, i el cron
@@ -712,7 +746,10 @@ async function runTriggers(env) {
       const idle = ts - lastSeen;
       const warnAfter = u.warn_days * 86400;
       const releaseAfter = u.release_days * 86400;
-      if (idle < warnAfter) continue;
+      if (idle < warnAfter) {
+        await notifyOwnerOfPendingReleases(env, u);
+        continue;
+      }
 
       const recs = await env.DB
         .prepare("SELECT id, email, phone, package, released_at FROM recipients WHERE user_id = ? AND package IS NOT NULL")
@@ -730,18 +767,16 @@ async function runTriggers(env) {
         if (paused) {
           console.log(`entregues en pausa (pause_releases=1): no s'entrega el pla de ${u.email}`);
         } else {
-          const delivered = [];
           for (const r of recs.results) {
             if (r.released_at) continue;
             try {
               await releaseRecipient(env, u, r, "auto");
-              delivered.push(r.email);
               await logEvent(env, u.id, "release_auto", r.email, null);
             } catch (err) {
               console.error("release failed for recipient", r.id, err);
             }
           }
-          if (delivered.length) await notifyOwnerReleased(env, u, delivered);
+          await notifyOwnerOfPendingReleases(env, u);
           continue;
         }
       }
@@ -749,6 +784,7 @@ async function runTriggers(env) {
       if (!warnedSinceLastSeen || ts - u.warned_at >= WARN_REPEAT_S) {
         await sendWarning(env, { ...u, last_seen: lastSeen }, ts, idle, releaseAfter);
       }
+      await notifyOwnerOfPendingReleases(env, u);
     } catch (err) {
       console.error("trigger failed for user", u.id, err);
     }

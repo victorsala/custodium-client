@@ -30,6 +30,25 @@ const phoneSrc = appSrc.match(/function normalizePhone\(value\) \{[\s\S]*?\n\}/)
 assert.ok(phoneSrc, "no s'ha trobat normalizePhone dins app.js");
 const normalizePhone = new Function(`return ${phoneSrc[0]}`)();
 
+// ---- parsePhone i reconciliació del Worker (s'extreuen del codi desplegat) ----
+const workerSrc = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
+const serverPhoneSrc = workerSrc.match(/function parsePhone\(value\) \{[\s\S]*?\n\}/);
+assert.ok(serverPhoneSrc, "no s'ha trobat parsePhone dins src/index.js");
+class ServerHttpError extends Error {
+  constructor(status, code) {
+    super(code);
+    this.status = status;
+    this.code = code;
+  }
+}
+const parsePhone = new Function(
+  "PHONE_RE", "HttpError",
+  `return ${serverPhoneSrc[0]}`
+)(/^\+[1-9]\d{6,14}$/, ServerHttpError);
+const reconcileDecisionSrc = workerSrc.match(/function reconcileVersionMatches\(requestedVersion, vaultVersion\) \{[\s\S]*?\n\}/);
+assert.ok(reconcileDecisionSrc, "no s'ha trobat reconcileVersionMatches dins src/index.js");
+const reconcileVersionMatches = new Function(`return ${reconcileDecisionSrc[0]}`)();
+
 // (a) el que xifra crypto.js, l'obridor ho obre
 
 test("obridor: desxifra el pla del titular (PBKDF2 + HKDF)", async () => {
@@ -104,4 +123,20 @@ test("normalizePhone: cal prefix internacional (+ o 00)", () => {
   assert.equal(normalizePhone("600 000 000"), false);
   assert.equal(normalizePhone(""), null);
   assert.equal(normalizePhone("abc"), null);
+});
+
+test("móvil sin prefijo internacional: cliente y Worker lo rechazan", () => {
+  const localNumber = "600 000 000";
+  assert.equal(normalizePhone(localNumber), false);
+  assert.throws(
+    () => parsePhone(localNumber),
+    (err) => err instanceof ServerHttpError && err.status === 400 && err.code === "bad_phone"
+  );
+});
+
+test("reconciliació: només la versió actual pot esborrar fitxers", () => {
+  assert.equal(reconcileVersionMatches(4, 4), true);
+  assert.equal(reconcileVersionMatches(3, 4), false);
+  assert.equal(reconcileVersionMatches(0, undefined), true);
+  assert.equal(reconcileVersionMatches(1, undefined), false);
 });

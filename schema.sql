@@ -1,4 +1,4 @@
--- Custodium B2C · esquema D1 · estat consolidat (9 setembre 2026, inclou migration-20260908, -20260908b i -20260909)
+-- Custodium B2C · esquema D1 · estat consolidat (9 setembre 2026, inclou migration-20260908, -20260908b, -20260909 i -20260909b)
 -- Crea la base de dades tal com és avui. Per a una D1 nova:
 --   npx wrangler d1 execute <nom> --remote --file=schema.sql
 -- La base de dades de producció ja té tot això aplicat (migracions v1–v5, consolidades aquí).
@@ -61,7 +61,10 @@ CREATE TABLE IF NOT EXISTS recipients (
   opened_at         INTEGER,
   revoked_at        INTEGER,
   created_at        INTEGER NOT NULL,
-  updated_at        INTEGER NOT NULL
+  updated_at        INTEGER NOT NULL,
+  -- Al final perquè va arribar amb un ALTER TABLE (migration-20260909b) i així
+  -- una D1 nova queda igual que la de producció, columna per columna.
+  owner_notified_at INTEGER                    -- correu al titular sobre una entrega automàtica, quan Resend l'ha acceptat
 );
 
 CREATE INDEX IF NOT EXISTS recipients_user ON recipients(user_id);

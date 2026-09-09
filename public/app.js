@@ -177,7 +177,7 @@ async function loadVault() {
 // pla ja no apunta (pujats i abandonats en tancar la pestanya a mitja edició).
 async function reconcileFiles() {
   const ids = state.vault.items.flatMap((it) => it.files.map((f) => f.id));
-  try { await api("/api/files/reconcile", { method: "POST", body: { ids } }); } catch { /* no és crític */ }
+  try { await api("/api/files/reconcile", { method: "POST", body: { ids, version: state.version } }); } catch { /* no és crític */ }
 }
 
 // v1 → v2: la persona passa de text lliure a referència; els fitxers antics

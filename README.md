@@ -82,7 +82,7 @@ A cada desat, per a cada persona, el navegador construeix `{ items: [ { title, n
   - si porta ≥ `release_days` i s'han entregat almenys **dos** avisos des de l'última senyal → entrega a totes les persones pendents.
 - **Res es desa fins que el correu ha sortit.** Tant l'avís com l'entrega escriuen a la base de dades només després que Resend hagi acceptat el missatge. Si l'enviament falla no es desa res: l'avís no compta, la persona continua pendent i el cron ho torna a provar l'endemà.
 - **`warn_count`** compta els avisos entregats i torna a zero amb qualsevol senyal de vida (entrar, qualsevol petició autenticada o el botó "Sigo aquí"). Exigir-ne dos vol dir que una sola incidència d'enviament no pot desencadenar una entrega: cal que el sistema hagi aconseguit avisar el titular dos cops i que ell no hagi respost cap de les dues vegades.
-- **Quan hi ha entrega automàtica, el titular rep un correu** (i un SMS, si té mòbil) dient a qui s'ha entregat, per poder anul·lar els enllaços si ha estat un fals positiu. El correu llista les adreces de les persones: el servidor no en sap els noms, que viuen dins del pla xifrat.
+- **Quan hi ha entrega automàtica, el titular rep un correu** (i un SMS, si té mòbil) dient a qui s'ha entregat, per poder anul·lar els enllaços si ha estat un fals positiu. El correu llista les adreces de les persones: el servidor no en sap els noms, que viuen dins del pla xifrat. Si Resend no l'accepta, el cron el torna a intentar cada dia i agrupa en un sol correu totes les entregues pendents d'avisar.
 - **Entrega:** es genera un token aleatori de 32 bytes (se'n guarda el hash), vàlid 90 dies, i s'envia a la persona un enllaç a `/abrir.html?t=…`. La persona escriu la frase; el navegador deriva la clau i desxifra el paquet i els fitxers.
 - **Anular:** el titular pot anul·lar l'enllaç des de "Personas". Entrar de nou no anul·la res automàticament.
 - **Pausa d'emergència:** amb la fila `pause_releases` de la taula `system` (D1) a `'1'`, el cron continua avisant però no entrega res; s'activa amb un `UPDATE`, sense deploy (vegeu §5). Les entregues manuals ("Entregar ahora") no es pausen.
@@ -104,7 +104,7 @@ PUT    /api/vault                   { blob, version }             { version } | 
 PUT    /api/files/:id               bytes (octet-stream)          201 | 413 | 507 quota
 GET    /api/files/:id               Bearer                        bytes | 404
 DELETE /api/files/:id               Bearer                        { ok }
-POST   /api/files/reconcile         { ids }                       { deleted }   orfes de >7 dies no inclosos
+POST   /api/files/reconcile         { ids, version }              { deleted } | 409 version_conflict; orfes de >7 dies no inclosos
 GET    /api/events                  Bearer                        { events: [ { kind, detail, country, createdAt } ] }   últims 50
 GET    /api/settings                Bearer                        { warnDays, releaseDays, phone, lastSeen }
 PUT    /api/settings                { warnDays?, releaseDays?, phone? }  { ok }
@@ -124,7 +124,7 @@ Sessió: token aleatori de 32 bytes, 24 hores, guardat hashejat; cada petició a
 
 Sense frameworks ni dependències. Tot l'estat viu en memòria: tancar la pestanya tanca el pla; 15 minuts d'inactivitat també. `_headers` fixa una CSP estricta: scripts, estils, fonts i connexions només del propi origen, sense iframes. Les fonts (Fraunces i Inter, variables, subconjunt llatí) són a `public/fonts/`: el client no fa cap petició a tercers.
 
-Fitxers orfes: si es tanca la pestanya a mitja edició, un fitxer pujat pot quedar al servidor sense que cap pla l'apunti. En obrir el pla, el client envia la llista d'ids vius (`POST /api/files/reconcile`) i el servidor esborra els d'aquell usuari que no hi siguin i tinguin més de 7 dies.
+Fitxers orfes: si es tanca la pestanya a mitja edició, un fitxer pujat pot quedar al servidor sense que cap pla l'apunti. En obrir el pla, el client envia la llista d'ids vius i la versió del pla (`POST /api/files/reconcile`); el servidor només esborra els d'aquell usuari que no hi siguin i tinguin més de 7 dies si aquella versió encara és l'actual. Amb un `409 version_conflict` no esborra res.
 
 ---
 
