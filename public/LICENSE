@@ -1,9 +1,10 @@
-Custodium Client License (source-available)
+Custodium License (source-available)
 
 Copyright (c) 2026 Víctor Sala
 
-This source code is made available so that anyone can read it, audit it,
-and verify that it matches what b2c.custodium.space serves to browsers.
+This source code (the browser client and the server Worker) is made
+available so that anyone can read it, audit it, and verify that the client
+matches what b2c.custodium.space serves to browsers.
 
 Permission is granted, free of charge, to:
 

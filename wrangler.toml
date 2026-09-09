@@ -1,0 +1,37 @@
+name = "custodium-b2c"
+main = "src/index.js"
+compatibility_date = "2026-06-01"
+
+# Subdomini. Cloudflare crea el registre DNS automàticament al primer deploy.
+routes = [
+  { pattern = "b2c.custodium.space", custom_domain = true }
+]
+
+# Frontend estàtic. Es serveix des del mateix origen: zero CORS.
+[assets]
+directory = "./public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "custodium-b2c"
+database_id = "425fbb2f-08d4-4d04-aa86-528acef0ad3d"
+
+# Fitxers adjunts, xifrats al navegador. Crear amb:
+#   npx wrangler r2 bucket create custodium-b2c-files --location weur
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "custodium-b2c-files"
+
+# Còpia setmanal dels fitxers. Només s'hi afegeix, mai s'hi esborra. Crear amb:
+#   npx wrangler r2 bucket create custodium-b2c-files-backup --location weur
+[[r2_buckets]]
+binding = "FILES_BACKUP"
+bucket_name = "custodium-b2c-files-backup"
+
+# Disparadors: cada dia a les 08:00 UTC revisa inactivitat, avisa i entrega;
+# cada diumenge a les 03:00 UTC copia els fitxers nous a FILES_BACKUP.
+[triggers]
+# Cloudflare no accepta "0" com a diumenge: cal "SUN".
+crons = ["0 8 * * *", "0 3 * * SUN"]
+
+# Secret (no va aquí): npx wrangler secret put RESEND_API_KEY

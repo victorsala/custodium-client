@@ -1,0 +1,17 @@
+{
+  "name": "b2c",
+  "version": "1.0.0",
+  "description": "Worker de Cloudflare + D1. Sense dependències, sense `npm install`.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/",
+    "deploy": "sh scripts/public-commit.sh > public/VERSION && wrangler deploy"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "wrangler": "^4.86.0"
+  }
+}
