@@ -30,12 +30,14 @@ Tot el que és sensible es xifra al navegador abans de sortir del dispositiu. El
 **Titular.** D'una sola contrasenya se'n deriven dues claus:
 
 ```
-masterKey = PBKDF2-SHA256(contrasenya, salt = email, 600.000 iteracions)
+masterKey = PBKDF2-SHA256(contrasenya, salt = sal del compte, 600.000 iteracions)
 encKey    = HKDF(masterKey, "custodium-enc")   → AES-256-GCM. Xifra el pla. No surt mai del navegador.
 authHash  = HKDF(masterKey, "custodium-auth")  → 32 bytes. És l'únic que viatja al servidor, per entrar.
 ```
 
-El servidor guarda `SHA-256(sal aleatòria || authHash)`. Ni amb la base de dades a la mà es pot obtenir la contrasenya sense forçar-la a través de les 600.000 iteracions.
+La **sal del compte** són 16 bytes (base64) que dóna el servidor: abans de crear el compte, d'entrar o de canviar la contrasenya, el client la demana a `GET /api/salt?email=` i deriva amb ella. Per a un email **sense** compte, la resposta és `HMAC-SHA256(SALT_PEPPER, email)` truncat a 16 bytes, amb `SALT_PEPPER` un secret del Worker. A l'alta, el servidor guarda exactament aquest valor a `users.kdf_salt`, i per a un email **amb** compte retorna el que té guardat. Així la resposta és idèntica abans i després de registrar un email: `/api/salt` no pot servir per saber si algú té compte. (Si la sal real fos aleatòria, la diferència entre l'HMAC d'abans i l'aleatòria de després delataria l'existència del compte.) La sal no és secreta, però sense el pepper ningú de fora pot calcular-la, és única per email, i dos titulars amb la mateixa contrasenya no comparteixen cap clau. Es guarda a la fila, en comptes de recalcular-la, perquè el compte sobrevisqui a un canvi de pepper i, en el futur, a un canvi d'email: un cop fixada, mana la fila. La còpia exportada porta la sal dins de `plan.json` perquè l'obridor autònom funcioni sense servidor.
+
+El servidor guarda `SHA-256(sal aleatòria || authHash)` (una segona sal, `auth_salt`, independent de la de derivació). Ni amb la base de dades a la mà es pot obtenir la contrasenya sense forçar-la a través de les 600.000 iteracions; i dos titulars amb la mateixa contrasenya no comparteixen cap clau.
 
 **Persona de confiança.** De la seva frase, normalitzada (minúscules, sense accents, un espai entre paraules): `PBKDF2-SHA256(frase, salt = el seu email, 600.000 iteracions)` → clau AES-256. Es deriva un cop, quan el titular la crea, i es guarda **dins del pla del titular** (per tant xifrada amb encKey), juntament amb la frase mateixa. Així cada desat pot rexifrar el paquet sense tornar a demanar la frase, i el titular la pot tornar a veure. Guardar la frase no afegeix risc criptogràfic: qui pugui llegir el pla ja té la clau derivada. El servidor no veu mai ni l'una ni l'altra.
 
@@ -45,7 +47,7 @@ El servidor guarda `SHA-256(sal aleatòria || authHash)`. Ni amb la base de dade
 
 | On | Què | Pot llegir-ho el servidor? |
 | :--- | :--- | :--- |
-| D1 `users` | email, mòbil (opcional), hash d'autenticació amb sal, última senyal de vida, terminis | sí (no és sensible) |
+| D1 `users` | email, mòbil (opcional), sal de derivació de claus, hash d'autenticació amb sal, última senyal de vida, terminis | sí (no és sensible) |
 | D1 `vaults` | el pla, xifrat amb encKey | no |
 | D1 `recipients` | email i mòbil (opcional) de la persona, el seu paquet xifrat, llista d'ids de fitxer | només email, mòbil i ids |
 | D1 `files` | id i mida de cada fitxer | sí (només mida) |
@@ -93,7 +95,8 @@ A cada desat, per a cada persona, el navegador construeix `{ items: [ { title, n
 ### 2.7 API
 
 ```
-POST   /api/register                { email, authHash }           201 | 409
+GET    /api/salt?email=             —                             { salt }   sal del compte; indistingible si l'email no existeix
+POST   /api/register                { email, authHash }           201 | 409   deriva authHash amb la sal de GET /api/salt
 POST   /api/login                   { email, authHash }           { token, expiresAt } | 401
 DELETE /api/session                 Bearer                        { ok }
 DELETE /api/sessions                Bearer                        { ok }   tanca les altres sessions
@@ -142,7 +145,7 @@ Fitxers orfes: si es tanca la pestanya a mitja edició, un fitxer pujat pot qued
 7. **Cuenta.** Email (no es pot canviar: forma part de la derivació de claus), mòbil per als avisos per SMS i canvi de contrasenya. La nova contrasenya es proposa igual que en crear el compte (frase de sis paraules visible, o "prefiero escribir la mía"). El pla es rexifra al navegador amb la nova; persones i fitxers no es toquen; les altres sessions es tanquen. "Cerrar todas las sesiones" tanca el pla a qualsevol altre dispositiu on s'hagi obert, sense tocar la sessió actual. Més endavant, aquí hi aniran dades de contacte i pagament.
 8. **Actividad reciente** (a Cuenta). El que el servidor ha registrat del compte (entrades, intents fallits contra el teu email, canvis, avisos, entregues i obertures), amb data, hora i país de la petició — mai IP ni user-agent — per detectar accessos que no reconeguis. Se'n guarden els 200 més recents; se n'ensenyen 50.
 9. **Eliminar la cuenta** (final de Cuenta). Demana la contrasenya actual i, després d'una confirmació, esborra el pla, els fitxers (també de la còpia de seguretat), les persones i el registre; els enllaços enviats deixen de funcionar. No es pot desfer.
-10. **Una copia fuera de Custodium** (final de "Tu plan", botó "Descargar copia cifrada"). Baixa un zip amb: el teu pla xifrat (`plan.json`), un paquet xifrat per persona (`paquetes/`), tots els fitxers xifrats (`archivos/`), l'obridor `abrir.html` i un `LEEME.txt`. Tot hi és xifrat: el zip es pot deixar en un USB, al núvol o al notari. Torna a baixar-la quan facis canvis importants.
+10. **Una copia fuera de Custodium** (final de "Tu plan", botó "Descargar copia cifrada"). Baixa un zip amb: el teu pla xifrat (`plan.json`, amb la sal del compte dins perquè l'obridor no necessiti el servidor), un paquet xifrat per persona (`paquetes/`), tots els fitxers xifrats (`archivos/`), l'obridor `abrir.html` i un `LEEME.txt`. Tot hi és xifrat: el zip es pot deixar en un USB, al núvol o al notari. Torna a baixar-la quan facis canvis importants.
 
 ### Si Custodium desapareix (o no hi ha internet)
 
@@ -202,6 +205,7 @@ El zip i el sobre amb la frase han d'estar en mans diferents: cap dels dos, sol,
 ```sh
 BASE=https://b2c.custodium.space
 HASH=$(openssl rand -base64 32)
+curl -s $BASE/api/salt?email=jo@example.com                     # {"salt":"…"}, la mateixa abans i després de l'alta
 curl -s -X POST $BASE/api/register -H 'content-type: application/json' -d "{\"email\":\"jo@example.com\",\"authHash\":\"$HASH\"}"
 TOKEN=$(curl -s -X POST $BASE/api/login -H 'content-type: application/json' -d "{\"email\":\"jo@example.com\",\"authHash\":\"$HASH\"}" | sed 's/.*"token":"\([^"]*\)".*/\1/')
 curl -s $BASE/api/vault -H "authorization: Bearer $TOKEN"      # {"error":"no_vault"}
@@ -228,7 +232,7 @@ wrangler.toml       Bindings (D1 "DB", R2 "FILES" i "FILES_BACKUP"), domini, cro
 
 ### Requisits (ja fets)
 
-- Cloudflare: zona `custodium.space`; D1 `custodium-b2c`; R2 `custodium-b2c-files` i `custodium-b2c-files-backup` (WEUR); secrets `RESEND_API_KEY` i, per als SMS, `SMS_USER`, `SMS_PASS`, `SMS_FROM` (passarel·la HTTP de siptraffic; si falten, no s'envien SMS i tot continua funcionant).
+- Cloudflare: zona `custodium.space`; D1 `custodium-b2c`; R2 `custodium-b2c-files` i `custodium-b2c-files-backup` (WEUR); secrets `RESEND_API_KEY`, `SALT_PEPPER` (clau de l'HMAC del qual surt la sal de derivació de cada compte, §2.2: `openssl rand -base64 32`; sense ell `/api/salt` i `/api/register` responen 500 i ningú pot entrar) i, per als SMS, `SMS_USER`, `SMS_PASS`, `SMS_FROM` (passarel·la HTTP de siptraffic; si falten, no s'envien SMS i tot continua funcionant). `SALT_PEPPER` es posa amb `npx wrangler secret put SALT_PEPPER` (i `--env staging` per a staging). No canviar-lo mai a la lleugera: els comptes existents conserven la sal guardada i continuen funcionant, però la dels emails sense compte canviaria i tornaria a distingir-los dels que en tenen.
 - Resend: domini `custodium.space` verificat; remitent `avisos@custodium.space`.
 - `wrangler` com a dependència local (`npm install -D wrangler`), sense instal·lació global.
 
@@ -282,10 +286,11 @@ I a GitHub, custodium-b2c → Settings → Secrets and variables → Actions:
 
 ### Secrets de staging (un sol cop)
 
-En ordre — primer el correu, imprescindible; els SMS opcionals (els tres o cap):
+En ordre — primer el correu i el pepper, imprescindibles; els SMS opcionals (els tres o cap):
 
 ```sh
 npx wrangler secret put RESEND_API_KEY --env staging
+npx wrangler secret put SALT_PEPPER --env staging
 npx wrangler secret put SMS_USER --env staging
 npx wrangler secret put SMS_PASS --env staging
 npx wrangler secret put SMS_FROM --env staging
@@ -321,7 +326,8 @@ Les migracions ja aplicades es poden esborrar del repo un cop consolidades; `git
 
 Zona `custodium.space` → Security → WAF → Rate limiting rules → Create rule:
 
-- Expressió: `(http.host eq "b2c.custodium.space" and http.request.uri.path in {"/api/login" "/api/register" "/api/password"})`
+- Expressió: `(http.host eq "b2c.custodium.space" and http.request.uri.path in {"/api/salt" "/api/login" "/api/register" "/api/password"})`
+- `/api/salt` hi ha de ser: respon a qualsevol email sense autenticar i, tot i que la sal falsa no delata res, és la primera petició de cada intent d'entrada i no ha de poder-se martellejar.
 - Característica: IP. Límit: el més estricte que permeti el pla (al pla gratuït, p. ex. 5 peticions per 10 segons). Acció: Block.
 
 ### Còpia dels fitxers i restauració
@@ -345,7 +351,7 @@ npx wrangler r2 object put custodium-b2c-files/USERID/FILEID --file restaurat.bi
 ### Buidar-ho tot
 
 ```sh
-npx wrangler d1 execute custodium-b2c --remote --command "DELETE FROM sessions; DELETE FROM recipients; DELETE FROM files; DELETE FROM vaults; DELETE FROM users;"
+npx wrangler d1 execute custodium-b2c --remote --command "DELETE FROM sessions; DELETE FROM events; DELETE FROM recipients; DELETE FROM files; DELETE FROM vaults; DELETE FROM users;"
 ```
 
 R2: tauler → bucket → Objects → seleccionar tot → Delete.
@@ -355,9 +361,9 @@ R2: tauler → bucket → Objects → seleccionar tot → Delete.
 ## 6. Límits coneguts de la beta
 
 - Una sola contrasenya per titular, sense segon factor.
-- Rate limiting via regla al WAF de Cloudflare (`/api/login`, `/api/register`, `/api/password`); vegeu §5.
+- Rate limiting via regla al WAF de Cloudflare (`/api/salt`, `/api/login`, `/api/register`, `/api/password`); vegeu §5.
 - Els paquets es refan sencers a cada desat (bé per a pocs elements, no per a milers).
 - Els fitxers es pugen i s'exporten sencers en memòria (50 MB per fitxer és el límit pràctic en mòbil; l'exportació d'1 GB necessita un ordinador).
 - Sense clau de recuperació ni per al titular ni per a les persones: decisió de disseny, no un oblit. L'exportació és la còpia de seguretat del titular.
-- Sense canvi d'email (és la sal de la derivació de claus; canviar-lo equivaldria a crear un compte nou).
+- Sense canvi d'email (no implementat; des que la sal de derivació és pròpia del compte ja no és una limitació criptogràfica).
 - Cap auditoria externa de la criptografia. Els paràmetres són estàndard (PBKDF2 600k, HKDF, AES-256-GCM, WebCrypto natiu), però el codi no l'ha revisat ningú de fora.

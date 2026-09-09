@@ -3,6 +3,7 @@
 // El servidor autentica, guarda blobs xifrats i, quan toca, envia enllaços.
 // No veu mai contrasenyes, frases, contingut ni fitxers en clar.
 //
+//   GET    /api/salt?email=           —                        → { salt }   sal de derivació del compte (base64, 16 bytes)
 //   POST   /api/register              { email, authHash }      → 201 | 409
 //   POST   /api/login                 { email, authHash }      → { token, expiresAt } | 401
 //   DELETE /api/session               Bearer                   → { ok }
@@ -46,6 +47,10 @@ const MAX_FILE_IDS = 500;
 const MAX_RECIPIENTS = 20;
 
 // SITE, MAIL_FROM i ENV viuen a wrangler.toml ([vars], per entorn).
+// SALT_PEPPER és un secret (wrangler secret put): clau de l'HMAC del qual surt
+// la sal de derivació de cada compte (vegeu accountSalt).
+
+const KDF_SALT_BYTES = 16;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+[1-9]\d{6,14}$/;    // format internacional, p. ex. +34600000000
@@ -60,6 +65,7 @@ export default {
 
     try {
       if (pathname === "/api/env"      && method === "GET") return json({ env: env.ENV || "production" });
+      if (pathname === "/api/salt"     && method === "GET") return await getSalt(request, env);
       if (pathname === "/api/register" && method === "POST") return await register(request, env);
       if (pathname === "/api/login"    && method === "POST") return await login(request, env);
       if (pathname === "/api/session"  && method === "DELETE") return await logout(request, env);
@@ -118,22 +124,56 @@ export default {
 
 // ---------------------------------------------------------------- auth
 
+// A l'alta, la sal de derivació (kdf_salt) és la mateixa que /api/salt ja
+// donava per a aquest email abans que existís el compte: el client l'ha
+// demanat, ha derivat l'authHash amb ella, i aquí es fixa a la fila del
+// compte. Des d'ara és la fila la que mana (vegeu accountSalt).
 async function register(request, env) {
   const { email, authHash } = parseCredentials(await readJson(request));
+  const kdfSalt = await accountSalt(env, email);
   const salt = randomBytes(16);
   const hash = await sha256(salt, authHash);
   const ts = now();
 
   try {
     await env.DB
-      .prepare("INSERT INTO users (id, email, auth_salt, auth_hash, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?)")
-      .bind(crypto.randomUUID(), email, b64.encode(salt), b64.encode(hash), ts, ts)
+      .prepare("INSERT INTO users (id, email, auth_salt, auth_hash, kdf_salt, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .bind(crypto.randomUUID(), email, b64.encode(salt), b64.encode(hash), kdfSalt, ts, ts)
       .run();
   } catch (err) {
     if (isUniqueViolation(err)) throw new HttpError(409, "email_exists");
     throw err;
   }
   return json({ ok: true }, 201);
+}
+
+// La sal del compte, perquè el client pugui derivar les claus. Cobert per la
+// regla de rate limiting del WAF (README §5).
+async function getSalt(request, env) {
+  const email = parseEmail(new URL(request.url).searchParams.get("email"));
+  return json({ salt: await accountSalt(env, email) });
+}
+
+// Sal de derivació d'un email, tingui compte o no: la guardada a la fila si
+// n'hi ha, i si no HMAC-SHA256(SALT_PEPPER, email) truncat a 16 bytes. Com que
+// a l'alta es guarda exactament aquest HMAC, la resposta és la mateixa abans i
+// després de registrar l'email: /api/salt no diu si el compte existeix. Es
+// guarda (i no es recalcula) perquè sobrevisqui a un canvi d'email o de pepper.
+// L'HMAC es calcula sempre, també quan hi ha fila, per no delatar-ho pel temps.
+async function accountSalt(env, email) {
+  if (!env.SALT_PEPPER) throw new HttpError(500, "salt_not_configured");
+  const user = await env.DB.prepare("SELECT kdf_salt FROM users WHERE email = ?").bind(email).first();
+  const derived = b64.encode(await deriveSalt(env.SALT_PEPPER, email));
+  return user?.kdf_salt || derived;
+}
+
+// HMAC-SHA256(pepper, email) truncat a la mida de la sal. Únic per email i,
+// sense el pepper, impossible de recalcular des de fora.
+async function deriveSalt(pepper, email) {
+  const te = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", te.encode(pepper), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = new Uint8Array(await crypto.subtle.sign("HMAC", key, te.encode(email)));
+  return mac.slice(0, KDF_SALT_BYTES);
 }
 
 async function login(request, env) {

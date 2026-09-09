@@ -1,15 +1,20 @@
-// crypto.js — Custodium B2C · v3
+// crypto.js — Custodium B2C · v4
 //
 // Tot el xifrat passa aquí, al navegador. De la contrasenya del titular només
 // surt del dispositiu authHash; encKey no és exportable.
 //
-//   masterKey = PBKDF2-SHA256(password, salt = email, 600.000 iter)
+//   masterKey = PBKDF2-SHA256(password, salt = sal del compte, 600.000 iter)
 //   encKey    = HKDF(masterKey, "custodium-enc")  → AES-256-GCM, no extractable
 //   authHash  = HKDF(masterKey, "custodium-auth") → 32 bytes, base64
 //
+// La sal del compte són 16 bytes (base64) que dóna el servidor (GET /api/salt)
+// i que l'alta fixa a users.kdf_salt; el client la demana abans de derivar.
+// La còpia exportada la porta dins de plan.json.
+//
 // Persones de confiança: la seva clau es deriva de la seva frase amb el mateix
-// PBKDF2 (salt = el seu email). Es guarda dins del pla del titular (xifrada
-// per ell) per poder rexifrar el paquet a cada desat sense tornar a demanar-la.
+// PBKDF2, amb el seu email com a sal (no canvia). Es guarda dins del pla del
+// titular (xifrada per ell) per poder rexifrar el paquet a cada desat sense
+// tornar a demanar-la.
 //
 // Fitxers: clau aleatòria pròpia per fitxer. La clau viatja dins del pla i
 // dins del paquet de la persona que ha de rebre'l. Un sol objecte a R2.
@@ -22,8 +27,9 @@ const PBKDF2_ITERATIONS = 600_000;
 const te = new TextEncoder();
 const td = new TextDecoder();
 
-export async function deriveKeys(email, password) {
-  const masterBits = await pbkdf2(password, email);
+// salt: la sal del compte, base64 (16 bytes).
+export async function deriveKeys(salt, password) {
+  const masterBits = await pbkdf2(password, b64decode(salt));
   const masterKey = await crypto.subtle.importKey("raw", masterBits, "HKDF", false, ["deriveKey", "deriveBits"]);
 
   const encKey = await crypto.subtle.deriveKey(
@@ -45,13 +51,13 @@ export async function deriveKeys(email, password) {
 
 // Clau d'una persona de confiança a partir de la seva frase. Retorna 32 bytes.
 export async function derivePassphraseKey(email, passphrase) {
-  return new Uint8Array(await pbkdf2(normalizePassphrase(passphrase), email));
+  return new Uint8Array(await pbkdf2(normalizePassphrase(passphrase), te.encode(email.trim().toLowerCase())));
 }
 
-async function pbkdf2(secret, saltText) {
+async function pbkdf2(secret, saltBytes) {
   const key = await crypto.subtle.importKey("raw", te.encode(secret), "PBKDF2", false, ["deriveBits"]);
   return crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt: te.encode(saltText.trim().toLowerCase()), iterations: PBKDF2_ITERATIONS },
+    { name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations: PBKDF2_ITERATIONS },
     key,
     256
   );

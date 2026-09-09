@@ -83,22 +83,29 @@
   var ITER = 600000;
   function b64d(s) { return Uint8Array.from(atob(s), function (c) { return c.charCodeAt(0); }); }
   function normalize(t) { return t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().split(/\s+/).join(" "); }
-  async function pbkdf2(secret, saltText) {
+  async function pbkdf2(secret, saltBytes) {
     var k = await crypto.subtle.importKey("raw", te.encode(secret), "PBKDF2", false, ["deriveBits"]);
-    return crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: te.encode(saltText.trim().toLowerCase()), iterations: ITER }, k, 256);
+    return crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations: ITER }, k, 256);
   }
   async function aes(raw) { return crypto.subtle.importKey("raw", raw, { name: "AES-GCM" }, false, ["decrypt"]); }
-  async function titularKey(email, password) {
-    var master = await crypto.subtle.importKey("raw", await pbkdf2(password, email), "HKDF", false, ["deriveKey"]);
+  // Titular: la sal és la del compte (16 bytes, base64), que la còpia porta dins de plan.json.
+  async function titularKey(salt, password) {
+    var master = await crypto.subtle.importKey("raw", await pbkdf2(password, b64d(salt)), "HKDF", false, ["deriveKey"]);
     return crypto.subtle.deriveKey({ name: "HKDF", hash: "SHA-256", salt: new Uint8Array(0), info: te.encode("custodium-enc") }, master, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
   }
-  async function personKey(email, phrase) { return aes(await pbkdf2(normalize(phrase), email)); }
+  // Persona de confiança: la sal continua sent el seu email.
+  async function personKey(email, phrase) { return aes(await pbkdf2(normalize(phrase), te.encode(email.trim().toLowerCase()))); }
   async function decryptJson(key, blob) {
     var pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64d(blob.iv) }, key, b64d(blob.ct));
     return JSON.parse(td.decode(pt));
   }
   async function decryptBytes(key, buf) {
     return new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: buf.slice(0, 12) }, key, buf.slice(12)));
+  }
+  // plan.json de la còpia: { v, iv, ct, salt }. Sense sal no es pot derivar res.
+  async function openPlan(planJson, password) {
+    if (typeof planJson.salt !== "string") throw new Error("no_salt");
+    return decryptJson(await titularKey(planJson.salt, password), planJson);
   }
 
   // ---------- càrrega de la còpia ----------
@@ -130,10 +137,10 @@
 
     $("#open").disabled = true; msg("Derivando la clave…");
     try {
-      // Titular?
+      // Titular? La sal del compte va dins de plan.json, no depèn de l'email.
       if (entries["plan.json"]) {
         try {
-          var vault = await decryptJson(await titularKey(email, secret), JSON.parse(td.decode(entries["plan.json"])));
+          var vault = await openPlan(JSON.parse(td.decode(entries["plan.json"])), secret);
           current = { kind: "plan", data: vault }; return render();
         } catch (_) { /* no és el titular */ }
       }

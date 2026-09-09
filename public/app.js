@@ -28,6 +28,7 @@ const state = {
   token: null,
   encKey: null,
   authHash: null,       // per verificar la contrasenya localment abans d'ensenyar una frase
+  kdfSalt: null,        // sal del compte (base64); cal per derivar les claus de la contrasenya
   email: null,
   reveal: {},           // id de persona → "ask" | "shown"
   vault: null,
@@ -56,6 +57,14 @@ async function api(path, { method = "GET", body, auth = true } = {}) {
 
 // ----------------------------------------------------------------- auth
 
+// Sal del compte, abans de derivar res. El servidor la dóna igual per a un
+// email amb compte que sense (README §2.2): la resposta no diu res.
+async function fetchSalt(email) {
+  const r = await api(`/api/salt?email=${encodeURIComponent(email)}`, { auth: false });
+  if (r.status !== 200 || typeof r.data?.salt !== "string") throw new Error("no_salt");
+  return r.data.salt;
+}
+
 async function submitLogin(event) {
   event.preventDefault();
   const email = $("#login-email").value.trim().toLowerCase();
@@ -65,11 +74,13 @@ async function submitLogin(event) {
 
   setBusy(true, "Derivando las claves en este dispositivo…");
   try {
-    const { encKey, authHash } = await deriveKeys(email, password);
+    const salt = await fetchSalt(email);
+    const { encKey, authHash } = await deriveKeys(salt, password);
     const r = await api("/api/login", { method: "POST", body: { email, authHash }, auth: false });
     if (r.status !== 200) return msg("Email o contraseña incorrectos.");
     $("#login-password").value = "";
     state.email = email;
+    state.kdfSalt = salt;
     state.authHash = authHash;
     await openVault(r.data.token, encKey);
   } catch (err) {
@@ -94,7 +105,9 @@ async function submitRegister(event) {
 
   setBusy(true, "Derivando las claves en este dispositivo…");
   try {
-    const { encKey, authHash } = await deriveKeys(email, password);
+    // La sal és la que el servidor ja dóna per a aquest email; l'alta la fixa al compte.
+    const salt = await fetchSalt(email);
+    const { encKey, authHash } = await deriveKeys(salt, password);
     const reg = await api("/api/register", { method: "POST", body: { email, authHash }, auth: false });
     if (reg.status === 409) return msg("Ya existe una cuenta con este email.");
     if (reg.status !== 201) return msg("No se ha podido crear la cuenta.");
@@ -103,6 +116,7 @@ async function submitRegister(event) {
     $("#register-password").value = "";
     $("#register-confirm").value = "";
     state.email = email;
+    state.kdfSalt = salt;
     state.authHash = authHash;
     await openVault(r.data.token, encKey);
   } catch (err) {
@@ -146,6 +160,7 @@ function clearSecrets() {
   state.token = null;
   state.encKey = null;
   state.authHash = null;
+  state.kdfSalt = null;
   state.email = null;
   state.reveal = {};
   clearTimeout(revealTimer);
@@ -603,7 +618,7 @@ async function confirmReveal(id) {
   if (!password) return;
   setBusy(true, "Comprobando la contraseña…");
   try {
-    const { authHash } = await deriveKeys(state.email, password);
+    const { authHash } = await deriveKeys(state.kdfSalt, password);
     input.value = "";
     if (authHash !== state.authHash) return toast("La contraseña no es correcta.");
     state.reveal = { [id]: "shown" };
@@ -725,7 +740,7 @@ async function deleteAccount(event) {
 
   setBusy(true, "Eliminando la cuenta…");
   try {
-    const { authHash } = await deriveKeys(state.email, password);
+    const { authHash } = await deriveKeys(state.kdfSalt, password);
     const r = await api("/api/account", { method: "DELETE", body: { authHash } });
     if (r.status === 401) return msg("La contraseña no es correcta.");
     if (r.status !== 200) return msg("No se ha podido eliminar la cuenta. Prueba de nuevo.");
@@ -814,8 +829,11 @@ async function changePassword(event) {
 
   setBusy(true, "Derivando las claves y cifrando de nuevo el plan…");
   try {
-    const old = await deriveKeys(state.email, current);
-    const fresh = await deriveKeys(state.email, next);
+    // La sal és del compte, no de la contrasenya: es torna a demanar al servidor
+    // i serveix per a les dues derivacions.
+    const salt = await fetchSalt(state.email);
+    const old = await deriveKeys(salt, current);
+    const fresh = await deriveKeys(salt, next);
     const blob = await encryptJson(fresh.encKey, state.vault);
     const r = await api("/api/password", {
       method: "POST",
@@ -827,6 +845,7 @@ async function changePassword(event) {
     if (r.status !== 200) return msg("No se ha podido cambiar la contraseña.");
 
     state.token = r.data.token;
+    state.kdfSalt = salt;
     state.encKey = fresh.encKey;
     state.authHash = fresh.authHash;
     state.version = r.data.version;
@@ -857,7 +876,9 @@ async function exportBundle() {
     const files = {};
     const te = new TextEncoder();
 
-    files["plan.json"] = te.encode(JSON.stringify(await encryptJson(state.encKey, state.vault)));
+    // plan.json porta la sal del compte: l'obridor la necessita per derivar la
+    // clau del titular sense servidor (no és secreta, però sense ella no s'obre).
+    files["plan.json"] = te.encode(JSON.stringify({ ...(await encryptJson(state.encKey, state.vault)), salt: state.kdfSalt }));
 
     for (const p of state.vault.recipients) {
       const items = state.vault.items

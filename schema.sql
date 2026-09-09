@@ -1,4 +1,4 @@
--- Custodium B2C · esquema D1 · estat consolidat (9 setembre 2026, inclou migration-20260908, -20260908b, -20260909 i -20260909b)
+-- Custodium B2C · esquema D1 · estat consolidat (9 setembre 2026, inclou migration-20260908, -20260908b, -20260909, -20260909b i -20260909c)
 -- Crea la base de dades tal com és avui. Per a una D1 nova:
 --   npx wrangler d1 execute <nom> --remote --file=schema.sql
 -- La base de dades de producció ja té tot això aplicat (migracions v1–v5, consolidades aquí).
@@ -8,7 +8,7 @@
 
 CREATE TABLE IF NOT EXISTS users (
   id                  TEXT PRIMARY KEY,       -- uuid
-  email               TEXT UNIQUE NOT NULL,   -- sempre en minúscules; és la sal de la derivació de claus
+  email               TEXT UNIQUE NOT NULL,   -- sempre en minúscules
   phone               TEXT,                   -- mòbil per a l'SMS d'avís, opcional, format +34…
   auth_salt           TEXT NOT NULL,          -- 16 bytes aleatoris, base64
   auth_hash           TEXT NOT NULL,          -- SHA-256(auth_salt || authHash), base64
@@ -19,9 +19,12 @@ CREATE TABLE IF NOT EXISTS users (
   checkin_token_hash  TEXT,                   -- botó "Sigo aquí" del correu
   checkin_expires_at  INTEGER,
   created_at          INTEGER NOT NULL,
-  -- Al final perquè va arribar amb un ALTER TABLE (migration-20260908) i així
-  -- una D1 nova queda igual que la de producció, columna per columna.
-  warn_count          INTEGER NOT NULL DEFAULT 0  -- avisos entregats des de l'última senyal; cal >= 2 per entregar
+  -- Al final perquè van arribar amb ALTER TABLE (migration-20260908 i -20260909c)
+  -- i així una D1 nova queda igual que la de producció, columna per columna.
+  warn_count          INTEGER NOT NULL DEFAULT 0, -- avisos entregats des de l'última senyal; cal >= 2 per entregar
+  kdf_salt            TEXT                        -- sal de la derivació de claus del titular: HMAC(SALT_PEPPER, email)
+                                                  -- truncat a 16 bytes, base64, fixat a l'alta (README §2.2). NULL només
+                                                  -- en files anteriors a migration-20260909c, que s'esborren
 );
 
 CREATE TABLE IF NOT EXISTS sessions (

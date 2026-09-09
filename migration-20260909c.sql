@@ -1,0 +1,17 @@
+-- Sal de derivació de claus per compte (README §2.2). Fins ara la sal era
+-- l'email; ara són 16 bytes (base64) que el servidor fixa a l'alta a partir
+-- del secret SALT_PEPPER i que GET /api/salt retorna abans de derivar.
+--
+-- No hi ha camí de migració per als comptes existents: les seves claus es van
+-- derivar amb l'email com a sal i el servidor no pot tornar-les a derivar. Els
+-- comptes anteriors a aquesta migració queden inutilitzables i s'esborren
+-- (README §5, "Buidar-ho tot"). Per això la columna admet NULL: cap fila nova
+-- en tindrà (register la omple sempre) i les velles desapareixen.
+--
+-- SQLite/D1 no admet ADD COLUMN IF NOT EXISTS: aplicar una sola vegada.
+-- Abans de repetir-la, comprova-ho amb:
+--   npx wrangler d1 execute custodium-b2c --remote --command "PRAGMA table_info(users)"
+--
+--   npx wrangler d1 execute custodium-b2c-staging --remote --file=migration-20260909c.sql
+--   npx wrangler d1 execute custodium-b2c --remote --file=migration-20260909c.sql
+ALTER TABLE users ADD COLUMN kdf_salt TEXT;
