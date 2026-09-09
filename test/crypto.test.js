@@ -32,6 +32,9 @@ const appSrc = readFileSync(new URL("../public/app.js", import.meta.url), "utf8"
 const phoneSrc = appSrc.match(/function normalizePhone\(value\) \{[\s\S]*?\n\}/);
 assert.ok(phoneSrc, "no s'ha trobat normalizePhone dins app.js");
 const normalizePhone = new Function(`return ${phoneSrc[0]}`)();
+const onboardingSrc = appSrc.match(/function onboardingState\(vault, settings\) \{[\s\S]*?\n\}/);
+assert.ok(onboardingSrc, "no s'ha trobat onboardingState dins app.js");
+const onboardingState = new Function(`return ${onboardingSrc[0]}`)();
 
 // ---- parsePhone i reconciliació del Worker (s'extreuen del codi desplegat) ----
 const workerSrc = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
@@ -203,4 +206,38 @@ test("reconciliació: només la versió actual pot esborrar fitxers", () => {
   assert.equal(reconcileVersionMatches(3, 4), false);
   assert.equal(reconcileVersionMatches(0, undefined), true);
   assert.equal(reconcileVersionMatches(1, undefined), false);
+});
+
+// (f) primers passos
+
+test("onboardingState: cada pas es dedueix del pla i de la configuració; la guia se'n va en acabar o en tancar-la", () => {
+  const done = (r) => Object.fromEntries(r.steps.map((s) => [s.id, s.done]));
+  const none = { password: true, person: false, item: false, phone: false, deadlines: false, copy: false };
+
+  // Compte acabat de crear: només la contrasenya, i la guia visible.
+  const empty = onboardingState({ v: 2, recipients: [], items: [] }, { warnDays: 8, releaseDays: 21, phone: null });
+  assert.deepEqual(done(empty), none);
+  assert.deepEqual(empty.steps.map((s) => s.id), ["password", "person", "item", "phone", "deadlines", "copy"]);
+  assert.deepEqual([empty.allDone, empty.dismissed, empty.visible], [false, false, true]);
+
+  // Cada pas per separat.
+  const vault = { v: 2, recipients: [], items: [] };
+  assert.equal(done(onboardingState({ ...vault, recipients: [{ id: "p1" }] }, {})).person, true);
+  assert.equal(done(onboardingState({ ...vault, items: [{ id: "x" }] }, {})).item, true);
+  assert.equal(done(onboardingState(vault, { phone: "+34600000000" })).phone, true);
+  assert.equal(done(onboardingState(vault, { phone: "" })).phone, false);
+  assert.equal(done(onboardingState({ ...vault, onboarding: { plazosReviewed: 1 } }, {})).deadlines, true);
+  assert.equal(done(onboardingState({ ...vault, onboarding: { exportedAt: 1 } }, {})).copy, true);
+
+  // Les sis fetes: desapareix sola.
+  const all = onboardingState({ ...vault, recipients: [{ id: "p1" }], items: [{ id: "x" }], onboarding: { plazosReviewed: 1, exportedAt: 2 } }, { phone: "+34600000000" });
+  assert.equal(all.allDone, true);
+  assert.equal(all.visible, false);
+
+  // Tancada amb la X: no torna a sortir encara que quedin passos.
+  const closed = onboardingState({ ...vault, onboarding: { dismissedAt: 5 } }, {});
+  assert.deepEqual([closed.allDone, closed.dismissed, closed.visible], [false, true, false]);
+
+  // Pla o configuració encara no carregats: no peta.
+  assert.equal(onboardingState(undefined, undefined).visible, true);
 });

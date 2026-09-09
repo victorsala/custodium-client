@@ -69,9 +69,12 @@ Que el servidor no pugui llegir el contingut no vol dir que no tingui res: corre
     { "id": "uuid", "title": "Compte a Indexa", "recipientIds": [ "uuid", "…" ],
       "notes": "text lliure", "files": [ { "id": "uuid", "name": "x.pdf", "size": 1234, "key": "base64" } ],
       "updatedAt": 0 }
-  ]
+  ],
+  "onboarding": { "exportedAt": 0, "plazosReviewed": 0, "dismissedAt": 0 }
 }
 ```
+
+`onboarding` és opcional: marques de la guia de primers passos (`exportedAt` en baixar una còpia, `plazosReviewed` en guardar els terminis un cop, `dismissedAt` en tancar la guia). La resta de passos es dedueixen del pla i de la configuració.
 
 Es xifra sencer com a `{ "v": 1, "iv": "base64 (12 bytes)", "ct": "base64" }`. Els fitxers es guarden com `iv (12 bytes) || ciphertext`.
 
@@ -147,6 +150,7 @@ Fitxers orfes: si es tanca la pestanya a mitja edició, un fitxer pujat pot qued
 ### Titular
 
 1. **Crear compte**, en dos passos. (1) Email → "Enviar código": arriba un correu amb un codi de sis xifres que caduca en 15 minuts (si l'email ja té compte, arriba un correu que ho diu i cap codi; la pantalla no ho distingeix). (2) "Te hemos enviado un código a …": el codi i la contrasenya. Els camps de contrasenya surten ja omplerts amb una frase de sis paraules generada al navegador, visible, amb l'avís "Apúntala antes de continuar"; l'enllaç "prefiero escribir la mía" buida els camps, els oculta i exigeix 16+ caràcters. "No me ha llegado" envia un altre codi (només val l'últim; tres per hora com a màxim); "Cambiar el email" torna al pas 1. Cinc codis equivocats i cal demanar-ne un de nou. Les claus es deriven només al pas 2. No hi ha recuperació de la contrasenya: guarda-la al gestor de contrasenyes.
+   - **Primers passos.** Sota la intro de "Tu plan", un bloc "Primeros pasos" amb sis caselles (contrasenya guardada, una persona, primer element, mòbil per als avisos, terminis revisats, còpia baixada), cadascuna deduïda del pla o de la configuració (cap dada nova al servidor; "terminis revisats" i "còpia baixada" són marques dins del pla xifrat, la primera en prémer "Guardar plazos" un cop). Cada pas pendent enllaça a l'acció. Desapareix quan les sis estan fetes o en tancar-lo amb la X (`onboarding.dismissedAt`, no torna a sortir). Mentre és visible no es mostra "Aún no hay nada".
 2. **Afegir elements.** "+ Añadir elemento": què és, persones que l'han de rebre (caselles; cap = només per a tu), instruccions, fitxers (fins a 50 MB). "Listo" xifra i desa al moment. No hi ha botó de desar.
 3. **Persones.** "+ Añadir persona": nom, email, mòbil opcional (per a l'SMS d'avís) i frase. La frase la genera sempre el sistema, sis paraules a l'atzar (llista BIP39 en castellà, 2.048 paraules → 66 bits), tipus `ebano deporte nacar cien organo vagar`; no es pot escriure a mà ("Generar otra" en dona una altra). Escriu-les en paper i dona-l'hi en persona; mai per missatge. En obrir, no importen majúscules, accents ni espais. La frase queda guardada dins del teu pla (xifrada, com la resta): "Mostrar frase" la torna a ensenyar després de demanar-te la contrasenya, durant un minut, per comprovar el paper o tornar-lo a escriure.
 4. **Terminis.** A "Personas → Entrega por inactividad": primer avís (8 dies per defecte) i entrega (21). L'entrega ha de ser posterior a l'avís. Els dos terminis compten des de l'última activitat o confirmació; entrar o pulsar "Sigo aquí" els reinicia.

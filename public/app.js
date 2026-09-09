@@ -744,6 +744,8 @@ async function saveSettings(event) {
     state.settings = { ...state.settings, warnDays, releaseDays };
     msg("");
     toast("Plazos guardados.");
+    // Guardar els terminis un cop, encara que no canviïn, és "revisar-los".
+    if (!state.vault?.onboarding?.plazosReviewed) await markOnboarding({ plazosReviewed: Date.now() });
   } else {
     msg("No se han podido guardar los plazos.");
   }
@@ -1096,12 +1098,30 @@ async function exportBundle() {
     const zip = zipSync(files, { level: 0 });
     saveAs(zip, `custodium-${new Date().toISOString().slice(0, 10)}.zip`);
     toast("Copia descargada.");
+    await markOnboarding({ exportedAt: Date.now() });
   } catch (err) {
     console.error(err);
     toast("No se ha podido preparar la copia.");
   } finally {
     setBusy(false);
   }
+}
+
+// Deixa una marca de la guia dins del pla (xifrat): còpia baixada, terminis
+// revisats o guia tancada. Només el pla, sense refer paquets ni avisar; si el
+// pla ha canviat en un altre dispositiu, es recarrega i la marca es perd, que
+// no és greu.
+async function markOnboarding(patch) {
+  state.vault.onboarding = { ...(state.vault.onboarding || {}), ...patch };
+  try {
+    const blob = await encryptJson(state.encKey, state.vault);
+    const r = await api("/api/vault", { method: "PUT", body: { blob, version: state.version } });
+    if (r.status === 200) state.version = r.data.version;
+    else if (r.status === 409) await loadVault();
+  } catch (err) {
+    console.error(err);
+  }
+  renderOnboarding();
 }
 
 // --------------------------------------------------------------- render
@@ -1122,11 +1142,69 @@ function renderReleaseNotice() {
     ". Si no era tu intención, anula el enlace.";
 }
 
+// ------------------------------------------------------------ onboarding
+
+// Estat dels primers passos, deduït del pla i de la configuració, sense cap
+// columna nova al servidor. Pura: (vault, settings) → passos.
+// vault.onboarding guarda les marques que no es dedueixen de res més
+// (plazosReviewed, exportedAt) i dismissedAt si el titular ha tancat la guia.
+// settings: { warnDays, releaseDays, phone } (el que dóna /api/settings).
+function onboardingState(vault, settings) {
+  const ob = vault?.onboarding ?? {};
+  const steps = [
+    { id: "password", done: true },                                   // feta en crear el compte
+    { id: "person", done: (vault?.recipients ?? []).length > 0 },
+    { id: "item", done: (vault?.items ?? []).length > 0 },
+    { id: "phone", done: Boolean(settings?.phone) },
+    { id: "deadlines", done: Boolean(ob.plazosReviewed) },
+    { id: "copy", done: Boolean(ob.exportedAt) },
+  ];
+  const allDone = steps.every((s) => s.done);
+  const dismissed = Boolean(ob.dismissedAt);
+  return { steps, allDone, dismissed, visible: !allDone && !dismissed };
+}
+
+const ONBOARDING_TEXTS = {
+  password: { text: "Guarda la contraseña" },
+  person: { text: "Añade una persona", action: "Personas", go: () => goPeople() },
+  item: { text: "Crea el primer elemento", action: "Añadir elemento", go: () => startEdit(null) },
+  phone: { text: "Añade tu móvil para avisos", action: "Cuenta", go: () => goAccount() },
+  deadlines: { text: "Revisa los plazos de entrega", action: "Personas", go: () => goPeople() },
+  copy: { text: "Descarga una copia", action: "Descargar copia cifrada", go: () => exportBundle() },
+};
+
+function renderOnboarding() {
+  const { steps, visible } = onboardingState(state.vault, state.settings);
+  $("#onboarding").hidden = !visible;
+  const ul = $("#onboarding-steps");
+  ul.replaceChildren();
+  if (!visible) return;
+  for (const s of steps) {
+    const t = ONBOARDING_TEXTS[s.id];
+    const li = el("li", { class: s.done ? "done" : "" });
+    li.append(el("span", { class: "tick", "aria-hidden": "true" }));
+    const body = el("div");
+    const line = el("p", { class: "step-text" }, t.text + (s.done ? " · hecho" : ""));
+    if (!s.done && t.action) {
+      line.append(" · ");
+      const b = el("button", { type: "button", class: "link" }, t.action);
+      b.addEventListener("click", t.go);
+      line.append(b);
+    }
+    body.append(line);
+    if (!s.done && t.hint) body.append(el("p", { class: "hint" }, t.hint));
+    li.append(body);
+    ul.append(li);
+  }
+}
+
 function renderList() {
   const list = $("#items");
   list.replaceChildren();
   const items = state.vault?.items ?? [];
-  $("#empty").hidden = items.length > 0;
+  renderOnboarding();
+  // "Aún no hay nada" només quan la guia no hi és: si no, es repeteixen.
+  $("#empty").hidden = items.length > 0 || !$("#onboarding").hidden;
   renderReleaseNotice();
 
   for (const item of items) {
@@ -1363,6 +1441,7 @@ function boot() {
   $("#delete-form").addEventListener("submit", deleteAccount);
   $("#add").addEventListener("click", () => startEdit(null));
   $("#export").addEventListener("click", exportBundle);
+  $("#onboarding-close").addEventListener("click", () => markOnboarding({ dismissedAt: Date.now() }).then(renderList));
   $("#phone-form").addEventListener("submit", savePhone);
   $("#release-notice-go").addEventListener("click", goPeople);
   $("#item-form").addEventListener("submit", applyItem);

@@ -6,25 +6,27 @@
 --
 -- El servidor no guarda mai contrasenyes, frases ni contingut en clar.
 
+-- Ordre de columnes = el de producció (PRAGMA table_info): les afegides amb
+-- ALTER TABLE van al final, en l'ordre en què es van afegir. Així una D1 nova
+-- queda igual que la de producció, columna per columna.
 CREATE TABLE IF NOT EXISTS users (
   id                  TEXT PRIMARY KEY,       -- uuid
   email               TEXT UNIQUE NOT NULL,   -- sempre en minúscules
-  phone               TEXT,                   -- mòbil per a l'SMS d'avís, opcional, format +34…
   auth_salt           TEXT NOT NULL,          -- 16 bytes aleatoris, base64
   auth_hash           TEXT NOT NULL,          -- SHA-256(auth_salt || authHash), base64
+  created_at          INTEGER NOT NULL,
   last_seen           INTEGER,                -- última activitat o confirmació (epoch s)
   warned_at           INTEGER,                -- últim avís d'inactivitat enviat
   warn_days           INTEGER NOT NULL DEFAULT 8,
   release_days        INTEGER NOT NULL DEFAULT 21,
   checkin_token_hash  TEXT,                   -- botó "Sigo aquí" del correu
   checkin_expires_at  INTEGER,
-  created_at          INTEGER NOT NULL,
-  -- Al final perquè van arribar amb ALTER TABLE (migration-20260908 i -20260909c)
-  -- i així una D1 nova queda igual que la de producció, columna per columna.
-  warn_count          INTEGER NOT NULL DEFAULT 0, -- avisos entregats des de l'última senyal; cal >= 2 per entregar
-  kdf_salt            TEXT                        -- sal de la derivació de claus del titular: HMAC(SALT_PEPPER, email)
-                                                  -- truncat a 16 bytes, base64, fixat a l'alta (README §2.2). NULL només
-                                                  -- en files anteriors a migration-20260909c, que s'esborren
+  -- Afegides amb ALTER TABLE, en aquest ordre:
+  phone               TEXT,                       -- mòbil per a l'SMS d'avís, opcional, format +34…
+  warn_count          INTEGER NOT NULL DEFAULT 0, -- (migration-20260908) avisos entregats des de l'última senyal; cal >= 2 per entregar
+  kdf_salt            TEXT                        -- (migration-20260909c) sal de la derivació de claus del titular:
+                                                  -- HMAC(SALT_PEPPER, email) truncat a 16 bytes, base64, fixat a l'alta
+                                                  -- (README §2.2). NULL només en files anteriors a la migració, que s'esborren
 );
 
 -- Altes en curs: el compte no es crea fins que el codi enviat per correu ha
@@ -63,23 +65,23 @@ CREATE TABLE IF NOT EXISTS files (
 
 CREATE INDEX IF NOT EXISTS files_user ON files(user_id);
 
+-- Mateix criteri que users: ordre de producció, afegides amb ALTER TABLE al final.
 CREATE TABLE IF NOT EXISTS recipients (
   id                TEXT PRIMARY KEY,         -- uuid generat al client
   user_id           TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   email             TEXT NOT NULL,            -- cal per enviar-li l'enllaç
-  phone             TEXT,                     -- SMS "revisa el correo", opcional
   package           TEXT,                     -- JSON opac, xifrat amb la clau de la persona
   file_ids          TEXT NOT NULL DEFAULT '[]', -- ids de fitxer que el paquet referencia (uuids opacs)
   released_at       INTEGER,
   token_hash        TEXT,                     -- SHA-256 de l'enllaç d'obertura
   token_expires_at  INTEGER,
   opened_at         INTEGER,
-  revoked_at        INTEGER,
   created_at        INTEGER NOT NULL,
   updated_at        INTEGER NOT NULL,
-  -- Al final perquè va arribar amb un ALTER TABLE (migration-20260909b) i així
-  -- una D1 nova queda igual que la de producció, columna per columna.
-  owner_notified_at INTEGER                    -- correu al titular sobre una entrega automàtica, quan Resend l'ha acceptat
+  -- Afegides amb ALTER TABLE, en aquest ordre:
+  phone             TEXT,                     -- SMS "revisa el correo", opcional
+  revoked_at        INTEGER,
+  owner_notified_at INTEGER                   -- (migration-20260909b) correu al titular sobre una entrega automàtica, quan Resend l'ha acceptat
 );
 
 CREATE INDEX IF NOT EXISTS recipients_user ON recipients(user_id);
