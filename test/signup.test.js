@@ -6,11 +6,30 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import worker from "../src/index.js";
 
-// ---- D1 de mentida: només les sentències que fa servir l'alta ----
+// ---- D1 de mentida: només les sentències que fan servir l'alta i el canvi de correu ----
 function fakeD1(db) {
+  const byId = (id) => [...db.users.values()].find((u) => u.id === id) ?? null;
   function exec(sql, args) {
     if (/^SELECT id FROM users WHERE email = \?$/.test(sql)) return db.users.get(args[0]) ?? null;
     if (/^SELECT kdf_salt FROM users WHERE email = \?$/.test(sql)) return db.users.get(args[0]) ?? null;
+    if (/^SELECT email FROM users WHERE id = \?$/.test(sql)) return byId(args[0]);
+    if (/^SELECT email, auth_salt, auth_hash FROM users WHERE id = \?$/.test(sql)) return byId(args[0]);
+    if (/^UPDATE users SET last_seen = \?, warn_count = 0 WHERE id = \?$/.test(sql)) return null;
+    if (/^UPDATE users SET email = \? WHERE id = \?$/.test(sql)) {
+      const [email, id] = args;
+      const u = byId(id);
+      if (db.users.has(email)) throw new Error("D1_ERROR: UNIQUE constraint failed: users.email");
+      db.users.delete(u.email); u.email = email; db.users.set(email, u);
+      return null;
+    }
+    if (/^SELECT user_id, expires_at FROM sessions WHERE token_hash = \?$/.test(sql)) return db.sessions.get(args[0]) ?? null;
+    if (/^UPDATE sessions SET expires_at = \? WHERE token_hash = \?$/.test(sql)) return null;
+    if (/^DELETE FROM sessions WHERE user_id = \? AND token_hash != \?$/.test(sql)) {
+      for (const [hash, sess] of db.sessions) if (sess.user_id === args[0] && hash !== args[1]) db.sessions.delete(hash);
+      return null;
+    }
+    if (/^INSERT INTO events /.test(sql)) { db.events.push({ user_id: args[0], kind: args[1], detail: args[2] }); return null; }
+    if (/^DELETE FROM events /.test(sql)) return null;
     if (/^SELECT sends, created_at FROM pending_signups WHERE email = \?$/.test(sql)) return db.pending.get(args[0]) ?? null;
     if (/^SELECT code_hash, attempts, expires_at FROM pending_signups WHERE email = \?$/.test(sql)) return db.pending.get(args[0]) ?? null;
     if (/^INSERT OR REPLACE INTO pending_signups \(email, code_hash, attempts, sends, expires_at, created_at\) VALUES \(\?, \?, 0, \?, \?, \?\)$/.test(sql)) {
@@ -59,15 +78,30 @@ globalThis.fetch = async (url, init) => {
 
 let db, env;
 beforeEach(() => {
-  db = { users: new Map(), pending: new Map() };
+  db = { users: new Map(), pending: new Map(), sessions: new Map(), events: [] };
   mails = [];
-  env = { DB: fakeD1(db), SALT_PEPPER: "pepper de prova", RESEND_API_KEY: "clau de prova", MAIL_FROM: "Custodium <avisos@example.com>", SITE: "https://example.com", ENV: "test" };
+  env = { DB: fakeD1(db), SALT_PEPPER: "pepper de prova", RESEND_API_KEY: "clau de prova", MAIL_FROM: "Custodium <avisos@example.com>", SITE: "https://example.com", MAIL_CONTACT: "avisos@example.com", ENV: "test" };
 });
 
-const post = (path, body) => worker.fetch(new Request(`https://example.com${path}`, {
-  method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+const post = (path, body, token) => worker.fetch(new Request(`https://example.com${path}`, {
+  method: "POST", headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body),
 }), env);
 const AUTH_HASH = Buffer.alloc(32, 7).toString("base64");
+const sha256 = async (...parts) => new Uint8Array(await crypto.subtle.digest("SHA-256", Buffer.concat(parts.map((p) => Buffer.from(p)))));
+// Un titular amb sessió oberta (i una segona sessió en un altre dispositiu),
+// amb auth_hash coherent amb AUTH_HASH, com el deixa register.
+async function seedOwner(email) {
+  const authSalt = Buffer.alloc(16, 3);
+  const authHash = await sha256(authSalt, Buffer.from(AUTH_HASH, "base64"));
+  db.users.set(email, { id: "u1", email, kdf_salt: "sal-fixada", auth_salt: authSalt.toString("base64"), auth_hash: Buffer.from(authHash).toString("base64") });
+  const token = Buffer.alloc(32, 9), other = Buffer.alloc(32, 10);
+  const far = Math.floor(Date.now() / 1000) + 3600;
+  db.sessions.set(Buffer.from(await sha256(token)).toString("base64"), { user_id: "u1", expires_at: far });
+  db.sessions.set(Buffer.from(await sha256(other)).toString("base64"), { user_id: "u1", expires_at: far });
+  return token.toString("base64");
+}
+const startEmail = async (newEmail, token) => { const r = await post("/api/email/start", { newEmail }, token); return { status: r.status, data: await r.json() }; };
+const changeEmail = async (newEmail, code, token, authHash = AUTH_HASH) => { const r = await post("/api/email", { authHash, newEmail, code }, token); return { status: r.status, data: await r.json() }; };
 const lastCode = () => mails.at(-1).text.match(/\b(\d{6})\b/)?.[1];
 const start = async (email) => { const r = await post("/api/register/start", { email }); return { status: r.status, data: await r.json() }; };
 const register = async (email, code) => { const r = await post("/api/register", { email, authHash: AUTH_HASH, code }); return { status: r.status, data: await r.json() }; };
@@ -187,4 +221,87 @@ test("alta: codi mal format o absent → bad_code, sense tocar els intents", asy
     assert.equal(r.data.error, "bad_code");
   }
   assert.equal(db.pending.get(email).attempts, 0);
+});
+
+// ---- canvi de correu ----
+
+test("canvi de correu: codi al correu nou + contrasenya → email nou, altres sessions fora, avís a l'antic, event", async () => {
+  const token = await seedOwner("antic@example.com");
+  const s = await startEmail("nou@example.com", token);
+  assert.equal(s.status, 200);
+  assert.deepEqual(s.data, { ok: true });
+  assert.equal(mails[0].to[0], "nou@example.com");
+  assert.match(mails[0].text, /Tu código para cambiar el correo de Custodium: \d{6}\. Caduca en 15 minutos\. Si no has sido tú, ignora este mensaje\./);
+  const code = lastCode();
+
+  const r = await changeEmail("nou@example.com", code, token);
+  assert.equal(r.status, 200);
+  assert.equal(db.users.has("antic@example.com"), false);
+  assert.equal(db.users.get("nou@example.com").id, "u1");
+  assert.equal(db.users.get("nou@example.com").kdf_salt, "sal-fixada", "la sal no canvia");
+  assert.equal(db.pending.has("nou@example.com"), false);
+  assert.equal(db.sessions.size, 1, "només queda la sessió que ha fet el canvi");
+  assert.deepEqual(db.events, [{ user_id: "u1", kind: "email_changed", detail: "nou@example.com" }]);
+  assert.equal(mails.length, 2);
+  assert.equal(mails[1].to[0], "antic@example.com");
+  assert.equal(mails[1].text, "Tu correo de Custodium ha pasado a ser nou@example.com. Si no has sido tú, escríbenos a avisos@example.com.");
+
+  // /api/salt del correu nou dóna la sal fixada; la sessió continua viva.
+  const salt = await (await worker.fetch(new Request("https://example.com/api/salt?email=nou@example.com"), env)).json();
+  assert.equal(salt.salt, "sal-fixada");
+  assert.equal((await startEmail("un-altre@example.com", token)).status, 200);
+});
+
+test("canvi de correu: contrasenya incorrecta → 401 sense gastar cap intent; codi incorrecte → invalid_code", async () => {
+  const token = await seedOwner("antic@example.com");
+  await startEmail("nou@example.com", token);
+  const bad = await changeEmail("nou@example.com", lastCode(), token, Buffer.alloc(32, 8).toString("base64"));
+  assert.equal(bad.status, 401);
+  assert.equal(bad.data.error, "invalid_credentials");
+  assert.equal(db.pending.get("nou@example.com").attempts, 0);
+
+  const wrong = await changeEmail("nou@example.com", lastCode() === "000000" ? "000001" : "000000", token);
+  assert.equal(wrong.status, 400);
+  assert.equal(wrong.data.error, "invalid_code");
+  assert.equal(db.pending.get("nou@example.com").attempts, 1);
+  assert.ok(db.users.has("antic@example.com"), "res no ha canviat");
+  assert.equal(db.sessions.size, 2);
+  assert.equal(mails.length, 1, "cap avís a l'antic");
+});
+
+test("canvi de correu: el correu nou ja té compte → 'ya tienes cuenta' al nou, i el canvi respon com un codi dolent", async () => {
+  const token = await seedOwner("antic@example.com");
+  db.users.set("ocupat@example.com", { id: "u2", email: "ocupat@example.com", kdf_salt: "x" });
+
+  const s = await startEmail("ocupat@example.com", token);
+  assert.equal(s.status, 200);
+  assert.deepEqual(s.data, { ok: true }, "mateixa resposta que per a un correu lliure");
+  assert.equal(mails[0].to[0], "ocupat@example.com");
+  assert.match(mails[0].text, /^Ya existe una cuenta con este correo\./);
+  assert.equal(lastCode(), undefined);
+
+  const r = await changeEmail("ocupat@example.com", "123456", token);
+  assert.equal(r.status, 400);
+  assert.equal(r.data.error, "invalid_code");
+  assert.equal(db.users.get("antic@example.com").id, "u1");
+  assert.equal(db.users.get("ocupat@example.com").id, "u2");
+
+  // Compte aparegut entre el codi i el canvi: mateixa resposta, i avís al nou.
+  await startEmail("lliure@example.com", token);
+  const code = lastCode();
+  db.users.set("lliure@example.com", { id: "u3", email: "lliure@example.com", kdf_salt: "y" });
+  const race = await changeEmail("lliure@example.com", code, token);
+  assert.equal(race.data.error, "invalid_code");
+  assert.match(mails.at(-1).text, /^Ya existe una cuenta con este correo\./);
+  assert.equal(mails.at(-1).to[0], "lliure@example.com");
+  assert.equal(db.users.get("antic@example.com").id, "u1");
+});
+
+test("canvi de correu: mateix correu → same_email; sense sessió → 401; límit de tres codis", async () => {
+  const token = await seedOwner("antic@example.com");
+  assert.equal((await startEmail("antic@example.com", token)).data.error, "same_email");
+  assert.equal((await startEmail("nou@example.com")).status, 401);
+  assert.equal((await changeEmail("nou@example.com", "123456")).status, 401);
+  for (let i = 1; i <= 3; i++) assert.equal((await startEmail("nou@example.com", token)).status, 200);
+  assert.equal((await startEmail("nou@example.com", token)).status, 429);
 });

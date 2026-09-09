@@ -231,7 +231,6 @@
       <dl class="account-data">
         <div><dt>Email</dt><dd id="account-email"></dd></div>
       </dl>
-      <p class="hint">En esta beta, el correo electrónico no se puede cambiar.</p>
 
       <form id="phone-form" class="settings" novalidate>
         <h2>Móvil para avisos</h2>
@@ -285,6 +284,32 @@
         <p class="hint">Lo que el servidor ha registrado sobre tu cuenta. Sirve para detectar accesos que no reconozcas.</p>
         <ul id="events" class="events"></ul>
       </div>
+
+      <!-- Canvi de correu en dos passos: el nou correu rep un codi; després codi + contrasenya actual. -->
+      <form id="email-start-form" class="settings" novalidate>
+        <h2>Cambiar el correo</h2>
+        <p class="hint">Los avisos y la entrega dependen de este correo. Úsalo solo si lo consultas habitualmente.</p>
+        <label>
+          <span>Nuevo correo</span>
+          <input id="email-new" type="email" autocomplete="off">
+          <small class="hint">Te enviaremos un código para comprobar que es tuyo.</small>
+        </label>
+        <p id="email-start-message" class="message" aria-live="polite"></p>
+        <div class="actions"><button type="submit" class="secondary">Enviar código</button></div>
+      </form>
+      <form id="email-form" class="settings" novalidate hidden>
+        <h2>Cambiar el correo</h2>
+        <p class="hint">Te hemos enviado un código a <strong id="email-sent-to"></strong>. Si no lo ves, mira en la carpeta de spam.</p>
+        <label>
+          <span>Código (seis cifras)</span>
+          <input id="email-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" spellcheck="false">
+          <small class="hint">Caduca en 15 minutos. <button id="email-resend" type="button" class="link">No me ha llegado</button> · <button id="email-back" type="button" class="link">Cambiar de idea</button></small>
+        </label>
+        <label><span>Contraseña actual</span><input id="email-password" type="password" autocomplete="current-password"></label>
+        <p class="hint">Al cambiar el correo, se cerrarán las demás sesiones de tu cuenta y avisaremos a la dirección anterior.</p>
+        <p id="email-message" class="message" aria-live="polite"></p>
+        <div class="actions"><button type="submit">Cambiar el correo</button></div>
+      </form>
 
       <form id="delete-form" class="settings" novalidate>
         <h2>Eliminar la cuenta</h2>

@@ -9,6 +9,8 @@
 //   POST   /api/login                 { email, authHash }      → { token, expiresAt } | 401
 //   DELETE /api/session               Bearer                   → { ok }
 //   POST   /api/password              { authHash, newAuthHash, blob, version } → { token, version } | 401 | 409
+//   POST   /api/email/start           { newEmail }  Bearer     → { ok } | 429   codi de 6 xifres al correu nou (mateixos límits que l'alta)
+//   POST   /api/email                 { authHash, newEmail, code } Bearer → { ok } | 401 | 400 invalid_code | code_expired | too_many_attempts
 //   DELETE /api/account               { authHash }             → { ok } | 401  esborra R2 (i backup) i tot D1
 //   GET    /api/vault                 Bearer                   → { blob, version, updatedAt } | 404
 //   PUT    /api/vault                 { blob, version }        → { version } | 409
@@ -51,7 +53,7 @@ const SIGNUP_MAX_ATTEMPTS = 5;            // verificacions fallides per codi; de
 const SIGNUP_MAX_SENDS = 3;               // codis per email dins de la finestra
 const SIGNUP_WINDOW_S = 3600;             // finestra del límit de codis: una hora
 
-// SITE, MAIL_FROM i ENV viuen a wrangler.toml ([vars], per entorn).
+// SITE, MAIL_FROM, MAIL_CONTACT i ENV viuen a wrangler.toml ([vars], per entorn).
 // SALT_PEPPER és un secret (wrangler secret put): clau de l'HMAC del qual surt
 // la sal de derivació de cada compte (vegeu accountSalt).
 
@@ -78,6 +80,8 @@ export default {
       if (pathname === "/api/sessions" && method === "DELETE") return await closeOtherSessions(request, env);
       if (pathname === "/api/account"  && method === "DELETE") return await deleteAccount(request, env);
       if (pathname === "/api/password" && method === "POST") return await changePassword(request, env);
+      if (pathname === "/api/email/start" && method === "POST") return await startEmailChange(request, env);
+      if (pathname === "/api/email"    && method === "POST") return await changeEmail(request, env);
       if (pathname === "/api/vault"    && method === "GET") return await getVault(request, env);
       if (pathname === "/api/vault"    && method === "PUT") return await putVault(request, env);
       if (pathname === "/api/events"   && method === "GET") return await listEvents(request, env);
@@ -139,6 +143,28 @@ export default {
 // que Resend ha acceptat el correu. Cobert per la regla del WAF (README §5).
 async function startSignup(request, env) {
   const email = parseEmail((await readJson(request))?.email);
+  return issueCode(env, email, "signup");
+}
+
+// Primer pas del canvi de correu: el mateix codi, però al correu nou i amb
+// sessió oberta. Mateixa taula, mateixos límits i mateixa resposta tant si el
+// correu nou té compte com si no (llavors hi arriba "ja tens compte").
+async function startEmailChange(request, env) {
+  const { userId } = await authenticate(request, env);
+  const newEmail = parseEmail((await readJson(request))?.newEmail);
+  const user = await env.DB.prepare("SELECT email FROM users WHERE id = ?").bind(userId).first();
+  if (newEmail === user.email) throw new HttpError(400, "same_email");
+  return issueCode(env, newEmail, "email");
+}
+
+const CODE_MAIL = {
+  signup: { subject: "Tu código para crear la cuenta en Custodium", text: (code) => `Tu código para crear la cuenta en Custodium: ${code}. Caduca en 15 minutos. Si no has sido tú, ignora este mensaje.` },
+  email: { subject: "Tu código para cambiar el correo de Custodium", text: (code) => `Tu código para cambiar el correo de Custodium: ${code}. Caduca en 15 minutos. Si no has sido tú, ignora este mensaje.` },
+};
+
+// Envia un codi a un correu (o "ja tens compte" si ja en té) i deixa la fila
+// a pending_signups. purpose: "signup" o "email" (només canvia el text).
+async function issueCode(env, email, purpose) {
   const ts = now();
   const [user, pending] = await Promise.all([
     env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first(),
@@ -155,15 +181,13 @@ async function startSignup(request, env) {
   let codeHash = null;
   let expiresAt = ts;
   if (user) {
-    await sendMail(env, email, "Ya tienes una cuenta en Custodium",
-      `Ya existe una cuenta con este correo.\n\nSi eres tú, entra en ${env.SITE}.\nSi has olvidado la contraseña, no hay forma de recuperarla: tu plan sigue cifrado con ella.\nSi no has sido tú, ignora este mensaje.`);
+    await sendAccountExistsMail(env, email);
   } else {
     const code = signupCode();
     const salt = randomBytes(16);
     codeHash = `${b64.encode(salt)}.${b64.encode(await hashSignupCode(salt, code))}`;
     expiresAt = ts + SIGNUP_CODE_TTL_S;
-    await sendMail(env, email, "Tu código para crear la cuenta en Custodium",
-      `Tu código para crear la cuenta en Custodium: ${code}. Caduca en 15 minutos. Si no has sido tú, ignora este mensaje.`);
+    await sendMail(env, email, CODE_MAIL[purpose].subject, CODE_MAIL[purpose].text(code));
   }
 
   await env.DB
@@ -171,6 +195,11 @@ async function startSignup(request, env) {
     .bind(email, codeHash, sends + 1, expiresAt, windowStart)
     .run();
   return json({ ok: true });
+}
+
+async function sendAccountExistsMail(env, email) {
+  await sendMail(env, email, "Ya tienes una cuenta en Custodium",
+    `Ya existe una cuenta con este correo.\n\nSi eres tú, entra en ${env.SITE}.\nSi has olvidado la contraseña, no hay forma de recuperarla: tu plan sigue cifrado con ella.\nSi no has sido tú, ignora este mensaje.`);
 }
 
 // Sis xifres a l'atzar, amb zeros al davant si cal. Rebutja la cua de
@@ -383,6 +412,64 @@ async function changePassword(request, env) {
 
 // Cada petició autenticada compta com a senyal de vida, esborra els avisos
 // acumulats i renova la sessió: qui obre el pla cada dia no la perd mai.
+// Canvi de correu: contrasenya actual (authHash) i codi rebut al correu nou.
+// Si el correu nou ja té compte, la resposta és la d'un codi dolent (no ho
+// revela) i el correu nou rep "ja tens compte". Es tanquen les altres
+// sessions, es registra email_changed i l'adreça antiga rep un avís, sense
+// cap enllaç de desfer: qui tingui la contrasenya i el correu nou mana.
+// La sal de derivació (kdf_salt) no canvia: les claus continuen sent les
+// mateixes i el pla no cal rexifrar-lo.
+async function changeEmail(request, env) {
+  const { userId, tokenHash } = await authenticate(request, env);
+  const body = await readJson(request);
+  const current = typeof body?.authHash === "string" ? b64.decode(body.authHash) : null;
+  if (!current || current.length !== 32) throw new HttpError(400, "bad_auth_hash");
+  const newEmail = parseEmail(body?.newEmail);
+  const code = typeof body?.code === "string" ? body.code.trim() : "";
+  if (!/^\d{6}$/.test(code)) throw new HttpError(400, "bad_code");
+  const ts = now();
+
+  const user = await env.DB.prepare("SELECT email, auth_salt, auth_hash FROM users WHERE id = ?").bind(userId).first();
+  const computed = await sha256(b64.decode(user.auth_salt), current);
+  if (!timingSafeEqual(computed, b64.decode(user.auth_hash))) throw new HttpError(401, "invalid_credentials");
+  if (newEmail === user.email) throw new HttpError(400, "same_email");
+
+  const pending = await env.DB.prepare("SELECT code_hash, attempts, expires_at FROM pending_signups WHERE email = ?").bind(newEmail).first();
+  const verdict = await verifySignupCode(pending, code, ts);
+  if (verdict !== "ok") {
+    if (verdict !== "code_expired") await env.DB.prepare("UPDATE pending_signups SET attempts = attempts + 1 WHERE email = ?").bind(newEmail).run();
+    throw new HttpError(400, verdict);
+  }
+
+  // Un codi vàlid només existeix si el correu nou no tenia compte quan es va
+  // demanar; si n'ha aparegut un entremig, mateixa resposta que un codi dolent.
+  const taken = await env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(newEmail).first();
+  if (taken) {
+    await sendAccountExistsMail(env, newEmail);
+    throw new HttpError(400, "invalid_code");
+  }
+
+  // Primer l'avís a l'adreça antiga; si Resend no l'accepta, no es canvia res.
+  await sendMail(env, user.email, "Tu correo de Custodium ha cambiado",
+    `Tu correo de Custodium ha pasado a ser ${newEmail}. Si no has sido tú, escríbenos a ${env.MAIL_CONTACT}.`);
+
+  try {
+    await env.DB.batch([
+      env.DB.prepare("UPDATE users SET email = ? WHERE id = ?").bind(newEmail, userId),
+      env.DB.prepare("DELETE FROM pending_signups WHERE email = ?").bind(newEmail),
+      env.DB.prepare("DELETE FROM sessions WHERE user_id = ? AND token_hash != ?").bind(userId, tokenHash),
+    ]);
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      await sendAccountExistsMail(env, newEmail);
+      throw new HttpError(400, "invalid_code");
+    }
+    throw err;
+  }
+  await logEvent(env, userId, "email_changed", newEmail, request);
+  return json({ ok: true });
+}
+
 async function authenticate(request, env) {
   const header = request.headers.get("authorization") || "";
   const raw = header.startsWith("Bearer ") ? b64.decode(header.slice(7).trim()) : null;

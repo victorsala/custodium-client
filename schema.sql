@@ -90,10 +90,10 @@ CREATE INDEX IF NOT EXISTS recipients_token ON recipients(token_hash);
 CREATE TABLE IF NOT EXISTS events (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  kind        TEXT NOT NULL,                 -- login, login_failed, password_changed, sessions_closed, phone_changed,
-                                             -- settings_changed, release_manual, release_auto, release_revoked,
-                                             -- release_opened, warning_sent, checkin
-  detail      TEXT,                          -- email de la persona, si escau
+  kind        TEXT NOT NULL,                 -- login, login_failed, password_changed, email_changed, sessions_closed,
+                                             -- phone_changed, settings_changed, release_manual, release_auto,
+                                             -- release_revoked, release_opened, warning_sent, checkin
+  detail      TEXT,                          -- email de la persona, si escau (a email_changed, el correu nou)
   country     TEXT,                          -- request.cf.country de la petició que l'origina
   created_at  INTEGER NOT NULL
 );

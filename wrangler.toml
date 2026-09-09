@@ -13,10 +13,12 @@ directory = "./public"
 
 # Variables per entorn (no secrets). ENV encén la franja d'avís del client a
 # staging; SITE i MAIL_FROM fan que els correus de cada entorn apuntin a ell mateix.
+# MAIL_CONTACT és l'adreça a què el correu d'avís de canvi de correu diu d'escriure.
 [vars]
 ENV = "production"
 SITE = "https://b2c.custodium.space"
 MAIL_FROM = "Custodium <avisos@custodium.space>"
+MAIL_CONTACT = "avisos@custodium.space"
 
 [[d1_databases]]
 binding = "DB"
@@ -60,6 +62,7 @@ directory = "./public"
 ENV = "staging"
 SITE = "https://b2c-staging.custodium.space"
 MAIL_FROM = "Custodium staging <avisos@custodium.space>"
+MAIL_CONTACT = "avisos@custodium.space"
 
 [[env.staging.d1_databases]]
 binding = "DB"

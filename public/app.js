@@ -755,6 +755,7 @@ function goAccount() {
   if (state.draft) return toast("Termina o cancela el elemento que estás editando.");
   if (state.personDraft) return toast("Termina o cancela la persona que estás editando.");
   $("#account-email").textContent = state.email;
+  resetEmailChange();
   $("#account-phone").value = state.settings?.phone ?? "";
   $("#phone-message").textContent = "";
   $("#pw-current").type = "password";
@@ -825,6 +826,7 @@ const EVENT_TEXTS = {
   login: () => "Entrada",
   login_failed: () => "Intento de entrada fallido",
   password_changed: () => "Contraseña cambiada",
+  email_changed: (d) => `Correo cambiado a ${d}`,
   sessions_closed: () => "Sesiones cerradas",
   phone_changed: () => "Móvil actualizado",
   settings_changed: () => "Plazos actualizados",
@@ -920,6 +922,114 @@ async function changePassword(event) {
     proposePassphrase("pw");
     msg("");
     toast("Contraseña cambiada. El plan se ha cifrado de nuevo.");
+  } catch (err) {
+    console.error(err);
+    msg("Algo ha fallado. Vuelve a intentarlo.");
+  } finally {
+    setBusy(false);
+  }
+}
+
+// ---------------------------------------------------------- email change
+
+// Canvi de correu en dos passos, com l'alta: el correu nou rep un codi;
+// després, codi i contrasenya actual. Les claus no canvien (la sal és del
+// compte), així que aquí no es deriva res més que l'authHash per comprovar
+// la contrasenya.
+let newEmailPending = null;
+
+function resetEmailChange() {
+  newEmailPending = null;
+  $("#email-new").value = "";
+  $("#email-code").value = "";
+  $("#email-password").value = "";
+  $("#email-start-message").textContent = "";
+  $("#email-message").textContent = "";
+  showEmailStep(1);
+}
+
+function showEmailStep(step) {
+  $("#email-start-form").hidden = step !== 1;
+  $("#email-form").hidden = step !== 2;
+}
+
+async function requestEmailCode(newEmail, msg) {
+  const r = await api("/api/email/start", { method: "POST", body: { newEmail } });
+  if (r.status === 401) { lock("La sesión ha caducado. Vuelve a entrar."); return false; }
+  if (r.status === 400 && r.data?.error === "same_email") { msg("Ese ya es el correo de tu cuenta."); return false; }
+  if (r.status === 429) { msg("Ya hemos enviado varios códigos a ese correo en la última hora. Revisa la carpeta de spam o vuelve a intentarlo más tarde."); return false; }
+  if (r.status !== 200) { msg("No se ha podido enviar el código. Vuelve a intentarlo."); return false; }
+  return true;
+}
+
+async function startEmailChange(event) {
+  event.preventDefault();
+  const newEmail = $("#email-new").value.trim().toLowerCase();
+  const msg = (t) => { $("#email-start-message").textContent = t; };
+  if (!newEmail) return msg("Escribe el nuevo correo.");
+  if (newEmail === state.email) return msg("Ese ya es el correo de tu cuenta.");
+
+  setBusy(true, "Enviando el código…");
+  try {
+    if (!(await requestEmailCode(newEmail, msg))) return;
+    newEmailPending = newEmail;
+    $("#email-sent-to").textContent = newEmail;
+    $("#email-code").value = "";
+    $("#email-password").value = "";
+    $("#email-message").textContent = "";
+    showEmailStep(2);
+    $("#email-code").focus();
+  } catch (err) {
+    console.error(err);
+    msg("Algo ha fallado. Vuelve a intentarlo.");
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function resendEmailCode() {
+  const msg = (t) => { $("#email-message").textContent = t; };
+  setBusy(true, "Enviando otro código…");
+  try {
+    if (await requestEmailCode(newEmailPending, msg)) {
+      $("#email-code").value = "";
+      msg("Te hemos enviado otro código. Solo vale el último.");
+      $("#email-code").focus();
+    }
+  } catch (err) {
+    console.error(err);
+    msg("Algo ha fallado. Vuelve a intentarlo.");
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function submitEmailChange(event) {
+  event.preventDefault();
+  const newEmail = newEmailPending;
+  const code = $("#email-code").value.trim();
+  const password = $("#email-password").value;
+  const msg = (t) => { $("#email-message").textContent = t; };
+  if (!/^\d{6}$/.test(code)) return msg("Escribe el código de seis cifras que hemos enviado al nuevo correo.");
+  if (!password) return msg("Escribe tu contraseña actual.");
+
+  setBusy(true, "Comprobando la contraseña…");
+  try {
+    const { authHash } = await deriveKeys(state.kdfSalt, password);
+    const r = await api("/api/email", { method: "POST", body: { authHash, newEmail, code } });
+    if (r.status === 401 && r.data?.error === "invalid_credentials") return msg("La contraseña no es correcta.");
+    if (r.status === 401) return lock("La sesión ha caducado. Vuelve a entrar.");
+    if (r.status === 400 && r.data?.error === "invalid_code") return msg("El código no es correcto.");
+    if (r.status === 400 && r.data?.error === "code_expired") return msg("El código ha caducado. Pide uno nuevo con «No me ha llegado».");
+    if (r.status === 400 && r.data?.error === "too_many_attempts") return msg("Demasiados intentos con este código. Pide uno nuevo con «No me ha llegado».");
+    if (r.status !== 200) return msg("No se ha podido cambiar el correo.");
+
+    state.email = newEmail;
+    state.authHash = authHash;
+    $("#account-email").textContent = newEmail;
+    resetEmailChange();
+    toast("Correo cambiado. Las demás sesiones se han cerrado.");
+    loadEvents();
   } catch (err) {
     console.error(err);
     msg("Algo ha fallado. Vuelve a intentarlo.");
@@ -1244,6 +1354,10 @@ function boot() {
   $("#nav-people").addEventListener("click", goPeople);
   $("#nav-account").addEventListener("click", goAccount);
   $("#password-form").addEventListener("submit", changePassword);
+  $("#email-start-form").addEventListener("submit", startEmailChange);
+  $("#email-form").addEventListener("submit", submitEmailChange);
+  $("#email-resend").addEventListener("click", resendEmailCode);
+  $("#email-back").addEventListener("click", resetEmailChange);
   $("#pw-own").addEventListener("click", () => preferOwnPassword("pw"));
   $("#close-sessions").addEventListener("click", closeSessions);
   $("#delete-form").addEventListener("submit", deleteAccount);
