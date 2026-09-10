@@ -19,6 +19,7 @@ import {
   generatePassphrase, normalizePassphrase, b64encode,
 } from "./crypto.js";
 import { zipSync } from "./fflate.js";
+import { TEMPLATES } from "./templates.js";
 
 const IDLE_LOCK_MS = 15 * 60 * 1000;
 const MAX_FILE_BYTES = 50_000_000;
@@ -363,6 +364,7 @@ function startEdit(id) {
   };
 
   $("#edit-title").textContent = item ? "Editar elemento" : "Nuevo elemento";
+  $("#item-template").value = "";
   $("#item-title").value = state.draft.title;
   $("#item-notes").value = state.draft.notes;
   $("#item-message").textContent = "";
@@ -372,6 +374,22 @@ function startEdit(id) {
   $("#item-tools").hidden = !item;
   showScreen("edit");
   $("#item-title").focus();
+}
+
+// Plantilla triada: omple el títol només si és buit (no trepitja el que hi
+// hagi) i posa el guió a les instruccions. Tot és editable després.
+function applyTemplate() {
+  const t = TEMPLATES.find((x) => x.id === $("#item-template").value);
+  if (!t) return;
+  const title = $("#item-title");
+  if (!title.value.trim()) title.value = t.title;
+  $("#item-notes").value = t.notes;
+  (title.value === t.title ? title : $("#item-notes")).focus();
+}
+
+function fillTemplateOptions() {
+  const sel = $("#item-template");
+  for (const t of TEMPLATES) sel.append(el("option", { value: t.id }, t.name));
 }
 
 function fillRecipientChecks(selected) {
@@ -1445,6 +1463,8 @@ function boot() {
   $("#phone-form").addEventListener("submit", savePhone);
   $("#release-notice-go").addEventListener("click", goPeople);
   $("#item-form").addEventListener("submit", applyItem);
+  fillTemplateOptions();
+  $("#item-template").addEventListener("change", applyTemplate);
   $("#item-cancel").addEventListener("click", cancelEdit);
   $("#item-delete").addEventListener("click", deleteFromEdit);
   $("#item-files").addEventListener("change", (e) => addFiles([...e.target.files]));

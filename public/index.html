@@ -129,6 +129,11 @@
     <section data-screen="edit" hidden>
       <h1 id="edit-title">Nuevo elemento</h1>
       <form id="item-form" novalidate>
+        <label>
+          <span>Empezar desde una plantilla (opcional)</span>
+          <select id="item-template"><option value="">Sin plantilla</option></select>
+          <small class="hint">Rellena el título y las instrucciones con un guion. Cámbialo como quieras.</small>
+        </label>
         <label><span>Qué es</span><input id="item-title" type="text" required placeholder="Cuenta, documento, dominio, wallet…"></label>
         <fieldset class="checks">
           <legend>Personas que deben recibirlo</legend>

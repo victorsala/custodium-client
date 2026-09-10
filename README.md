@@ -151,7 +151,7 @@ Fitxers orfes: si es tanca la pestanya a mitja edició, un fitxer pujat pot qued
 
 1. **Crear compte**, en dos passos. (1) Email → "Enviar código": arriba un correu amb un codi de sis xifres que caduca en 15 minuts (si l'email ja té compte, arriba un correu que ho diu i cap codi; la pantalla no ho distingeix). (2) "Te hemos enviado un código a …": el codi i la contrasenya. Els camps de contrasenya surten ja omplerts amb una frase de sis paraules generada al navegador, visible, amb l'avís "Apúntala antes de continuar"; l'enllaç "prefiero escribir la mía" buida els camps, els oculta i exigeix 16+ caràcters. "No me ha llegado" envia un altre codi (només val l'últim; tres per hora com a màxim); "Cambiar el email" torna al pas 1. Cinc codis equivocats i cal demanar-ne un de nou. Les claus es deriven només al pas 2. No hi ha recuperació de la contrasenya: guarda-la al gestor de contrasenyes.
    - **Primers passos.** Sota la intro de "Tu plan", un bloc "Primeros pasos" amb sis caselles (contrasenya guardada, una persona, primer element, mòbil per als avisos, terminis revisats, còpia baixada), cadascuna deduïda del pla o de la configuració (cap dada nova al servidor; "terminis revisats" i "còpia baixada" són marques dins del pla xifrat, la primera en prémer "Guardar plazos" un cop). Cada pas pendent enllaça a l'acció. Desapareix quan les sis estan fetes o en tancar-lo amb la X (`onboarding.dismissedAt`, no torna a sortir). Mentre és visible no es mostra "Aún no hay nada".
-2. **Afegir elements.** "+ Añadir elemento": què és, persones que l'han de rebre (caselles; cap = només per a tu), instruccions, fitxers (fins a 50 MB). "Listo" xifra i desa al moment. No hi ha botó de desar.
+2. **Afegir elements.** "+ Añadir elemento": què és, persones que l'han de rebre (caselles; cap = només per a tu), instruccions, fitxers (fins a 50 MB). El desplegable "Empezar desde una plantilla (opcional)" omple el títol (si és buit) i les instruccions amb un guió (compte bancari, wallet, xarxes socials, assegurança); les plantilles viuen a `public/templates.js` (`{ id, name, title, notes }`) i s'hi afegeixen sense tocar `app.js`. "Listo" xifra i desa al moment. No hi ha botó de desar.
 3. **Persones.** "+ Añadir persona": nom, email, mòbil opcional (per a l'SMS d'avís) i frase. La frase la genera sempre el sistema, sis paraules a l'atzar (llista BIP39 en castellà, 2.048 paraules → 66 bits), tipus `ebano deporte nacar cien organo vagar`; no es pot escriure a mà ("Generar otra" en dona una altra). Escriu-les en paper i dona-l'hi en persona; mai per missatge. En obrir, no importen majúscules, accents ni espais. La frase queda guardada dins del teu pla (xifrada, com la resta): "Mostrar frase" la torna a ensenyar després de demanar-te la contrasenya, durant un minut, per comprovar el paper o tornar-lo a escriure.
 4. **Terminis.** A "Personas → Entrega por inactividad": primer avís (8 dies per defecte) i entrega (21). L'entrega ha de ser posterior a l'avís. Els dos terminis compten des de l'última activitat o confirmació; entrar o pulsar "Sigo aquí" els reinicia.
 5. **Entregar ara.** A cada persona, "Entregar ahora" envia l'enllaç immediatament. Serveix per provar i com a entrega voluntària. "Anular enlace" el desactiva.
@@ -235,7 +235,7 @@ curl -s $BASE/api/vault -H "authorization: Bearer $TOKEN"      # {"error":"no_va
 
 ```
 src/index.js        Worker: API + cron
-public/             Client estàtic: index.html, app.js, crypto.js, words.js, fflate.js (zip, MIT), style.css, fonts/,
+public/             Client estàtic: index.html, app.js, crypto.js, words.js, templates.js (plantilles d'element), fflate.js (zip, MIT), style.css, fonts/,
                     abrir.* (persona, amb servidor), aqui.* (check-in), abrir-offline.html (obridor autònom), _headers,
                     README (bilingüe, amb la verificació), LICENSE (source-available) i THIRD_PARTY.md.
                     VERSION l'escriu el deploy (gitignored).
@@ -248,7 +248,12 @@ wrangler.toml       Bindings (D1 "DB", R2 "FILES" i "FILES_BACKUP"), domini, cro
 
 ### Requisits (ja fets)
 
-- Cloudflare: zona `custodium.space`; D1 `custodium-b2c`; R2 `custodium-b2c-files` i `custodium-b2c-files-backup` (WEUR); secrets `RESEND_API_KEY`, `SALT_PEPPER` (clau de l'HMAC del qual surt la sal de derivació de cada compte, §2.2: `openssl rand -base64 32`; sense ell `/api/salt` i `/api/register` responen 500 i ningú pot entrar) i, per als SMS, `SMS_USER`, `SMS_PASS`, `SMS_FROM` (passarel·la HTTP de siptraffic; si falten, no s'envien SMS i tot continua funcionant). `SALT_PEPPER` es posa amb `npx wrangler secret put SALT_PEPPER` (i `--env staging` per a staging). No canviar-lo mai a la lleugera: els comptes existents conserven la sal guardada i continuen funcionant, però la dels emails sense compte canviaria i tornaria a distingir-los dels que en tenen.
+- Cloudflare: zona `custodium.space`; D1 `custodium-b2c`; R2 `custodium-b2c-files` i `custodium-b2c-files-backup` (WEUR); secrets `RESEND_API_KEY`, `SALT_PEPPER` (clau de l'HMAC del qual surt la sal de derivació de cada compte, §2.2: `openssl rand -base64 32`; sense ell `/api/salt` i `/api/register` responen 500 i ningú pot entrar) i, per als SMS, `SMS_USER`, `SMS_PASS`, `SMS_FROM` (passarel·la HTTP de siptraffic; si falten, no s'envien SMS i tot continua funcionant). `SALT_PEPPER` es posa amb `npx wrangler secret put SALT_PEPPER` (i `--env staging` per a staging). No canviar-lo mai a la lleugera: els comptes existents conserven la sal guardada i continuen funcionant, però la dels emails sense compte canviaria i tornaria a distingir-los dels que en tenen. Per confirmar que el valor del gestor de contrasenyes és el desplegat: `scripts/check-pepper.mjs` calcula la sal d'un email exactament com el Worker (n'extreu `deriveSalt` de `src/index.js`) i la compara amb `/api/salt` de producció (`--staging` per a staging); no imprimeix mai el pepper, i amb `-` el llegeix d'stdin per no deixar-lo a l'historial:
+
+```sh
+echo -n "$PEPPER" | node scripts/check-pepper.mjs -              # producció
+echo -n "$PEPPER" | node scripts/check-pepper.mjs - --staging    # staging
+```
 - Resend: domini `custodium.space` verificat; remitent `avisos@custodium.space`.
 - `wrangler` com a dependència local (`npm install -D wrangler`), sense instal·lació global.
 
