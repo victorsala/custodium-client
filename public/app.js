@@ -775,7 +775,7 @@ async function saveSettings(event) {
   const releaseDays = Number($("#release-days").value);
   const msg = (t) => { $("#settings-message").textContent = t; };
   if (!Number.isInteger(warnDays) || warnDays < 1) return msg("El aviso tiene que ser al menos 1 día.");
-  if (!Number.isInteger(releaseDays) || releaseDays <= warnDays) return msg("La entrega tiene que ser posterior al aviso.");
+  if (!Number.isInteger(releaseDays) || releaseDays < warnDays + 3) return msg("La entrega tiene que ser al menos tres días después del primer aviso.");
   const r = await api("/api/settings", { method: "PUT", body: { warnDays, releaseDays } });
   if (r.status === 200) {
     state.settings = { ...state.settings, warnDays, releaseDays };
@@ -873,6 +873,8 @@ const EVENT_TEXTS = {
   release_opened: (d) => `Acceso abierto por ${d}`,
   warning_sent: () => "Aviso de inactividad enviado",
   checkin: () => "Confirmación «sigo aquí»",
+  reminder_sent: (d) => `Recordatorio enviado a ${d}`,
+  reminder_failed: (d) => `No se ha podido enviar el recordatorio a ${d}`,
 };
 
 async function loadEvents() {
@@ -1302,7 +1304,7 @@ function personStatus(p) {
   } else {
     label = "Sin entregar";
   }
-  return { n, label, date, released: Boolean(s?.releasedAt) };
+  return { n, label, date, released: Boolean(s?.releasedAt), reminders: s?.reminders ?? 0 };
 }
 
 function renderPeople() {
@@ -1350,7 +1352,8 @@ function renderPersonTools() {
   if (!p) return;
 
   const st = personStatus(p);
-  $("#person-status").textContent = `${st.label}${st.date ? ` · ${dateEs(st.date)}` : ""} · ${st.n} ${st.n === 1 ? "elemento asignado" : "elementos asignados"}.`;
+  $("#person-status").textContent = `${st.label}${st.date ? ` · ${dateEs(st.date)}` : ""} · ${st.n} ${st.n === 1 ? "elemento asignado" : "elementos asignados"}.`
+    + (st.released && st.reminders ? ` Recordatorios enviados: ${st.reminders}.` : "");
 
   const reveal = $("#person-reveal");
   reveal.replaceChildren();

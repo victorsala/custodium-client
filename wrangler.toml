@@ -41,7 +41,7 @@ bucket_name = "custodium-b2c-files-backup"
 # cada diumenge a les 03:00 UTC copia els fitxers nous a FILES_BACKUP.
 [triggers]
 # Cloudflare no accepta "0" com a diumenge: cal "SUN".
-crons = ["0 8 * * *", "0 3 * * SUN"]
+crons = ["0 8,20 * * *", "0 3 * * SUN"]
 
 # Secret (no va aquí): npx wrangler secret put RESEND_API_KEY
 
@@ -78,4 +78,4 @@ binding = "FILES_BACKUP"
 bucket_name = "custodium-b2c-staging-files-backup"
 
 [env.staging.triggers]
-crons = ["0 8 * * *", "0 3 * * SUN"]
+crons = ["0 8,20 * * *", "0 3 * * SUN"]

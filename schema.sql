@@ -1,4 +1,4 @@
--- Custodium B2C · esquema D1 · estat consolidat (9 setembre 2026, inclou migration-20260908, -20260908b, -20260909, -20260909b, -20260909c i -20260909d)
+-- Custodium B2C · esquema D1 · estat consolidat (20 setembre 2026, inclou migration-20260908, -20260908b, -20260909, -20260909b, -20260909c, -20260909d, -20260920 i -20260920b)
 -- Crea la base de dades tal com és avui. Per a una D1 nova:
 --   npx wrangler d1 execute <nom> --remote --file=schema.sql
 -- La base de dades de producció ja té tot això aplicat (migracions v1–v5, consolidades aquí).
@@ -18,16 +18,28 @@ CREATE TABLE IF NOT EXISTS users (
   last_seen           INTEGER,                -- última activitat o confirmació (epoch s)
   warned_at           INTEGER,                -- últim avís d'inactivitat enviat
   warn_days           INTEGER NOT NULL DEFAULT 8,
-  release_days        INTEGER NOT NULL DEFAULT 21,
-  checkin_token_hash  TEXT,                   -- botó "Sigo aquí" del correu
-  checkin_expires_at  INTEGER,
+  release_days        INTEGER NOT NULL DEFAULT 21, -- >= warn_days + 3
+  -- (checkin_token_hash i checkin_expires_at, aquí, es van treure amb migration-20260920b: ara checkin_tokens)
   -- Afegides amb ALTER TABLE, en aquest ordre:
   phone               TEXT,                       -- mòbil per a l'SMS d'avís, opcional, format +34…
   warn_count          INTEGER NOT NULL DEFAULT 0, -- (migration-20260908) avisos entregats des de l'última senyal; cal >= 2 per entregar
-  kdf_salt            TEXT                        -- (migration-20260909c) sal de la derivació de claus del titular:
+  kdf_salt            TEXT,                       -- (migration-20260909c) sal de la derivació de claus del titular:
                                                   -- HMAC(SALT_PEPPER, email) truncat a 16 bytes, base64, fixat a l'alta
                                                   -- (README §2.2). NULL només en files anteriors a la migració, que s'esborren
+  warn_sms_at         INTEGER                     -- (migration-20260920) últim SMS al titular (avís o notícia d'entrega): com a màxim un al dia
 );
+
+-- Botons "Sigo aquí" dels correus d'avís: un per avís enviat. Un val mentre no
+-- ha caducat i no hi ha hagut cap senyal de vida després d'enviar-lo
+-- (created_at > users.last_seen). El cron esborra els caducats.
+CREATE TABLE IF NOT EXISTS checkin_tokens (
+  token_hash  TEXT PRIMARY KEY,               -- SHA-256 del token; el token en clar només va dins del correu
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at  INTEGER NOT NULL,
+  expires_at  INTEGER NOT NULL                -- termini d'entrega + 7 dies
+);
+
+CREATE INDEX IF NOT EXISTS checkin_tokens_user ON checkin_tokens(user_id);
 
 -- Altes en curs: el compte no es crea fins que el codi enviat per correu ha
 -- tornat (README §2.7). Una fila per email; el cron diari esborra les que ja
@@ -73,19 +85,31 @@ CREATE TABLE IF NOT EXISTS recipients (
   package           TEXT,                     -- JSON opac, xifrat amb la clau de la persona
   file_ids          TEXT NOT NULL DEFAULT '[]', -- ids de fitxer que el paquet referencia (uuids opacs)
   released_at       INTEGER,
-  token_hash        TEXT,                     -- SHA-256 de l'enllaç d'obertura
-  token_expires_at  INTEGER,
-  opened_at         INTEGER,
+  -- (token_hash i token_expires_at, aquí, es van treure amb migration-20260920b: ara release_tokens)
+  opened_at         INTEGER,                  -- primera obertura d'un enllaç (el servidor no sap si la frase ha funcionat)
   created_at        INTEGER NOT NULL,
   updated_at        INTEGER NOT NULL,
   -- Afegides amb ALTER TABLE, en aquest ordre:
   phone             TEXT,                     -- SMS "revisa el correo", opcional
   revoked_at        INTEGER,
-  owner_notified_at INTEGER                   -- (migration-20260909b) correu al titular sobre una entrega automàtica, quan Resend l'ha acceptat
+  owner_notified_at INTEGER,                  -- (migration-20260909b) últim correu al titular sobre una entrega automàtica, quan Resend l'ha acceptat
+  release_mode      TEXT,                     -- (migration-20260920) 'auto' | 'manual' mentre released_at no és NULL; només les automàtiques tenen recordatoris
+  reminder_count    INTEGER NOT NULL DEFAULT 0 -- (migration-20260920) recordatoris enviats (o donats per fets) des de l'entrega; índex dins REMINDER_DAYS
 );
 
 CREATE INDEX IF NOT EXISTS recipients_user ON recipients(user_id);
-CREATE INDEX IF NOT EXISTS recipients_token ON recipients(token_hash);
+
+-- Enllaços d'obertura: un per correu enviat (entrega, "Enviar de nuevo",
+-- recordatori). Tots valen fins que caduquen o el titular anul·la l'accés
+-- (que els esborra). El cron esborra els caducats.
+CREATE TABLE IF NOT EXISTS release_tokens (
+  token_hash    TEXT PRIMARY KEY,             -- SHA-256 del token; el token en clar només va dins del correu
+  recipient_id  TEXT NOT NULL REFERENCES recipients(id) ON DELETE CASCADE,
+  created_at    INTEGER NOT NULL,
+  expires_at    INTEGER NOT NULL              -- 90 dies des del correu que el porta
+);
+
+CREATE INDEX IF NOT EXISTS release_tokens_recipient ON release_tokens(recipient_id);
 
 -- Registre d'activitat del compte, escrit pel servidor. Mai IP ni user-agent:
 -- només el país. Es conserven els 200 events més recents per usuari.
@@ -94,7 +118,8 @@ CREATE TABLE IF NOT EXISTS events (
   user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   kind        TEXT NOT NULL,                 -- login, login_failed, password_changed, email_changed, sessions_closed,
                                              -- phone_changed, settings_changed, release_manual, release_auto,
-                                             -- release_revoked, release_opened, warning_sent, checkin
+                                             -- release_revoked, release_opened, warning_sent, checkin,
+                                             -- reminder_sent, reminder_failed
   detail      TEXT,                          -- email de la persona, si escau (a email_changed, el correu nou)
   country     TEXT,                          -- request.cf.country de la petició que l'origina
   created_at  INTEGER NOT NULL

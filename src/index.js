@@ -20,7 +20,7 @@
 //   POST   /api/files/reconcile       { ids, version }         → { deleted } | 409  esborra orfes de >7 dies no inclosos a ids
 //   GET    /api/settings              Bearer                   → { warnDays, releaseDays, phone, lastSeen }
 //   PUT    /api/settings              { warnDays?, releaseDays?, phone? } → { ok }
-//   GET    /api/recipients            Bearer                   → { recipients: [ { id, email, releasedAt, openedAt, expiresAt } ] }
+//   GET    /api/recipients            Bearer                   → { recipients: [ { id, email, releasedAt, openedAt, expiresAt, revokedAt, reminders } ] }
 //   PUT    /api/recipients/:id        { email, phone?, package, fileIds } → { ok }
 //   DELETE /api/recipients/:id        Bearer                   → { ok }
 //   POST   /api/recipients/:id/release  Bearer                 → { ok }   (entrega ara: envia l'enllaç)
@@ -30,19 +30,31 @@
 //   GET    /api/release/:token/files/:id  —                    → bytes | 404
 //   GET    /api/env                   —                        → { env }   "production" | "staging" (franja del client)
 //
-// Cron diari (scheduled): avisa el titular a partir de warn_days sense entrar,
-// cada 3 dies; entrega a totes les persones a partir de release_days si s'han
-// enviat almenys dos avisos des de l'última activitat. Amb pause_releases='1'
-// a la taula system (D1) continua avisant però no entrega res.
+// Cron (scheduled), dos cops al dia. Per a cada titular, segons el temps sense
+// senyal de vida: a partir de warn_days, avís a cada execució; a la primera
+// execució a partir de release_days (amb dos avisos entregats com a mínim),
+// entrega a totes les persones pendents; després, durant RELEASED_NOTICE_DAYS,
+// li repeteix a cada execució que s'ha entregat, i recorda l'enllaç a cada
+// persona que no l'ha obert a les dates de REMINDER_DAYS. Entrar (o "Sigo
+// aquí") ho atura tot. Amb pause_releases='1' a la taula system (D1) continua
+// avisant però no entrega res.
 //
 // Avisos i entregues envien primer i desen després: si Resend no accepta el
-// correu no es desa res, i el cron ho torna a provar l'endemà. Així un correu
-// perdut no consumeix un avís ni marca una entrega que no ha sortit.
+// correu no es desa res, i el cron ho torna a provar a l'execució següent. Així
+// un correu perdut no consumeix un avís ni marca una entrega que no ha sortit.
+// Els recordatoris a les persones són l'excepció: un que falla es dona per fet
+// (queda a Actividad) i es passa a la data següent, per no insistir dos cops al
+// dia contra una adreça morta.
 
+const CRON_TRIGGERS = "0 8,20 * * *";     // wrangler.toml: el mateix als dos entorns
 const TOKEN_TTL_S = 24 * 3600;            // sessió: 24 h, renovada a cada petició autenticada
-const RELEASE_TTL_S = 90 * 24 * 3600;     // enllaç d'obertura: 90 dies
-const WARN_REPEAT_S = 3 * 24 * 3600;      // reavís cada 3 dies
+const RELEASE_TTL_S = 90 * 24 * 3600;     // enllaç d'obertura: 90 dies des de cada correu que el porta
 const MIN_WARNINGS_BEFORE_RELEASE = 2;    // avisos entregats abans d'una entrega automàtica
+const MIN_RELEASE_GAP_DAYS = 3;           // entrega com a mínim tres dies després del primer avís: sis avisos i tres SMS abans
+const OWNER_SMS_GAP_S = 20 * 3600;        // SMS al titular: com a màxim un al dia (el cron passa cada 12 h)
+const RELEASED_NOTICE_DAYS = 5;           // dies d'avisos "s'ha entregat" al titular després d'una entrega automàtica
+const REMINDER_DAYS = [1, 2, 4, 7, 10, 15, 21, 26, 33, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 150]; // recordatoris a la persona: dies després de l'entrega
+const CRON_SLACK_S = 3600;                // marge perquè una data que cau just a l'hora del cron no salti a l'execució següent
 const MAX_BODY_BYTES = 1_000_000;
 const MAX_FILE_BYTES = 50_000_000;       // 50 MB per fitxer (escàners notarials llargs)
 const MAX_USER_BYTES = 1_000_000_000;    // 1 GB per titular
@@ -126,7 +138,7 @@ export default {
   async scheduled(event, env, ctx) {
     // Cada cron té la seva feina, explícita: un cron nou no fa res fins que
     // no se li assigni aquí. Així una prova no pot disparar còpies per accident.
-    if (event.cron === "0 8 * * *") ctx.waitUntil(runTriggers(env));
+    if (event.cron === CRON_TRIGGERS) ctx.waitUntil(runTriggers(env));
     else if (event.cron === "0 3 * * SUN") ctx.waitUntil(backupFiles(env));
     else console.log(`cron desconegut, no es fa res: ${event.cron}`);
   },
@@ -315,7 +327,7 @@ async function login(request, env) {
   await env.DB.batch([
     env.DB.prepare("DELETE FROM sessions WHERE user_id = ? AND expires_at < ?").bind(user.id, ts),
     env.DB.prepare("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)").bind(tokenHash, user.id, ts + TOKEN_TTL_S),
-    env.DB.prepare("UPDATE users SET last_seen = ?, warned_at = NULL, warn_count = 0, checkin_token_hash = NULL, checkin_expires_at = NULL WHERE id = ?").bind(ts, user.id),
+    env.DB.prepare("UPDATE users SET last_seen = ?, warned_at = NULL, warn_count = 0 WHERE id = ?").bind(ts, user.id),
   ]);
   await logEvent(env, user.id, "login", null, request);
 
@@ -360,6 +372,8 @@ async function deleteAccount(request, env) {
 
   await env.DB.batch([
     env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(userId),
+    env.DB.prepare("DELETE FROM release_tokens WHERE recipient_id IN (SELECT id FROM recipients WHERE user_id = ?)").bind(userId),
+    env.DB.prepare("DELETE FROM checkin_tokens WHERE user_id = ?").bind(userId),
     env.DB.prepare("DELETE FROM recipients WHERE user_id = ?").bind(userId),
     env.DB.prepare("DELETE FROM files WHERE user_id = ?").bind(userId),
     env.DB.prepare("DELETE FROM events WHERE user_id = ?").bind(userId),
@@ -688,7 +702,7 @@ async function putSettings(request, env) {
   const releaseDays = body?.releaseDays ?? u.release_days;
   const phone = "phone" in (body || {}) ? parsePhone(body.phone) : u.phone;
   if (!Number.isInteger(warnDays) || warnDays < 1 || warnDays > 365) throw new HttpError(400, "bad_warn_days");
-  if (!Number.isInteger(releaseDays) || releaseDays <= warnDays || releaseDays > 730) throw new HttpError(400, "bad_release_days");
+  if (!Number.isInteger(releaseDays) || releaseDays < warnDays + MIN_RELEASE_GAP_DAYS || releaseDays > 730) throw new HttpError(400, "bad_release_days");
 
   await env.DB.prepare("UPDATE users SET warn_days = ?, release_days = ?, phone = ? WHERE id = ?").bind(warnDays, releaseDays, phone, userId).run();
   if ("phone" in (body || {})) await logEvent(env, userId, "phone_changed", null, request);
@@ -714,12 +728,15 @@ function parsePhone(value) {
 async function listRecipients(request, env) {
   const { userId } = await authenticate(request, env);
   const rows = await env.DB
-    .prepare("SELECT id, email, released_at, opened_at, token_expires_at, revoked_at FROM recipients WHERE user_id = ? ORDER BY created_at")
+    .prepare(`SELECT r.id, r.email, r.released_at, r.opened_at, r.revoked_at, r.reminder_count,
+                (SELECT MAX(t.expires_at) FROM release_tokens t WHERE t.recipient_id = r.id) AS token_expires_at
+              FROM recipients r WHERE r.user_id = ? ORDER BY r.created_at`)
     .bind(userId)
     .all();
   return json({
     recipients: rows.results.map((r) => ({
       id: r.id, email: r.email, releasedAt: r.released_at, openedAt: r.opened_at, expiresAt: r.token_expires_at, revokedAt: r.revoked_at,
+      reminders: r.reminder_count,
     })),
   });
 }
@@ -756,7 +773,10 @@ async function putRecipient(request, env, id) {
 
 async function deleteRecipient(request, env, id) {
   const { userId } = await authenticate(request, env);
-  const res = await env.DB.prepare("DELETE FROM recipients WHERE id = ? AND user_id = ?").bind(id, userId).run();
+  const [, res] = await env.DB.batch([
+    env.DB.prepare("DELETE FROM release_tokens WHERE recipient_id IN (SELECT id FROM recipients WHERE id = ? AND user_id = ?)").bind(id, userId),
+    env.DB.prepare("DELETE FROM recipients WHERE id = ? AND user_id = ?").bind(id, userId),
+  ]);
   if (res.meta.changes === 0) throw new HttpError(404, "no_recipient");
   return json({ ok: true });
 }
@@ -776,10 +796,13 @@ async function revokeRelease(request, env, id) {
   const { userId } = await authenticate(request, env);
   const rec = await env.DB.prepare("SELECT email FROM recipients WHERE id = ? AND user_id = ?").bind(id, userId).first();
   if (!rec) throw new HttpError(404, "no_recipient");
-  await env.DB
-    .prepare("UPDATE recipients SET released_at = NULL, token_hash = NULL, token_expires_at = NULL, opened_at = NULL, revoked_at = ?, updated_at = ? WHERE id = ? AND user_id = ?")
-    .bind(now(), now(), id, userId)
-    .run();
+  const ts = now();
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM release_tokens WHERE recipient_id = ?").bind(id),
+    env.DB
+      .prepare("UPDATE recipients SET released_at = NULL, release_mode = NULL, reminder_count = 0, opened_at = NULL, revoked_at = ?, updated_at = ? WHERE id = ? AND user_id = ?")
+      .bind(ts, ts, id, userId),
+  ]);
   await logEvent(env, userId, "release_revoked", rec.email, request);
   return json({ ok: true });
 }
@@ -793,12 +816,16 @@ async function checkin(request, env) {
 
   const hash = b64.encode(await sha256(raw));
   const ts = now();
-  const u = await env.DB.prepare("SELECT id FROM users WHERE checkin_token_hash = ? AND checkin_expires_at > ?").bind(hash, ts).first();
+  // Val el botó de qualsevol avís d'aquest període d'inactivitat: un token
+  // serveix mentre no ha caducat i no hi ha hagut cap senyal de vida després
+  // d'enviar-lo (created_at > last_seen).
+  const u = await env.DB
+    .prepare(`SELECT u.id FROM checkin_tokens t JOIN users u ON u.id = t.user_id
+              WHERE t.token_hash = ? AND t.expires_at > ? AND t.created_at > COALESCE(u.last_seen, 0)`)
+    .bind(hash, ts)
+    .first();
   if (!u) throw new HttpError(404, "bad_token");
-  await env.DB
-    .prepare("UPDATE users SET last_seen = ?, warned_at = NULL, warn_count = 0, checkin_token_hash = NULL, checkin_expires_at = NULL WHERE id = ?")
-    .bind(ts, u.id)
-    .run();
+  await env.DB.prepare("UPDATE users SET last_seen = ?, warned_at = NULL, warn_count = 0 WHERE id = ?").bind(ts, u.id).run();
   await logEvent(env, u.id, "checkin", null, request);
   return json({ ok: true });
 }
@@ -807,10 +834,13 @@ async function findRelease(env, tokenStr) {
   const raw = b64.decodeUrl(tokenStr);
   if (!raw || raw.length !== 32) throw new HttpError(404, "no_release");
   const hash = b64.encode(await sha256(raw));
+  // Obre qualsevol enllaç enviat (entrega, "Enviar de nuevo" o recordatori)
+  // mentre no ha caducat: cada correu porta el seu token i tots queden a
+  // release_tokens fins que caduquen o el titular anul·la l'accés.
   const rec = await env.DB
     .prepare(`SELECT r.id, r.user_id, r.email, r.package, r.file_ids, r.opened_at, u.email AS owner_email
-              FROM recipients r JOIN users u ON u.id = r.user_id
-              WHERE r.token_hash = ? AND r.released_at IS NOT NULL AND r.token_expires_at > ?`)
+              FROM release_tokens t JOIN recipients r ON r.id = t.recipient_id JOIN users u ON u.id = r.user_id
+              WHERE t.token_hash = ? AND t.expires_at > ? AND r.released_at IS NOT NULL`)
     .bind(hash, now())
     .first();
   if (!rec || !rec.package) throw new HttpError(404, "no_release");
@@ -838,17 +868,12 @@ async function openReleaseFile(env, tokenStr, fileId) {
 }
 
 // Envia primer i desa després: si el correu no surt, l'enllaç no queda registrat
-// i la persona continua com a pendent, perquè el cron ho reintenti.
+// i la persona continua com a pendent, perquè el cron ho reintenti. Cada
+// enviament (entrega, "Enviar de nuevo", recordatori) porta un token nou; els
+// anteriors continuen valent fins que caduquen o s'anul·la l'accés.
 async function releaseRecipient(env, user, rec, mode) {
-  const token = randomBytes(32);
-  const hash = b64.encode(await sha256(token));
   const ts = now();
-  const expiresAt = ts + RELEASE_TTL_S;
-  // Una entrega manual no necessita un segon avís al mateix titular. Les
-  // automàtiques queden pendents fins que notifyOwnerOfPendingReleases l'envia.
-  const ownerNotifiedAt = mode === "manual" ? ts : null;
-
-  const link = `${env.SITE}/abrir.html?t=${b64.encodeUrl(token)}`;
+  const { link, hash, expiresAt } = await newReleaseLink(env, ts);
   const intro = mode === "manual"
     ? `${user.email} ha preparado en Custodium información para ti y te la entrega ahora.`
     : `${user.email} preparó en Custodium información para ti, para cuando no pudiera actuar. Ha pasado el plazo que fijó sin dar señales, y por eso recibes este mensaje.`;
@@ -869,15 +894,58 @@ async function releaseRecipient(env, user, rec, mode) {
     await sendSms(env, rec.phone, `Custodium: ${user.email} te ha enviado un correo con informacion importante para ti. Revisa tu bandeja de entrada y tambien la carpeta de spam.`);
   }
 
-  await env.DB
-    .prepare("UPDATE recipients SET released_at = ?, token_hash = ?, token_expires_at = ?, opened_at = NULL, revoked_at = NULL, owner_notified_at = ?, updated_at = ? WHERE id = ?")
-    .bind(ts, hash, expiresAt, ownerNotifiedAt, ts, rec.id)
-    .run();
+  // Una entrega manual no necessita avís al mateix titular; d'una automàtica
+  // n'hi arriben durant RELEASED_NOTICE_DAYS (notifyOwnerReleased).
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO release_tokens (token_hash, recipient_id, created_at, expires_at) VALUES (?, ?, ?, ?)").bind(hash, rec.id, ts, expiresAt),
+    env.DB
+      .prepare("UPDATE recipients SET released_at = ?, release_mode = ?, reminder_count = 0, opened_at = NULL, revoked_at = NULL, owner_notified_at = ?, updated_at = ? WHERE id = ?")
+      .bind(ts, mode, mode === "manual" ? ts : null, ts, rec.id),
+  ]);
 }
 
-// El titular ha de saber que s'ha entregat, per poder anul·lar-ho si ha estat un
-// fals positiu. El servidor només coneix els emails: els noms viuen dins del pla.
-async function notifyOwnerReleased(env, user, emails) {
+async function newReleaseLink(env, ts) {
+  const token = randomBytes(32);
+  const hash = b64.encode(await sha256(token));
+  return { link: `${env.SITE}/abrir.html?t=${b64.encodeUrl(token)}`, hash, expiresAt: ts + RELEASE_TTL_S };
+}
+
+// Recordatori a una persona que encara no ha obert: enllaç nou, sense SMS. Un
+// que Resend rebutja es dona per fet (queda a Actividad) i es passa a la data
+// següent: contra una adreça morta no s'insisteix dos cops al dia.
+async function sendReminder(env, user, rec, ts) {
+  const { link, hash, expiresAt } = await newReleaseLink(env, ts);
+  const days = Math.floor((ts - rec.released_at) / 86400);
+  let sent = true;
+  try {
+    await sendMail(env, rec.email, "Custodium — sigue habiendo información preparada para ti", [
+      `${days === 1 ? "Hace un día" : `Hace ${days} días`} te avisamos de que ${user.email} había preparado en Custodium información para ti. Todavía no se ha abierto.`,
+      "",
+      "Puedes abrirla aquí:",
+      link,
+      "",
+      "Necesitarás la frase que te entregó en persona. Los enlaces de los correos anteriores siguen siendo válidos.",
+      `Este enlace es válido hasta el ${dateEs(expiresAt)}.`,
+      "",
+      "Custodium · Guardamos el plan, nunca las claves.",
+    ].join("\n"));
+  } catch (err) {
+    sent = false;
+    console.error("reminder failed for recipient", rec.id, err);
+  }
+  await env.DB.batch([
+    ...(sent ? [env.DB.prepare("INSERT INTO release_tokens (token_hash, recipient_id, created_at, expires_at) VALUES (?, ?, ?, ?)").bind(hash, rec.id, ts, expiresAt)] : []),
+    env.DB.prepare("UPDATE recipients SET reminder_count = reminder_count + 1, updated_at = ? WHERE id = ?").bind(ts, rec.id),
+  ]);
+  await logEvent(env, user.id, sent ? "reminder_sent" : "reminder_failed", rec.email, null);
+}
+
+// El titular ha de saber que s'ha entregat, per poder anul·lar-ho si ha estat
+// un fals positiu. Durant RELEASED_NOTICE_DAYS després d'una entrega automàtica
+// li ho repetim a cada execució (SMS com a màxim un al dia), fins que entra.
+// El servidor només coneix els emails: els noms viuen dins del pla.
+async function notifyOwnerReleased(env, user, released, ts) {
+  const emails = released.map((r) => r.email);
   await sendMail(env, user.email, "Custodium — se ha entregado tu plan", [
     "Ha pasado el plazo que fijaste sin señales tuyas, y por eso se ha entregado a tus personas de confianza la parte del plan que les corresponde.",
     "",
@@ -889,61 +957,56 @@ async function notifyOwnerReleased(env, user, emails) {
     "",
     "Custodium · Guardamos el plan, nunca las claves.",
   ].join("\n"));
+  await env.DB.batch(released.map((r) => env.DB.prepare("UPDATE recipients SET owner_notified_at = ? WHERE id = ?").bind(ts, r.id)));
 
-  if (user.phone) {
+  if (await ownerSmsDue(env, user, ts)) {
     const n = emails.length;
     await sendSms(env, user.phone, `Custodium: se ha entregado tu plan a ${n} ${n === 1 ? "persona" : "personas"} de confianza. Si es un error, entra en tu cuenta y anula el acceso.`);
   }
 }
 
-// Reuneix totes les entregues automàtiques que encara no s'han comunicat al
-// titular. Només les marca després que Resend accepti un únic correu amb la
-// llista completa; si falla, continuen pendents per al cron següent.
-async function notifyOwnerOfPendingReleases(env, user) {
-  const pending = await env.DB
-    .prepare("SELECT id, email FROM recipients WHERE user_id = ? AND released_at IS NOT NULL AND owner_notified_at IS NULL ORDER BY created_at")
-    .bind(user.id)
-    .all();
-  if (!pending.results.length) return;
-
-  await notifyOwnerReleased(env, user, pending.results.map((r) => r.email));
-  const ts = now();
-  await env.DB.batch(pending.results.map((r) => env.DB
-    .prepare("UPDATE recipients SET owner_notified_at = ? WHERE id = ? AND owner_notified_at IS NULL")
-    .bind(ts, r.id)));
+// SMS al titular com a màxim un al dia, comptant avisos i notícies d'entrega.
+async function ownerSmsDue(env, user, ts) {
+  if (!user.phone) return false;
+  if (user.warn_sms_at && ts - user.warn_sms_at < OWNER_SMS_GAP_S) return false;
+  await env.DB.prepare("UPDATE users SET warn_sms_at = ? WHERE id = ?").bind(ts, user.id).run();
+  user.warn_sms_at = ts;
+  return true;
 }
 
 // Envia primer i desa després: un avís que no ha sortit no compta, i el cron
-// el torna a provar. warn_count és el que després autoritza l'entrega.
+// el torna a provar. warn_count és el que després autoritza l'entrega. Cada
+// avís porta un botó "Sigo aquí" nou; els dels avisos anteriors continuen
+// valent (checkin_tokens) fins que hi ha una senyal de vida.
 async function sendWarning(env, user, ts, idleS, releaseAfterS) {
   const token = randomBytes(32);
   const hash = b64.encode(await sha256(token));
   const deadline = user.last_seen + releaseAfterS;
-
   const days = Math.floor(idleS / 86400);
   const link = `${env.SITE}/aqui.html?t=${b64.encodeUrl(token)}`;
+  const site = env.SITE.replace(/^https?:\/\//, "");
 
   await sendMail(env, user.email, "Custodium — ¿sigues ahí?", [
-    `No has entrado en Custodium desde hace ${days} días.`,
+    `No has entrado en Custodium desde hace ${days === 1 ? "un día" : `${days} días`}.`,
     "",
     "Si todo va bien, confírmalo aquí (un solo clic):",
     link,
     "",
-    `Si no lo confirmas antes del ${dateEs(deadline)}, entregaremos a tus personas de confianza la parte del plan que les corresponde.`,
-    "Entrar en b2c.custodium.space también cuenta como confirmación.",
+    `Si no lo confirmas, a partir del ${dateEs(deadline)} entregaremos a tus personas de confianza la parte del plan que les corresponde.`,
+    `Entrar en ${site} también cuenta como confirmación. Los botones de los avisos anteriores siguen sirviendo.`,
     "",
     "Custodium · Guardamos el plan, nunca las claves.",
   ].join("\n"));
 
-  if (user.phone) {
-    await sendSms(env, user.phone, `Custodium: llevas ${days} dias sin entrar. Entra en tu cuenta de Custodium o pulsa el boton del correo para confirmar que sigues ahi. Si no lo haces antes del ${dateShort(deadline)}, entregaremos tu plan.`);
-  }
-
-  await env.DB
-    .prepare("UPDATE users SET warned_at = ?, warn_count = warn_count + 1, checkin_token_hash = ?, checkin_expires_at = ? WHERE id = ?")
-    .bind(ts, hash, deadline + 7 * 24 * 3600, user.id)
-    .run();
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO checkin_tokens (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)").bind(hash, user.id, ts, deadline + 7 * 24 * 3600),
+    env.DB.prepare("UPDATE users SET warned_at = ?, warn_count = warn_count + 1 WHERE id = ?").bind(ts, user.id),
+  ]);
   await logEvent(env, user.id, "warning_sent", null, null);
+
+  if (await ownerSmsDue(env, user, ts)) {
+    await sendSms(env, user.phone, `Custodium: llevas ${days} dias sin entrar. Entra en tu cuenta de Custodium o pulsa el boton del correo para confirmar que sigues ahi. Si no lo haces, a partir del ${dateShort(deadline)} entregaremos tu plan.`);
+  }
 }
 
 // ------------------------------------------------------------------ cron
@@ -954,65 +1017,86 @@ async function runTriggers(env) {
   // execució, perquè es pugui activar en plena incidència sense cap deploy.
   const row = await env.DB.prepare("SELECT value FROM system WHERE key = 'pause_releases'").first();
   const paused = row?.value === "1";
-  const users = await env.DB.prepare("SELECT id, email, phone, last_seen, warned_at, warn_count, warn_days, release_days FROM users").all();
+  const users = await env.DB.prepare("SELECT id, email, phone, last_seen, warned_at, warn_count, warn_days, release_days, warn_sms_at FROM users").all();
 
   for (const u of users.results) {
     try {
-      const lastSeen = u.last_seen ?? ts;
-      const idle = ts - lastSeen;
-      const warnAfter = u.warn_days * 86400;
-      const releaseAfter = u.release_days * 86400;
-      if (idle < warnAfter) {
-        await notifyOwnerOfPendingReleases(env, u);
-        continue;
-      }
-
-      const recs = await env.DB
-        .prepare("SELECT id, email, phone, package, released_at FROM recipients WHERE user_id = ? AND package IS NOT NULL")
-        .bind(u.id)
-        .all();
-      if (!recs.results.length) continue;
-
-      const warnedSinceLastSeen = u.warned_at && u.warned_at > lastSeen;
-
-      // Calen dos avisos entregats: una incidència d'enviament no pot, tota sola,
-      // desencadenar una entrega. Qualsevol senyal de vida torna el compte a zero.
-      if (idle >= releaseAfter && u.warn_count >= MIN_WARNINGS_BEFORE_RELEASE) {
-        // Amb la pausa activa no s'entrega res, però el titular continua
-        // rebent avisos mentre duri.
-        if (paused) {
-          console.log(`entregues en pausa (pause_releases=1): no s'entrega el pla de ${u.email}`);
-        } else {
-          for (const r of recs.results) {
-            if (r.released_at) continue;
-            try {
-              await releaseRecipient(env, u, r, "auto");
-              await logEvent(env, u.id, "release_auto", r.email, null);
-            } catch (err) {
-              console.error("release failed for recipient", r.id, err);
-            }
-          }
-          await notifyOwnerOfPendingReleases(env, u);
-          continue;
-        }
-      }
-
-      if (!warnedSinceLastSeen || ts - u.warned_at >= WARN_REPEAT_S) {
-        await sendWarning(env, { ...u, last_seen: lastSeen }, ts, idle, releaseAfter);
-      }
-      await notifyOwnerOfPendingReleases(env, u);
+      await runUserTriggers(env, u, ts, paused);
     } catch (err) {
       console.error("trigger failed for user", u.id, err);
     }
   }
 
-  // Altes no completades: la fila ja no serveix quan el codi ha caducat i la
-  // finestra del límit de codis (una hora) també ha passat.
+  // Neteja: botons i enllaços caducats, i altes no completades (la fila ja no
+  // serveix quan el codi ha caducat i la finestra del límit de codis també).
   try {
-    await env.DB.prepare("DELETE FROM pending_signups WHERE expires_at < ? AND created_at < ?").bind(ts, ts - SIGNUP_WINDOW_S).run();
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM checkin_tokens WHERE expires_at < ?").bind(ts),
+      env.DB.prepare("DELETE FROM release_tokens WHERE expires_at < ?").bind(ts),
+      env.DB.prepare("DELETE FROM pending_signups WHERE expires_at < ? AND created_at < ?").bind(ts, ts - SIGNUP_WINDOW_S),
+    ]);
   } catch (err) {
-    console.error("neteja de pending_signups", err);
+    console.error("neteja del cron", err);
   }
+}
+
+// Un titular, una execució. Segons el temps sense senyal de vida:
+//   < warn_days           res.
+//   ≥ warn_days           avís a cada execució, mentre hi hagi persones per entregar.
+//   ≥ release_days        entrega a totes les persones pendents (amb dos avisos
+//                         entregats i sense pausa); després, avís "s'ha entregat"
+//                         a cada execució durant RELEASED_NOTICE_DAYS i recordatori
+//                         a qui no ha obert a les dates de REMINDER_DAYS.
+// Entrar o "Sigo aquí" posa last_seen al dia i ho atura tot; els enllaços ja
+// entregats continuen valent fins que el titular els anul·la des de Personas.
+async function runUserTriggers(env, u, ts, paused) {
+  const lastSeen = u.last_seen ?? ts;
+  const idle = ts - lastSeen;
+  if (idle < u.warn_days * 86400) return;
+
+  const recs = await env.DB
+    .prepare("SELECT id, email, phone, released_at, release_mode, reminder_count, opened_at FROM recipients WHERE user_id = ? AND package IS NOT NULL ORDER BY created_at")
+    .bind(u.id)
+    .all();
+  if (!recs.results.length) return;
+  const user = { ...u, last_seen: lastSeen };
+  const releaseAfter = u.release_days * 86400;
+  const pending = recs.results.filter((r) => !r.released_at);
+
+  // Calen dos avisos entregats: una incidència d'enviament no pot, tota sola,
+  // desencadenar una entrega. Qualsevol senyal de vida torna el compte a zero.
+  if (pending.length && idle >= releaseAfter && u.warn_count >= MIN_WARNINGS_BEFORE_RELEASE) {
+    if (paused) {
+      console.log(`entregues en pausa (pause_releases=1): no s'entrega el pla de ${u.email}`);
+    } else {
+      for (const r of pending) {
+        try {
+          await releaseRecipient(env, user, r, "auto");
+          await logEvent(env, u.id, "release_auto", r.email, null);
+          Object.assign(r, { released_at: ts, release_mode: "auto", reminder_count: 0, opened_at: null });
+        } catch (err) {
+          console.error("release failed for recipient", r.id, err);
+        }
+      }
+    }
+  }
+
+  // Entregues automàtiques que el titular encara no ha vist (no ha entrat des
+  // de llavors): notícia al titular i recordatoris a qui no ha obert.
+  const released = recs.results.filter((r) => r.released_at && r.release_mode === "auto" && r.released_at > lastSeen);
+  if (released.length) {
+    if (released.some((r) => ts - r.released_at < RELEASED_NOTICE_DAYS * 86400)) {
+      try { await notifyOwnerReleased(env, user, released, ts); } catch (err) { console.error("owner notice failed for user", u.id, err); }
+    }
+    for (const r of released) {
+      if (r.opened_at || r.reminder_count >= REMINDER_DAYS.length) continue;
+      if (ts + CRON_SLACK_S < r.released_at + REMINDER_DAYS[r.reminder_count] * 86400) continue;
+      await sendReminder(env, user, r, ts);
+    }
+    return;
+  }
+
+  if (pending.length) await sendWarning(env, user, ts, idle, releaseAfter);
 }
 
 // Còpia setmanal a FILES_BACKUP: copia els objectes que falten, amb la mateixa

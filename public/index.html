@@ -182,8 +182,10 @@
       <form id="settings-form" class="settings" novalidate>
         <h2>Entrega por inactividad</h2>
         <p class="hint">
-          Si pasa el plazo que has definido sin que confirmes que sigues aquí, Custodium te enviará avisos.
-          Si continúas sin responder, enviará a cada persona un enlace para abrir sus elementos con su frase.
+          Si pasa el plazo del primer aviso sin que confirmes que sigues aquí, Custodium te avisará por correo dos veces al día
+          (y por SMS una vez al día, si has puesto tu móvil). Si llega el plazo de entrega y sigues sin responder, enviará a cada
+          persona un enlace para abrir sus elementos con su frase, y se lo recordará hasta que lo abra.
+          La entrega tiene que ser al menos tres días después del primer aviso.
         </p>
         <p class="callout">
           Los dos plazos se cuentan desde tu última actividad o confirmación.
@@ -191,7 +193,7 @@
         </p>
         <div class="settings-row">
           <label><span>Primer aviso</span><span class="with-unit"><input id="warn-days" type="number" min="1" max="365" required><em>días sin entrar</em></span></label>
-          <label><span>Entrega</span><span class="with-unit"><input id="release-days" type="number" min="2" max="730" required><em>días sin entrar</em></span></label>
+          <label><span>Entrega</span><span class="with-unit"><input id="release-days" type="number" min="4" max="730" required><em>días sin entrar</em></span></label>
         </div>
         <p id="last-seen" class="hint"></p>
         <p id="settings-message" class="message" aria-live="polite"></p>

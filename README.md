@@ -47,10 +47,12 @@ El servidor guarda `SHA-256(sal aleatòria || authHash)` (una segona sal, `auth_
 
 | On | Què | Pot llegir-ho el servidor? |
 | :--- | :--- | :--- |
-| D1 `users` | email, mòbil (opcional), sal de derivació de claus, hash d'autenticació amb sal, última senyal de vida, terminis | sí (dades personals) |
+| D1 `users` | email, mòbil (opcional), sal de derivació de claus, hash d'autenticació amb sal, última senyal de vida, terminis, últim SMS | sí (dades personals) |
+| D1 `checkin_tokens` | hash de cada botó "Sigo aquí" enviat, amb caducitat | sí (només hashes) |
 | D1 `pending_signups` | altes en curs: email, hash amb sal del codi enviat, intents, codis enviats, caducitat | sí (mai el codi en clar) |
 | D1 `vaults` | el pla, xifrat amb encKey | no |
-| D1 `recipients` | email i mòbil (opcional) de la persona, el seu paquet xifrat, llista d'ids de fitxer | només email, mòbil i ids |
+| D1 `recipients` | email i mòbil (opcional) de la persona, el seu paquet xifrat, llista d'ids de fitxer, estat de l'entrega i recordatoris enviats | només email, mòbil, ids i estat |
+| D1 `release_tokens` | hash de cada enllaç d'obertura enviat, amb caducitat | sí (només hashes) |
 | D1 `files` | id i mida de cada fitxer | sí (només mida) |
 | D1 `events` | registre d'activitat: tipus d'acció, email de la persona si escau, país de la petició (mai IP ni user-agent), data | sí (dades personals) |
 | R2 | els bytes xifrats de cada fitxer, sota `userId/fileId` | no |
@@ -85,18 +87,19 @@ A cada desat, per a cada persona, el navegador construeix `{ items: [ { title, n
 ### 2.6 Senyal de vida i entrega
 
 - **Senyal de vida:** qualsevol petició autenticada (entrar, editar) o el botó "Sigo aquí" del correu d'avís.
-- **Cron diari (08:00 UTC):** per a cada titular amb persones i paquets:
-  - si porta ≥ `warn_days` sense senyal → correu d'avís amb enllaç a `/aqui.html`; es repeteix cada 3 dies;
-  - si porta ≥ `release_days` i s'han entregat almenys **dos** avisos des de l'última senyal → entrega a totes les persones pendents.
-- **Res es desa fins que el correu ha sortit.** Tant l'avís com l'entrega escriuen a la base de dades només després que Resend hagi acceptat el missatge. Si l'enviament falla no es desa res: l'avís no compta, la persona continua pendent i el cron ho torna a provar l'endemà.
-- **`warn_count`** compta els avisos entregats i torna a zero amb qualsevol senyal de vida (entrar, qualsevol petició autenticada o el botó "Sigo aquí"). Exigir-ne dos vol dir que una sola incidència d'enviament no pot desencadenar una entrega: cal que el sistema hagi aconseguit avisar el titular dos cops i que ell no hagi respost cap de les dues vegades.
-- **Quan hi ha entrega automàtica, el titular rep un correu** (i un SMS, si té mòbil) dient a qui s'ha entregat, per poder anul·lar els enllaços si ha estat un fals positiu. El correu llista les adreces de les persones: el servidor no en sap els noms, que viuen dins del pla xifrat. Si Resend no l'accepta, el cron el torna a intentar cada dia i agrupa en un sol correu totes les entregues pendents d'avisar.
-- **Entrega:** es genera un token aleatori de 32 bytes (se'n guarda el hash), vàlid 90 dies, i s'envia a la persona un enllaç a `/abrir.html?t=…`. La persona escriu la frase; el navegador deriva la clau i desxifra el paquet i els fitxers.
-- **Anular:** el titular pot anul·lar l'enllaç des de "Personas". Entrar de nou no anul·la res automàticament.
+- **Cron, dos cops al dia (08:00 i 20:00 UTC):** per a cada titular amb persones i paquets, segons el temps sense senyal:
+  - ≥ `warn_days` → correu d'avís ("¿sigues ahí?", amb el botó de `/aqui.html`) a **cada execució**, i SMS com a màxim un al dia si té mòbil. El correu diu a partir de quin dia s'entregarà (última senyal + `release_days`), i es compleix.
+  - ≥ `release_days`, amb almenys **dos** avisos entregats des de l'última senyal → entrega a totes les persones pendents. A partir d'aquí ja no hi ha "¿sigues ahí?": durant 5 dies, a cada execució, el titular rep "se ha entregado tu plan" (SMS un al dia) per si ha estat un fals positiu, i cada persona que no ha obert rep un recordatori amb l'enllaç als dies 1, 2, 4, 7, 10, 15, 21, 26, 33, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130 i 150 després de l'entrega (sense SMS). Entrar ho atura tot; els enllaços entregats continuen valent fins que el titular els anul·la des de Personas.
+  - `release_days` ha de ser com a mínim `warn_days + 3`: abans d'entregar hauran sortit sis avisos i tres SMS.
+- **Res es desa fins que el correu ha sortit.** Tant l'avís com l'entrega escriuen a la base de dades només després que Resend hagi acceptat el missatge. Si l'enviament falla no es desa res: l'avís no compta, la persona continua pendent i el cron ho torna a provar a l'execució següent. L'excepció són els recordatoris a les persones: un que Resend rebutja es dona per fet (queda a Actividad com "No se ha podido enviar el recordatorio") i es passa a la data següent, per no insistir dos cops al dia contra una adreça morta.
+- **`warn_count`** compta els avisos entregats i torna a zero amb qualsevol senyal de vida (entrar, qualsevol petició autenticada o el botó "Sigo aquí"). Exigir-ne dos vol dir que una sola incidència d'enviament no pot desencadenar una entrega: cal que el sistema hagi aconseguit avisar el titular dos cops i que ell no hagi respost cap de les dues vegades. Amb un avís a cada execució, això només frena l'entrega si el correu al titular no surt de cap manera.
+- **La notícia al titular** llista les adreces de les persones: el servidor no en sap els noms, que viuen dins del pla xifrat. Si Resend no l'accepta, es torna a provar a l'execució següent.
+- **Entrega:** cada correu que porta un enllaç (entrega, "Enviar de nuevo", recordatori) genera un token aleatori de 32 bytes nou; se'n guarda el hash a `release_tokens`, vàlid 90 dies des d'aquell correu, i **tots els enviats obren** fins que caduquen o s'anul·la l'accés. L'enllaç és `/abrir.html?t=…`; la persona escriu la frase, el navegador deriva la clau i desxifra el paquet i els fitxers. El servidor només sap quan s'ha obert un enllaç (baixat el paquet), no si la frase ha funcionat.
+- **Anular:** el titular pot anul·lar l'accés des de "Personas": s'esborren tots els enllaços de la persona. Entrar de nou no anul·la res automàticament.
 - **Pausa d'emergència:** amb la fila `pause_releases` de la taula `system` (D1) a `'1'`, el cron continua avisant però no entrega res; s'activa amb un `UPDATE`, sense deploy (vegeu §5). Les entregues manuals ("Entregar ahora") no es pausen.
-- El botó "Sigo aquí" és un botó de veritat (POST), no l'enllaç: els escàners de correu obren enllaços sols i comptarien com a senyal.
+- El botó "Sigo aquí" és un botó de veritat (POST), no l'enllaç: els escàners de correu obren enllaços sols i comptarien com a senyal. Cada avís porta el seu botó (`checkin_tokens`) i tots els del període valen: un botó serveix mentre no ha caducat i no hi ha hagut cap senyal de vida després d'enviar-lo.
 - Els correus mai contenen contingut, només enllaços (i, a l'alta, el codi de sis xifres). Surten de `avisos@custodium.space` via Resend.
-- **SMS** (opcional, si hi ha mòbil): al titular, amb l'avís; a la persona, en entregar ("te ha llegado un correo; mira también el spam"). Sense enllaços ni accents. Canal independent del correu: cobreix el filtre de spam i el compte de correu compromès. Un error d'SMS no atura res.
+- **SMS** (opcional, si hi ha mòbil): al titular, amb l'avís i amb la notícia d'entrega, com a màxim un al dia; a la persona, només en entregar ("te ha llegado un correo; mira también el spam"), no amb els recordatoris. Sense enllaços ni accents. Canal independent del correu: cobreix el filtre de spam i el compte de correu compromès. Un error d'SMS no atura res.
 
 ### 2.7 API
 
@@ -120,7 +123,7 @@ POST   /api/files/reconcile         { ids, version }              { deleted } | 
 GET    /api/events                  Bearer                        { events: [ { kind, detail, country, createdAt } ] }   últims 50
 GET    /api/settings                Bearer                        { warnDays, releaseDays, phone, lastSeen }
 PUT    /api/settings                { warnDays?, releaseDays?, phone? }  { ok }
-GET    /api/recipients              Bearer                        { recipients: [ { id, email, releasedAt, openedAt, expiresAt, revokedAt } ] }
+GET    /api/recipients              Bearer                        { recipients: [ { id, email, releasedAt, openedAt, expiresAt, revokedAt, reminders } ] }
 PUT    /api/recipients/:id          { email, phone?, package, fileIds }  { ok }
 DELETE /api/recipients/:id          Bearer                        { ok }
 POST   /api/recipients/:id/release  Bearer                        { ok }   envia l'enllaç ara
@@ -131,7 +134,7 @@ GET    /api/release/:token/files/:id  —                           bytes | 404
 GET    /api/env                     —                             { env }   "production" | "staging"
 ```
 
-Alta amb verificació de l'email: `/api/register/start` genera un codi de sis xifres, en guarda `SHA-256(sal || codi)` a `pending_signups` (caduca als 15 minuts) i l'envia per correu. Si l'email ja té compte no envia cap codi sinó "Ya existe una cuenta con este correo" (amb l'enllaç per entrar i el recordatori que la contrasenya no es pot recuperar), però la resposta és la mateixa (`200 { ok }`) i la fila es crea igual sense codi, perquè ni la resposta ni el límit de codis diguin si el compte existeix. `/api/register` compara el codi en temps constant i compta els intents: a la cinquena fallada el codi queda inservible (`too_many_attempts`) i cal demanar-ne un de nou; només amb el codi bo es crea l'usuari (amb la seva `kdf_salt`) i s'esborra la fila. Per això no hi ha cap `409 email_exists`: per a un email amb compte no existeix cap codi vàlid, i la resposta és la d'un codi dolent. El cron diari esborra les files amb el codi caducat i la finestra del límit (una hora) passada.
+Alta amb verificació de l'email: `/api/register/start` genera un codi de sis xifres, en guarda `SHA-256(sal || codi)` a `pending_signups` (caduca als 15 minuts) i l'envia per correu. Si l'email ja té compte no envia cap codi sinó "Ya existe una cuenta con este correo" (amb l'enllaç per entrar i el recordatori que la contrasenya no es pot recuperar), però la resposta és la mateixa (`200 { ok }`) i la fila es crea igual sense codi, perquè ni la resposta ni el límit de codis diguin si el compte existeix. `/api/register` compara el codi en temps constant i compta els intents: a la cinquena fallada el codi queda inservible (`too_many_attempts`) i cal demanar-ne un de nou; només amb el codi bo es crea l'usuari (amb la seva `kdf_salt`) i s'esborra la fila. Per això no hi ha cap `409 email_exists`: per a un email amb compte no existeix cap codi vàlid, i la resposta és la d'un codi dolent. El cron esborra les files amb el codi caducat i la finestra del límit (una hora) passada.
 
 Canvi de correu, amb el mateix mecanisme: `/api/email/start` (amb sessió) envia el codi al correu **nou** (o "ya tienes cuenta", si ja en té; resposta igual) i `/api/email` exigeix la contrasenya actual (`authHash`) i el codi. Si el correu nou ja té compte, la resposta és la d'un codi dolent i el correu nou rep "ya tienes cuenta": no es revela res. Amb tot bé: s'actualitza `email`, es tanquen les altres sessions, es registra `email_changed` (amb el correu nou com a detall) i l'adreça antiga rep "Tu correo de Custodium ha pasado a ser …. Si no has sido tú, escríbenos a …" (`MAIL_CONTACT` a `wrangler.toml`), sense cap enllaç de desfer. La sal de derivació no canvia (§2.2), així que les claus i el pla queden com estaven; l'obridor de la còpia tampoc en depèn.
 
@@ -155,9 +158,9 @@ Fitxers orfes: si es tanca la pestanya a mitja edició, un fitxer pujat pot qued
    - **Primers passos.** Sota la intro de "Tu plan", un bloc "Primeros pasos" amb sis caselles (contrasenya guardada, una persona, primer element, mòbil per als avisos, terminis revisats, còpia baixada), cadascuna deduïda del pla o de la configuració (cap dada nova al servidor; "terminis revisats" i "còpia baixada" són marques dins del pla xifrat, la primera en prémer "Guardar plazos" un cop). Cada pas pendent enllaça a l'acció. Desapareix quan les sis estan fetes o en tancar-lo amb la X (`onboarding.dismissedAt`, no torna a sortir). Mentre és visible no es mostra "Aún no hay nada".
 2. **Afegir elements.** "+ Añadir elemento": què és, persones que l'han de rebre (caselles; cap = només per a tu), instruccions, fitxers (fins a 50 MB). El desplegable "Empezar desde una plantilla (opcional)" omple el títol (si és buit) i les instruccions amb un guió (compte bancari, wallet, xarxes socials, assegurança); les plantilles viuen a `public/templates.js` (`{ id, name, title, notes }`) i s'hi afegeixen sense tocar `app.js`. "Listo" xifra i desa al moment. No hi ha botó de desar. "Cancelar" torna a la pantalla anterior.
 3. **Persones.** "+ Añadir persona": nom, email, mòbil opcional (per a l'SMS d'avís) i frase. La frase la genera sempre el sistema, sis paraules a l'atzar (llista BIP39 en castellà, 2.048 paraules → 66 bits), tipus `ebano deporte nacar cien organo vagar`; no es pot escriure a mà ("Generar otra" en dona una altra). Escriu-les en paper i dona-l'hi en persona; mai per missatge. En obrir, no importen majúscules, accents ni espais. La frase queda guardada dins del teu pla (xifrada, com la resta): "Mostrar frase" la torna a ensenyar després de demanar-te la contrasenya, durant un minut, per comprovar el paper o tornar-lo a escriure.
-4. **Terminis.** A "Personas → Entrega por inactividad": primer avís (8 dies per defecte) i entrega (21). L'entrega ha de ser posterior a l'avís. Els dos terminis compten des de l'última activitat o confirmació; entrar o pulsar "Sigo aquí" els reinicia.
+4. **Terminis.** A "Personas → Entrega por inactividad": primer avís (8 dies per defecte) i entrega (21). L'entrega ha de ser com a mínim tres dies després del primer avís. Des del primer avís, correu dos cops al dia (i SMS un cop al dia, si hi ha mòbil) fins a l'entrega. Els dos terminis compten des de l'última activitat o confirmació; entrar o pulsar "Sigo aquí" (el de qualsevol avís) els reinicia.
 5. **Entregar ara.** A cada persona, "Entregar ahora" envia l'enllaç immediatament. Serveix per provar i com a entrega voluntària. "Anular enlace" el desactiva.
-6. **Estat.** A "Personas", cada persona mostra un estat concret: *Sin elementos asignados* · *Sin entregar* · *Acceso enviado* · *Acceso abierto* · *Enlace caducado* · *Enlace anulado* (mai "recibido" o "leído": obrir un accés no demostra haver-ho llegit tot). Dins de la fitxa (Editar): Mostrar frase, Entregar ahora / Enviar de nuevo, Anular enlace, Quitar persona. Si hi ha alguna entrega activa, "Tu plan" ho avisa amb una franja en entrar, per si ha estat un fals positiu.
+6. **Estat.** A "Personas", cada persona mostra un estat concret: *Sin elementos asignados* · *Sin entregar* · *Acceso enviado* · *Acceso abierto* · *Enlace caducado* · *Enlace anulado* (mai "recibido" o "leído": obrir un accés no demostra haver-ho llegit tot). Dins de la fitxa (Editar): Mostrar frase, Entregar ahora / Enviar de nuevo (envia un enllaç nou; els anteriors continuen valent), Anular enlace (els esborra tots), Quitar persona; després d'una entrega automàtica, també quants recordatoris s'han enviat. Si hi ha alguna entrega activa, "Tu plan" ho avisa amb una franja en entrar, per si ha estat un fals positiu.
 7. **Cuenta.** Email, mòbil per als avisos per SMS i canvi de contrasenya. **Cambiar el correo**, en dos passos com l'alta: el correu nou → "Enviar código" (hi arriba un codi de sis xifres, 15 minuts, tres per hora); després el codi i la contrasenya actual → "Cambiar el correo". Es tanquen les altres sessions, l'adreça anterior rep un avís (sense enllaç de desfer) i queda registrat a Actividad. "Los avisos y la entrega dependen de este correo. Úsalo solo si lo consultas habitualmente." La nova contrasenya es proposa igual que en crear el compte (frase de sis paraules visible, o "prefiero escribir la mía"). El pla es rexifra al navegador amb la nova; persones i fitxers no es toquen; les altres sessions es tanquen. "Cerrar todas las sesiones" tanca el pla a qualsevol altre dispositiu on s'hagi obert, sense tocar la sessió actual. Més endavant, aquí hi aniran dades de contacte i pagament.
 8. **Actividad reciente** (a Cuenta). El que el servidor ha registrat del compte (entrades, intents fallits contra el teu email, canvis, avisos, entregues i obertures), amb data, hora i país de la petició — mai IP ni user-agent — per detectar accessos que no reconeguis. Se'n guarden els 200 més recents; se n'ensenyen 50.
 9. **Eliminar la cuenta** (final de Cuenta). Demana la contrasenya actual i, després d'una confirmació, esborra el pla, els fitxers (també de la còpia de seguretat), les persones i el registre; els enllaços enviats deixen de funcionar. No es pot desfer.
@@ -177,7 +180,7 @@ El zip i el sobre amb la frase han d'estar en mans diferents: cap dels dos, sol,
 
 1. Rep un correu de `avisos@custodium.space` amb un enllaç.
 2. L'obre, escriu la frase que li van donar en persona, i veu els seus elements. Els fitxers es baixen i es desxifren al seu navegador.
-3. L'enllaç dura 90 dies. Convé guardar o imprimir el que necessiti.
+3. Cada enllaç dura 90 dies des del correu que el porta. Mentre no l'obri, li arriben recordatoris amb un enllaç nou (els anteriors continuen valent). Convé guardar o imprimir el que necessiti.
 
 ### Coses que cal saber
 
@@ -211,10 +214,12 @@ El zip i el sobre amb la frase han d'estar en mans diferents: cap dels dos, sol,
 5. A "Personas": estat "Acceso abierto · data". Dins de la fitxa, "Anular enlace" → l'enllaç deixa de funcionar i l'estat passa a "Enlace anulado".
 6. Final de "Tu plan" → "Descargar copia cifrada". Descomprimir, obrir `abrir.html`, seleccionar el zip, entrar amb el teu email i contrasenya (veus tot el pla) i després amb l'email i la frase de la persona (veus només el seu).
 
-### Prova del disparador (1 dia)
+### Prova del disparador (4 dies)
 
-1. Posar "Primer aviso 1 día, Entrega 3 días". Sortir i no entrar.
-2. L'endemà a les 08:00 UTC arriba "¿sigues ahí?". Pulsar el botó → "Confirmado".
+1. Posar "Primer aviso 1 día, Entrega 4 días" (el mínim: tres dies entre l'un i l'altra), amb una persona que tingui un element assignat. Sortir i no entrar.
+2. L'endemà a les 08:00 UTC arriba "¿sigues ahí?" (i un SMS, si hi ha mòbil); a les 20:00 UTC, un altre correu sense SMS. Així dos cops al dia, tres dies.
+3. El quart dia a les 08:00 UTC: correu a la persona amb l'enllaç, i "se ha entregado tu plan" al titular, que es repeteix a cada execució durant cinc dies. L'endemà, si la persona no ha obert, primer recordatori (enllaç nou; el primer també obre).
+4. Pulsar el botó d'un avís antic → "Confirmado" (tots els botons del període valen). Entrar → a "Tu plan" surt la franja de l'entrega; "Anular enlace" la desfà i cap enllaç obre.
 3. Tornar a posar 8 / 21.
 
 ### Prova amb curl (sense navegador)
@@ -326,7 +331,7 @@ Les branques protegides no existeixen en repos privats del pla Free de GitHub. D
 
 ### Pausar les entregues automàtiques
 
-Interruptor d'emergència: amb la fila `pause_releases` de la taula `system` a `'1'`, el cron diari continua enviant avisos d'inactivitat però no entrega cap pla, i ho deixa al log (`entregues en pausa`, visible amb `npx wrangler tail`). El cron la llegeix a cada execució: no cal cap deploy, ni per activar-la ni per desactivar-la — expressament, perquè serveixi també quan no es pot desplegar. Les entregues manuals ("Entregar ahora") no es pausen.
+Interruptor d'emergència: amb la fila `pause_releases` de la taula `system` a `'1'`, el cron continua enviant avisos d'inactivitat però no entrega cap pla, i ho deixa al log (`entregues en pausa`, visible amb `npx wrangler tail`). El cron la llegeix a cada execució: no cal cap deploy, ni per activar-la ni per desactivar-la — expressament, perquè serveixi també quan no es pot desplegar. Les entregues manuals ("Entregar ahora") no es pausen.
 
 Dues maneres d'activar-la:
 
@@ -343,6 +348,8 @@ Escriure un fitxer de migració (p. ex. `migration-YYYYMMDD.sql` amb els `ALTER`
 ```sh
 npx wrangler d1 execute custodium-b2c --remote --file=migration-YYYYMMDD.sql
 ```
+
+Si `--file` falla amb `fetch failed` (passa per l'endpoint d'importació, que des d'algunes xarxes no respon), el mateix SQL sense comentaris i en una sola línia va per `--command "…"`: D1 executa les sentències en un sol batch, transaccional. Sempre amb la sortida sencera i comprovant després que les taules i columnes hi són.
 
 Les migracions ja aplicades es poden esborrar del repo un cop consolidades; `git log` en conserva l'historial.
 
