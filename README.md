@@ -399,3 +399,5 @@ R2: tauler → bucket → Objects → seleccionar tot → Delete.
 - Sense clau de recuperació ni per al titular ni per a les persones: decisió de disseny, no un oblit. L'exportació és la còpia de seguretat del titular.
 - El servidor conserva metadades personals (correus, mòbils, país, activitat, relacions titular–persones). Xifrar el contingut no elimina la responsabilitat sobre aquestes dades.
 - Cap auditoria externa de la criptografia. Els paràmetres són estàndard (PBKDF2 600k, HKDF, AES-256-GCM, WebCrypto natiu), però el codi no l'ha revisat ningú de fora.
+- "Avís entregat" vol dir acceptat per Resend, no lliurat a la bústia. Un correu que l'API rebutja no compta i es reintenta; un rebot posterior (bústia plena, adreça morta) no es detecta: els avisos compten igualment i l'entrega es fa quan n'hi ha dos. Sense webhooks de Resend (`delivered`, `bounced`) l'única defensa és l'SMS, si hi ha mòbil.
+- Si després de desar el pla un paquet no es puja (error de xarxa o del servidor), el pla queda desat però aquell paquet queda desactualitzat fins al desat següent: només un avís a la pantalla en aquell moment, sense reintent ni estat visible a Personas.
