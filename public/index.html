@@ -28,10 +28,13 @@
       <p class="intro">Tu plan se descifra aquí, en tu navegador.</p>
       <form id="login-form" novalidate>
         <label><span>Email</span><input id="login-email" type="email" autocomplete="username" required></label>
-        <label><span>Contraseña</span><input id="login-password" type="password" autocomplete="current-password" required></label>
+        <label>
+          <span>Contraseña</span>
+          <input id="login-password" type="password" autocomplete="current-password" required>
+          <small class="hint">Tu contraseña no se envía a Custodium.</small>
+        </label>
         <p id="login-message" class="message" aria-live="polite"></p>
         <div class="actions"><button id="login-submit" type="submit">Entrar</button></div>
-        <p class="hint">Tu contraseña no se envía a Custodium.</p>
       </form>
       <p class="switch">¿Primera vez? <button id="to-register" type="button" class="link">Crear una cuenta</button></p>
     </section>

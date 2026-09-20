@@ -2,7 +2,9 @@
 //
 // Tot l'estat viu en memòria. Tancar o recarregar la pestanya bloqueja el pla.
 //
-// Pantalles: login · register · list · edit · people · person-edit.
+// Pantalles: login · register · list · edit · people · person-edit · account.
+// La pantalla viu al fragment de l'URL (secció "rutes"): enrere, endavant,
+// recarregar i enllaçar funcionen com a qualsevol web.
 //
 // Pla (xifrat amb la clau del titular):
 //   { v: 2,
@@ -20,10 +22,19 @@ import {
 } from "./crypto.js";
 import { zipSync } from "./fflate.js";
 import { TEMPLATES } from "./templates.js";
+import { parseRoute, routeHash } from "./routes.js";
 
 const IDLE_LOCK_MS = 15 * 60 * 1000;
 const MAX_FILE_BYTES = 50_000_000;
 const MAX_RECIPIENTS = 20;           // el servidor imposa el mateix límit
+
+// Rutes fixes (public/routes.js); les d'un element o persona concrets porten l'id.
+const PLAN = { name: "plan" };
+const PEOPLE = { name: "people" };
+const ACCOUNT = { name: "account" };
+const REGISTER = { name: "register" };
+const NEW_ITEM = { name: "item", id: null };
+const NEW_PERSON = { name: "person", id: null };
 
 const state = {
   token: null,
@@ -201,8 +212,7 @@ async function openVault(token, encKey) {
   state.encKey = encKey;
   await loadVault();
   await loadStatus();
-  renderList();
-  showScreen("list");
+  paint(currentRoute());   // la ruta demanada abans d'entrar (o el pla)
   touchIdle();
 }
 
@@ -353,6 +363,7 @@ async function flushPendingDeletes() {
 
 function startEdit(id) {
   const item = id ? state.vault.items.find((it) => it.id === id) : null;
+  if (id && !item) { toast("Ese elemento ya no está en tu plan."); return replaceRoute(PLAN); }
   state.draft = {
     id,
     title: item?.title ?? "",
@@ -432,17 +443,22 @@ async function applyItem(event) {
 
   state.pendingDeletes.push(...d.removed);
   state.draft = null;
-  showScreen("list");
+  goBack(PLAN);
   await persist();
 }
 
-async function cancelEdit() {
+// Tanca l'editor sense desar: els fitxers pujats en aquesta edició s'esborren.
+async function discardDraft() {
   const d = state.draft;
   state.draft = null;
   for (const id of d.uploaded) {
     try { await api(`/api/files/${id}`, { method: "DELETE" }); } catch { /* orfe tolerable */ }
   }
-  showScreen("list");
+}
+
+async function cancelEdit() {
+  await discardDraft();
+  goBack(PLAN);
 }
 
 async function deleteFromEdit() {
@@ -457,7 +473,7 @@ async function deleteFromEdit() {
   state.vault.items = state.vault.items.filter((it) => it.id !== item.id);
   state.pendingDeletes.push(...item.files.map((f) => f.id));
   renderList();
-  showScreen("list");
+  goBack(PLAN);
   await persist();
 }
 
@@ -554,7 +570,8 @@ function saveAs(bytes, name) {
 
 function startPersonEdit(id) {
   const p = id ? state.vault.recipients.find((x) => x.id === id) : null;
-  state.personDraft = { id, name: p?.name ?? "", email: p?.email ?? "" };
+  if (id && !p) { toast("Esa persona ya no está en tu plan."); return replaceRoute(PEOPLE); }
+  state.personDraft = { id, name: p?.name ?? "", email: p?.email ?? "", phone: p?.phone ?? "" };
   $("#person-title").textContent = p ? "Editar persona" : "Nueva persona";
   $("#person-name").value = state.personDraft.name;
   $("#person-email").value = state.personDraft.email;
@@ -610,19 +627,22 @@ async function applyPerson(event) {
     setBusy(false);
   }
 
-  renderPeople();
-  showScreen("people");
+  goBack(PEOPLE);
   const ok = await persist();
   if (ok) { await loadStatus(); renderPeople(); }
 }
 
-function cancelPersonEdit() {
+// Tanca la fitxa sense desar (i amaga la frase, si s'estava ensenyant).
+function discardPersonDraft() {
   clearTimeout(revealTimer);
   state.reveal = {};
   state.personDraft = null;
   $("#person-pass").value = "";
-  renderPeople();
-  showScreen("people");
+}
+
+function cancelPersonEdit() {
+  discardPersonDraft();
+  goBack(PEOPLE);
 }
 
 async function deletePerson(id) {
@@ -641,9 +661,8 @@ async function deletePerson(id) {
   state.vault.recipients = state.vault.recipients.filter((x) => x.id !== id);
   for (const it of state.vault.items) it.recipientIds = it.recipientIds.filter((x) => x !== id);
 
-  state.personDraft = null;
-  renderPeople();
-  showScreen("people");
+  discardPersonDraft();
+  goBack(PEOPLE);
   const ok = await persist();
   if (ok) {
     await api(`/api/recipients/${id}`, { method: "DELETE" });
@@ -771,9 +790,7 @@ async function saveSettings(event) {
 
 // -------------------------------------------------------------- account
 
-function goAccount() {
-  if (state.draft) return toast("Termina o cancela el elemento que estás editando.");
-  if (state.personDraft) return toast("Termina o cancela la persona que estás editando.");
+function showAccount() {
   $("#account-email").textContent = state.email;
   resetEmailChange();
   $("#account-phone").value = state.settings?.phone ?? "";
@@ -1184,10 +1201,10 @@ function onboardingState(vault, settings) {
 
 const ONBOARDING_TEXTS = {
   password: { text: "Guarda la contraseña" },
-  person: { text: "Añade una persona", action: "Personas", go: () => goPeople() },
-  item: { text: "Crea el primer elemento", action: "Añadir elemento", go: () => startEdit(null) },
-  phone: { text: "Añade tu móvil para avisos", action: "Cuenta", go: () => goAccount() },
-  deadlines: { text: "Revisa los plazos de entrega", action: "Personas", go: () => goPeople() },
+  person: { text: "Añade una persona", action: "Personas", go: () => navigate(PEOPLE) },
+  item: { text: "Crea el primer elemento", action: "Añadir elemento", go: () => navigate(NEW_ITEM) },
+  phone: { text: "Añade tu móvil para avisos", action: "Cuenta", go: () => navigate(ACCOUNT) },
+  deadlines: { text: "Revisa los plazos de entrega", action: "Personas", go: () => navigate(PEOPLE) },
   copy: { text: "Descarga una copia", action: "Descargar copia cifrada", go: () => exportBundle() },
 };
 
@@ -1230,7 +1247,7 @@ function renderList() {
     const row = el("div", { class: "item-row" });
     row.append(el("h3", {}, item.title));
     const edit = el("button", { type: "button", class: "link" }, "Editar");
-    edit.addEventListener("click", () => startEdit(item.id));
+    edit.addEventListener("click", () => navigate({ name: "item", id: item.id }));
     row.append(edit);
     li.append(row);
     const who = item.recipientIds.map(recipientName).filter(Boolean).join(", ");
@@ -1302,7 +1319,7 @@ function renderPeople() {
     const row = el("div", { class: "item-row" });
     row.append(el("h3", {}, p.name));
     const edit = el("button", { type: "button", class: "link" }, "Editar");
-    edit.addEventListener("click", () => startPersonEdit(p.id));
+    edit.addEventListener("click", () => navigate({ name: "person", id: p.id }));
     row.append(edit);
     li.append(row);
     li.append(el("p", { class: "item-recipient" }, p.email));
@@ -1374,17 +1391,96 @@ function showScreen(name) {
   window.scrollTo({ top: 0 });
 }
 
-function goPeople() {
-  if (state.draft) return toast("Termina o cancela el elemento que estás editando.");
-  renderPeople();
-  showScreen("people");
+// ---------------------------------------------------------------- rutes
+//
+// La pantalla viu al fragment de l'URL (public/routes.js) i el navegador la
+// posa a l'historial. Dos sentits: l'app canvia de pantalla amb navigate(ruta)
+// (entrada nova a l'historial i pintar); enrere, endavant o una URL escrita
+// disparen hashchange i es pinta la ruta que porta. Sense sessió es mostra
+// l'entrada i la ruta queda al fragment: en entrar, s'hi va.
+
+function currentRoute() {
+  return parseRoute(location.hash) ?? PLAN;
 }
 
-function goPlan() {
-  if (state.personDraft) return toast("Termina o cancela la persona que estás editando.");
-  if (Object.keys(state.reveal).length) hideReveal();
-  renderList();
-  showScreen("list");
+// Des de l'app. Si hi ha un editor obert, primer es tanca (leaveEdits).
+async function navigate(route) {
+  if (!(await leaveEdits())) return;
+  if (routeHash(route) !== routeHash(currentRoute())) history.pushState({ back: true }, "", routeHash(route));
+  paint(route);
+}
+
+// Substitueix l'entrada actual: rutes que ja no valen (id que no és al pla,
+// alta acabada, fragment desconegut).
+function replaceRoute(route) {
+  history.replaceState(history.state, "", routeHash(route));
+  paint(route);
+}
+
+// En tancar un editor («Cancelar», «Listo», baixa): enrere de debò si
+// l'entrada anterior és de l'app en aquest document (l'editor no queda a
+// l'historial); si s'hi ha arribat per enllaç directe, a la llista que li toca.
+function goBack(fallback) {
+  if (history.state?.back) history.back();
+  else navigate(fallback);
+}
+
+// Enrere/endavant del navegador o URL escrita a mà.
+async function onHashChange() {
+  touchIdle();
+  const route = parseRoute(location.hash);
+  if (!route) return replaceRoute(PLAN);
+  if (!(await leaveEdits())) return history.pushState({ back: true }, "", routeHash(editRoute()));
+  paint(route);
+}
+
+function editRoute() {
+  return state.draft ? { name: "item", id: state.draft.id } : { name: "person", id: state.personDraft.id };
+}
+
+// Pinta la ruta. Sense sessió: l'entrada (o l'alta); la ruta queda al fragment.
+function paint(route) {
+  if (!state.encKey) return showScreen(route.name === "register" ? "register" : "login");
+  switch (route.name) {
+    case "register": return replaceRoute(PLAN);
+    case "item": return startEdit(route.id);
+    case "person": return startPersonEdit(route.id);
+    case "people": renderPeople(); return showScreen("people");
+    case "account": return showAccount();
+    default: renderList(); return showScreen("list");
+  }
+}
+
+// Abans de canviar de pantalla. Un editor obert es tanca com amb «Cancelar»
+// (els fitxers pujats i no desats s'esborren); si hi ha canvis sense desar,
+// es demana confirmació. false = el titular prefereix quedar-s'hi.
+async function leaveEdits() {
+  if (state.draft) {
+    if (draftDirty() && !window.confirm("Este elemento tiene cambios sin guardar. ¿Salir sin guardarlos?")) return false;
+    await discardDraft();
+  }
+  if (state.personDraft) {
+    if (personDirty() && !window.confirm("Esta persona tiene cambios sin guardar. ¿Salir sin guardarlos?")) return false;
+    discardPersonDraft();
+  }
+  return true;
+}
+
+// Hi ha res escrit, marcat, pujat o tret que no s'hagi desat?
+function draftDirty() {
+  const d = state.draft;
+  if (!d) return false;
+  if (d.uploaded.length || d.removed.length) return true;
+  if ($("#item-title").value !== d.title || $("#item-notes").value !== d.notes) return true;
+  const ids = checkedRecipientIds();
+  return ids.length !== d.recipientIds.length || ids.some((id) => !d.recipientIds.includes(id));
+}
+
+function personDirty() {
+  const d = state.personDraft;
+  if (!d) return false;
+  return $("#person-name").value !== d.name || $("#person-email").value !== d.email ||
+    $("#person-phone").value !== d.phone || (Boolean(d.id) && $("#person-pass").value !== "");
 }
 
 function setBusy(on, text = "") {
@@ -1441,14 +1537,14 @@ function boot() {
     $("#register-start-message").textContent = "";
     $("#register-message").textContent = "";
     showRegisterStep(1);
-    showScreen("register");
+    navigate(REGISTER);
   });
-  $("#to-login").addEventListener("click", () => { $("#login-message").textContent = ""; showScreen("login"); });
+  $("#to-login").addEventListener("click", () => { $("#login-message").textContent = ""; goBack(PLAN); });
   $("#register-own").addEventListener("click", () => preferOwnPassword("register"));
   $("#logout").addEventListener("click", logout);
-  $("#nav-plan").addEventListener("click", goPlan);
-  $("#nav-people").addEventListener("click", goPeople);
-  $("#nav-account").addEventListener("click", goAccount);
+  $("#nav-plan").addEventListener("click", () => navigate(PLAN));
+  $("#nav-people").addEventListener("click", () => navigate(PEOPLE));
+  $("#nav-account").addEventListener("click", () => navigate(ACCOUNT));
   $("#password-form").addEventListener("submit", changePassword);
   $("#email-start-form").addEventListener("submit", startEmailChange);
   $("#email-form").addEventListener("submit", submitEmailChange);
@@ -1457,18 +1553,18 @@ function boot() {
   $("#pw-own").addEventListener("click", () => preferOwnPassword("pw"));
   $("#close-sessions").addEventListener("click", closeSessions);
   $("#delete-form").addEventListener("submit", deleteAccount);
-  $("#add").addEventListener("click", () => startEdit(null));
+  $("#add").addEventListener("click", () => navigate(NEW_ITEM));
   $("#export").addEventListener("click", exportBundle);
   $("#onboarding-close").addEventListener("click", () => markOnboarding({ dismissedAt: Date.now() }).then(renderList));
   $("#phone-form").addEventListener("submit", savePhone);
-  $("#release-notice-go").addEventListener("click", goPeople);
+  $("#release-notice-go").addEventListener("click", () => navigate(PEOPLE));
   $("#item-form").addEventListener("submit", applyItem);
   fillTemplateOptions();
   $("#item-template").addEventListener("change", applyTemplate);
   $("#item-cancel").addEventListener("click", cancelEdit);
   $("#item-delete").addEventListener("click", deleteFromEdit);
   $("#item-files").addEventListener("change", (e) => addFiles([...e.target.files]));
-  $("#add-person").addEventListener("click", () => startPersonEdit(null));
+  $("#add-person").addEventListener("click", () => navigate(NEW_PERSON));
   $("#person-form").addEventListener("submit", applyPerson);
   $("#person-cancel").addEventListener("click", cancelPersonEdit);
   $("#person-generate").addEventListener("click", () => { $("#person-pass").value = generatePassphrase(); });
@@ -1477,7 +1573,7 @@ function boot() {
   for (const evt of ["click", "keydown", "input"]) document.addEventListener(evt, touchIdle, { passive: true });
 
   window.addEventListener("beforeunload", (e) => {
-    if (state.draft || state.personDraft) { e.preventDefault(); e.returnValue = ""; }
+    if (draftDirty() || personDirty()) { e.preventDefault(); e.returnValue = ""; }
   });
 
   if (!window.isSecureContext || !crypto?.subtle) {
@@ -1488,7 +1584,13 @@ function boot() {
     return;
   }
 
-  showScreen("login");
+  // La ruta demanada queda al fragment (un fragment que no és cap ruta passa a
+  // ser el pla). L'estat de l'historial es neteja: després de recarregar, cap
+  // entrada anterior compta com de l'app (goBack).
+  const route = parseRoute(location.hash);
+  history.replaceState(null, "", route ? location.href : "#/plan");
+  window.addEventListener("hashchange", () => { onHashChange().catch(console.error); });
+  paint(route ?? PLAN);
 }
 
 boot();

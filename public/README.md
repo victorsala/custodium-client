@@ -9,7 +9,7 @@ This repository is the public mirror of [b2c.custodium.space](https://b2c.custod
 ```sh
 git clone https://github.com/victorsala/custodium-client && cd custodium-client
 git checkout $(curl -s https://b2c.custodium.space/VERSION)
-for f in index.html app.js crypto.js words.js abrir.html abrir.js aqui.html aqui.js abrir-offline.html fflate.js style.css; do
+for f in index.html app.js routes.js crypto.js words.js templates.js abrir.html abrir.js aqui.html aqui.js abrir-offline.html fflate.js style.css; do
   diff <(curl -sL "https://b2c.custodium.space/$f") "public/$f" && echo "OK $f"
 done
 ```

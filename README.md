@@ -141,6 +141,8 @@ Sessió: token aleatori de 32 bytes, 24 hores, guardat hashejat; cada petició a
 
 Sense frameworks ni dependències. Tot l'estat viu en memòria: tancar la pestanya tanca el pla; 15 minuts d'inactivitat també. `_headers` fixa una CSP estricta: scripts, estils, fonts i connexions només del propi origen, sense iframes. Les fonts (Fraunces i Inter, variables, subconjunt llatí) són a `public/fonts/`: el client no fa cap petició a tercers. A staging, `app.js` pregunta `/api/env` i mostra una franja fixa d'avís ("Entorno de pruebas · los datos pueden borrarse sin aviso"); a producció no apareix mai.
 
+**Rutes.** La pantalla viu al fragment de l'URL, que el servidor no veu mai: `#/plan` (per defecte), `#/elemento/nuevo`, `#/elemento/<id>`, `#/personas`, `#/persona/nueva`, `#/persona/<id>`, `#/cuenta` i `#/crear-cuenta` (`public/routes.js`: `parseRoute` i `routeHash`, pures, provades a `test/routes.test.js`). Al fragment només hi van noms de pantalla i ids (UUIDs generats al navegador): cap token ni cap dada. Dos sentits: l'app canvia de pantalla amb `navigate(ruta)` (`history.pushState` i pintar), i enrere, endavant o una URL escrita a mà disparen `hashchange` i es pinta la ruta que porta; així el navegador funciona com a qualsevol web (enrere, endavant, recarregar, enllaçar). Sense sessió (enllaç directe, recàrrega, bloqueig per inactivitat) es mostra l'entrada amb la ruta al fragment i, en entrar, s'hi va. Sortir d'un editor per qualsevol via (enrere inclòs) el tanca com «Cancelar» (els fitxers pujats i no desats s'esborren) i, si hi ha canvis sense desar, demana confirmació abans; el mateix criteri val per a l'avís en tancar la pestanya. «Cancelar», «Listo» i les baixes tornen a l'entrada anterior de l'historial (l'editor no hi queda) o, si s'hi ha arribat per enllaç directe, a la llista que li toca. Un id que ja no és al pla avisa i porta a la llista. `abrir.html` i `aqui.html` no tenen rutes.
+
 Fitxers orfes: si es tanca la pestanya a mitja edició, un fitxer pujat pot quedar al servidor sense que cap pla l'apunti. En obrir el pla, el client envia la llista d'ids vius i la versió del pla (`POST /api/files/reconcile`); el servidor només esborra els d'aquell usuari que no hi siguin i tinguin més de 7 dies si aquella versió encara és l'actual. Amb un `409 version_conflict` no esborra res.
 
 ---
@@ -151,7 +153,7 @@ Fitxers orfes: si es tanca la pestanya a mitja edició, un fitxer pujat pot qued
 
 1. **Crear compte**, en dos passos. (1) Email → "Enviar código": arriba un correu amb un codi de sis xifres que caduca en 15 minuts (si l'email ja té compte, arriba un correu que ho diu i cap codi; la pantalla no ho distingeix). (2) "Te hemos enviado un código a …": el codi i la contrasenya. Els camps de contrasenya surten ja omplerts amb una frase de sis paraules generada al navegador, visible, amb l'avís "Apúntala antes de continuar"; l'enllaç "prefiero escribir la mía" buida els camps, els oculta i exigeix 16+ caràcters. "No me ha llegado" envia un altre codi (només val l'últim; tres per hora com a màxim); "Cambiar el email" torna al pas 1. Cinc codis equivocats i cal demanar-ne un de nou. Les claus es deriven només al pas 2. No hi ha recuperació de la contrasenya: guarda-la al gestor de contrasenyes.
    - **Primers passos.** Sota la intro de "Tu plan", un bloc "Primeros pasos" amb sis caselles (contrasenya guardada, una persona, primer element, mòbil per als avisos, terminis revisats, còpia baixada), cadascuna deduïda del pla o de la configuració (cap dada nova al servidor; "terminis revisats" i "còpia baixada" són marques dins del pla xifrat, la primera en prémer "Guardar plazos" un cop). Cada pas pendent enllaça a l'acció. Desapareix quan les sis estan fetes o en tancar-lo amb la X (`onboarding.dismissedAt`, no torna a sortir). Mentre és visible no es mostra "Aún no hay nada".
-2. **Afegir elements.** "+ Añadir elemento": què és, persones que l'han de rebre (caselles; cap = només per a tu), instruccions, fitxers (fins a 50 MB). El desplegable "Empezar desde una plantilla (opcional)" omple el títol (si és buit) i les instruccions amb un guió (compte bancari, wallet, xarxes socials, assegurança); les plantilles viuen a `public/templates.js` (`{ id, name, title, notes }`) i s'hi afegeixen sense tocar `app.js`. "Listo" xifra i desa al moment. No hi ha botó de desar.
+2. **Afegir elements.** "+ Añadir elemento": què és, persones que l'han de rebre (caselles; cap = només per a tu), instruccions, fitxers (fins a 50 MB). El desplegable "Empezar desde una plantilla (opcional)" omple el títol (si és buit) i les instruccions amb un guió (compte bancari, wallet, xarxes socials, assegurança); les plantilles viuen a `public/templates.js` (`{ id, name, title, notes }`) i s'hi afegeixen sense tocar `app.js`. "Listo" xifra i desa al moment. No hi ha botó de desar. "Cancelar" torna a la pantalla anterior.
 3. **Persones.** "+ Añadir persona": nom, email, mòbil opcional (per a l'SMS d'avís) i frase. La frase la genera sempre el sistema, sis paraules a l'atzar (llista BIP39 en castellà, 2.048 paraules → 66 bits), tipus `ebano deporte nacar cien organo vagar`; no es pot escriure a mà ("Generar otra" en dona una altra). Escriu-les en paper i dona-l'hi en persona; mai per missatge. En obrir, no importen majúscules, accents ni espais. La frase queda guardada dins del teu pla (xifrada, com la resta): "Mostrar frase" la torna a ensenyar després de demanar-te la contrasenya, durant un minut, per comprovar el paper o tornar-lo a escriure.
 4. **Terminis.** A "Personas → Entrega por inactividad": primer avís (8 dies per defecte) i entrega (21). L'entrega ha de ser posterior a l'avís. Els dos terminis compten des de l'última activitat o confirmació; entrar o pulsar "Sigo aquí" els reinicia.
 5. **Entregar ara.** A cada persona, "Entregar ahora" envia l'enllaç immediatament. Serveix per provar i com a entrega voluntària. "Anular enlace" el desactiva.
@@ -186,12 +188,13 @@ El zip i el sobre amb la frase han d'estar en mans diferents: cap dels dos, sol,
 - Entrar a la web reinicia el comptador de senyal de vida i esborra l'avís pendent.
 - Màxim 20 persones de confiança per titular.
 - El mòbil s'escriu sempre amb prefix internacional (+34…, o 0034…); sense prefix, es rebutja.
+- Cada pantalla té la seva adreça: `#/plan`, `#/personas`, `#/cuenta`, `#/elemento/<id>`, `#/persona/<id>` (i `#/elemento/nuevo`, `#/persona/nueva`, `#/crear-cuenta`). Es poden enllaçar des d'un manual o un correu; sense sessió porten a l'entrada i, un cop dins, a la pantalla. Enrere i endavant del navegador funcionen. Sortir d'un editor (enrere inclòs) el tanca; si hi havia canvis sense desar, abans ho pregunta.
 
 ---
 
 ## 4. Proves
 
-`npm test` executa les proves locals (Node 20, `node --test`, sense dependències): compatibilitat entre `crypto.js` i l'obridor autònom, normalització de frases i telèfons, i que una clau equivocada no obre res. Executa `npm test` abans de cada deploy.
+`npm test` executa les proves locals (Node 20, `node --test`, sense dependències): compatibilitat entre `crypto.js` i l'obridor autònom, normalització de frases i telèfons, les rutes del client (`parseRoute`), i que una clau equivocada no obre res. Executa `npm test` abans de cada deploy.
 
 ### Prova bàsica (10 minuts)
 
@@ -235,7 +238,7 @@ curl -s $BASE/api/vault -H "authorization: Bearer $TOKEN"      # {"error":"no_va
 
 ```
 src/index.js        Worker: API + cron
-public/             Client estàtic: index.html, app.js, crypto.js, words.js, templates.js (plantilles d'element), fflate.js (zip, MIT), style.css, fonts/,
+public/             Client estàtic: index.html, app.js, routes.js (rutes del fragment), crypto.js, words.js, templates.js (plantilles d'element), fflate.js (zip, MIT), style.css, fonts/,
                     abrir.* (persona, amb servidor), aqui.* (check-in), abrir-offline.html (obridor autònom), _headers,
                     README (bilingüe, amb la verificació), LICENSE (source-available) i THIRD_PARTY.md.
                     VERSION l'escriu el deploy (gitignored).
