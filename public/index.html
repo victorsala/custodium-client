@@ -179,25 +179,50 @@
       <p id="people-limit" class="hint" hidden>Has llegado al máximo de 20 personas de confianza. Para añadir a alguien, quita antes a otra persona.</p>
       <ul id="people" class="items"></ul>
 
-      <form id="settings-form" class="settings" novalidate>
+      <!-- Dos passos en vertical (primer m'avisen a mi; si no responc, entreguen) i una
+           previsió amb dates calculada com al servidor. Sense «última actividad»: les dates ja ho diuen. -->
+      <form id="settings-form" class="settings deadlines" novalidate>
         <h2>Entrega por inactividad</h2>
-        <p class="hint">
-          Si pasa el plazo del primer aviso sin que confirmes que sigues aquí, Custodium te avisará por correo dos veces al día
-          (y por SMS una vez al día, si has puesto tu móvil). Si llega el plazo de entrega y sigues sin responder, enviará a cada
-          persona un enlace para abrir sus elementos con su frase, y se lo recordará hasta que lo abra.
-          La entrega tiene que ser al menos tres días después del primer aviso.
-        </p>
-        <p class="callout">
-          Los dos plazos se cuentan desde tu última actividad o confirmación.
-          Entrar en tu cuenta o pulsar «Sigo aquí» en un aviso reinicia ambos plazos.
-        </p>
-        <div class="settings-row">
-          <label><span>Primer aviso</span><span class="with-unit"><input id="warn-days" type="number" min="1" max="365" required><em>días sin entrar</em></span></label>
-          <label><span>Entrega</span><span class="with-unit"><input id="release-days" type="number" min="4" max="730" required><em>días sin entrar</em></span></label>
-        </div>
-        <p id="last-seen" class="hint"></p>
+        <p class="hint">Decide cuándo quieres que te avisemos y cuándo se entregará el plan si no respondes.</p>
+        <p class="callout">Si <strong>entras en tu cuenta</strong> o confirmas <strong>«Sigo aquí»</strong> desde un aviso, la cuenta atrás vuelve a empezar.</p>
+
+        <section class="step" aria-labelledby="step-warn">
+          <h3 id="step-warn"><span class="step-num" aria-hidden="true">1</span>Primero, te avisamos a ti</h3>
+          <label>
+            <span>Empezarás a recibir avisos después de:</span>
+            <span class="with-unit"><input id="warn-days" type="number" min="1" max="365" required><em>días sin entrar ni confirmar que sigues aquí</em></span>
+          </label>
+          <p class="chips"><span class="chip"><strong>2 correos</strong> al día</span><span id="chip-sms" class="chip" hidden><strong>1 SMS</strong> al día</span></p>
+          <p class="hint">Recibirás avisos cada día para que confirmes que sigues aquí. Estos avisos son para ti, no para tus personas de confianza.</p>
+          <p id="sms-hint" class="hint" hidden>Añade tu móvil en Cuenta para recibir también un SMS al día.</p>
+          <p class="hint">Para responder, entra en tu cuenta o abre el enlace de un aviso y pulsa «Sigo aquí». No basta con abrir el correo.</p>
+        </section>
+
+        <section class="step" aria-labelledby="step-release">
+          <h3 id="step-release"><span class="step-num" aria-hidden="true">2</span>Si no respondes, entregamos el plan</h3>
+          <label>
+            <span>La entrega se hará después de:</span>
+            <span class="with-unit"><input id="release-days" type="number" min="4" max="730" required><em>días sin entrar ni confirmar que sigues aquí</em></span>
+          </label>
+          <p id="release-message" class="message" aria-live="polite"></p>
+          <p class="hint">Cada persona de confianza recibirá un correo con un enlace para acceder <strong>solo a los elementos que le has asignado</strong> y descargarlos.</p>
+          <p class="hint">Para abrirlos, necesitará su frase.</p>
+          <p class="hint step-foot"><strong>Los dos plazos empiezan a la vez:</strong> se cuentan desde tu última entrada o confirmación, no uno después del otro.</p>
+        </section>
+
+        <section id="forecast" class="forecast">
+          <p id="forecast-eyebrow" class="eyebrow">Previsión con los plazos actuales</p>
+          <h3>Si desde hoy no volvieras a dar señales…</h3>
+          <p class="hint">Esto pasaría si, a partir de hoy, no entraras en tu cuenta ni confirmaras que sigues aquí.</p>
+          <ol class="timeline">
+            <li><time id="forecast-warn"></time><p><strong>Empezaríamos a avisarte.</strong> <span id="forecast-warn-text"></span></p></li>
+            <li><time id="forecast-release"></time><p><strong>Si siguieras sin responder, entregaríamos el plan.</strong> Enviaríamos a tus personas de confianza los enlaces a los elementos que les has asignado.</p></li>
+          </ol>
+          <p class="hint forecast-foot"><strong>Si entraras en tu cuenta o confirmaras «Sigo aquí» antes de la entrega, el plan no se entregaría.</strong> Los avisos se detendrían y las dos fechas volverían a calcularse.</p>
+        </section>
+
         <p id="settings-message" class="message" aria-live="polite"></p>
-        <div class="actions"><button type="submit" class="secondary">Guardar plazos</button></div>
+        <div class="actions"><button type="submit">Guardar plazos</button></div>
       </form>
     </section>
 

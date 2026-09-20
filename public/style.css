@@ -847,3 +847,87 @@ body.has-env-banner { padding-top: 2.2rem; }
 .onboarding-steps li.done .step-text { color: var(--slate); }
 
 .onboarding-steps .hint { margin: 2px 0 0; }
+
+/* Entrega por inactividad: dos passos en vertical i una previsió amb dates */
+
+.deadlines { gap: 16px; }
+.deadlines > .hint { margin-bottom: 0; }
+
+.step {
+  display: grid;
+  gap: 12px;
+  padding: 20px 22px 18px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+}
+
+.step h3 { display: flex; align-items: center; gap: 12px; font-size: 18px; }
+
+.step-num {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: rgba(28,93,84,.1);
+  color: var(--teal);
+  font-size: 14px; font-weight: 600;
+}
+
+.step label > span:first-child { color: var(--ink); font-size: 15px; font-weight: 500; }
+.step .with-unit input { width: 96px; font-size: 18px; font-weight: 600; text-align: center; }
+.step .with-unit em { white-space: normal; }
+.step .message { min-height: 0; }
+.step .message:empty { display: none; }
+.step-foot { padding-top: 12px; border-top: 1px solid var(--hairline); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.chip {
+  padding: 6px 10px;
+  background: var(--ivory);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--slate);
+}
+
+.chip strong { color: var(--ink); font-weight: 600; }
+
+.forecast {
+  display: grid;
+  gap: 10px;
+  padding: 20px 22px;
+  background: rgba(28,93,84,.05);
+  border: 1px solid rgba(28,93,84,.18);
+  border-radius: 12px;
+}
+
+.forecast.is-dirty { border-style: dashed; }
+
+.eyebrow {
+  font-size: 12px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: var(--teal);
+}
+
+.forecast h3 { font-family: var(--display); font-weight: 500; font-size: 20px; }
+
+.timeline { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 14px; }
+
+.timeline li { position: relative; display: grid; gap: 2px; padding-left: 22px; }
+
+.timeline li::before {
+  content: ""; position: absolute; left: 0; top: 8px;
+  width: 10px; height: 10px; border-radius: 50%; background: var(--teal);
+}
+
+.timeline li + li::after {
+  content: ""; position: absolute; left: 4px; top: -14px; width: 2px; height: 20px;
+  background: rgba(28,93,84,.25);
+}
+
+.timeline time { font-weight: 600; color: var(--ink); }
+.timeline p { font-size: 15px; color: var(--slate); }
+.timeline p strong { color: var(--ink); }
+
+.forecast-foot { padding-top: 12px; border-top: 1px solid rgba(28,93,84,.18); }

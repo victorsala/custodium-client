@@ -780,6 +780,7 @@ async function saveSettings(event) {
   if (r.status === 200) {
     state.settings = { ...state.settings, warnDays, releaseDays };
     msg("");
+    renderDeadlines();
     toast("Plazos guardados.");
     // Guardar els terminis un cop, encara que no canviïn, és "revisar-los".
     if (!state.vault?.onboarding?.plazosReviewed) await markOnboarding({ plazosReviewed: Date.now() });
@@ -1338,10 +1339,62 @@ function renderPeople() {
   if (state.settings) {
     $("#warn-days").value = state.settings.warnDays;
     $("#release-days").value = state.settings.releaseDays;
-    $("#last-seen").textContent = state.settings.lastSeen
-      ? `Última actividad registrada: ${dateEs(state.settings.lastSeen)}.`
-      : "";
+    renderDeadlines();
   }
+}
+
+// ------------------------------------------------------------- deadlines
+
+// Hores (UTC) a què passa el cron del servidor (wrangler.toml). La previsió
+// mostra el dia de la primera execució a partir de cada termini: és quan surt
+// el primer avís i quan es fa l'entrega (README §2.6).
+const CRON_HOURS_UTC = [8, 20];
+
+function nextCronRun(ts) {
+  const d = new Date(ts * 1000);
+  const day0 = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 1000;
+  for (let day = 0; day < 2; day++) {
+    for (const h of CRON_HOURS_UTC) {
+      const t = day0 + day * 86400 + h * 3600;
+      if (t >= ts) return t;
+    }
+  }
+  return day0 + 86400 + CRON_HOURS_UTC[0] * 3600;
+}
+
+// Pura: (última senyal de vida, terminis) → { warnAt, releaseAt } en segons.
+// null on el termini no val (l'entrega ha d'anar com a mínim tres dies després
+// del primer avís, com exigeix el servidor).
+function forecast(lastSeen, warnDays, releaseDays) {
+  const okWarn = Number.isInteger(warnDays) && warnDays >= 1 && warnDays <= 365;
+  const okRelease = okWarn && Number.isInteger(releaseDays) && releaseDays >= warnDays + 3 && releaseDays <= 730;
+  return {
+    warnAt: okWarn ? nextCronRun(lastSeen + warnDays * 86400) : null,
+    releaseAt: okRelease ? nextCronRun(lastSeen + releaseDays * 86400) : null,
+  };
+}
+
+// La previsió segueix els camps mentre s'editen; fins que es desa, ho diu.
+function renderDeadlines() {
+  const s = state.settings;
+  const warnDays = Number($("#warn-days").value);
+  const releaseDays = Number($("#release-days").value);
+  const dirty = warnDays !== s.warnDays || releaseDays !== s.releaseDays;
+  const hasPhone = Boolean(s.phone);
+  const f = forecast(s.lastSeen ?? Math.floor(Date.now() / 1000), warnDays, releaseDays);
+
+  $("#chip-sms").hidden = !hasPhone;
+  $("#sms-hint").hidden = hasPhone;
+  $("#release-message").textContent = f.warnAt && !f.releaseAt && releaseDays >= 1 && releaseDays <= 730
+    ? "La entrega tiene que ser al menos tres días después del primer aviso."
+    : "";
+  $("#forecast").classList.toggle("is-dirty", dirty);
+  $("#forecast-eyebrow").textContent = dirty ? "Previsión con los nuevos plazos · pendiente de guardar" : "Previsión con los plazos actuales";
+  $("#forecast-warn").textContent = f.warnAt ? dateEs(f.warnAt) : "—";
+  $("#forecast-release").textContent = f.releaseAt ? dateEs(f.releaseAt) : "—";
+  $("#forecast-warn-text").textContent = hasPhone
+    ? "Recibirías 1 SMS y 2 correos cada día para pedirte que confirmaras que sigues aquí."
+    : "Recibirías 2 correos cada día para pedirte que confirmaras que sigues aquí.";
 }
 
 // Fitxa de la persona: estat, frase, entrega, anul·lació i baixa.
@@ -1572,6 +1625,7 @@ function boot() {
   $("#person-cancel").addEventListener("click", cancelPersonEdit);
   $("#person-generate").addEventListener("click", () => { $("#person-pass").value = generatePassphrase(); });
   $("#settings-form").addEventListener("submit", saveSettings);
+  for (const id of ["#warn-days", "#release-days"]) $(id).addEventListener("input", renderDeadlines);
 
   for (const evt of ["click", "keydown", "input"]) document.addEventListener(evt, touchIdle, { passive: true });
 

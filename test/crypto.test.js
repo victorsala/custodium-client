@@ -35,6 +35,12 @@ const normalizePhone = new Function(`return ${phoneSrc[0]}`)();
 const onboardingSrc = appSrc.match(/function onboardingState\(vault, settings\) \{[\s\S]*?\n\}/);
 assert.ok(onboardingSrc, "no s'ha trobat onboardingState dins app.js");
 const onboardingState = new Function(`return ${onboardingSrc[0]}`)();
+const nextCronRunSrc = appSrc.match(/function nextCronRun\(ts\) \{[\s\S]*?\n\}/);
+assert.ok(nextCronRunSrc, "no s'ha trobat nextCronRun dins app.js");
+const nextCronRun = new Function("CRON_HOURS_UTC", `return ${nextCronRunSrc[0]}`)([8, 20]);
+const forecastSrc = appSrc.match(/function forecast\(lastSeen, warnDays, releaseDays\) \{[\s\S]*?\n\}/);
+assert.ok(forecastSrc, "no s'ha trobat forecast dins app.js");
+const forecast = new Function("nextCronRun", `return ${forecastSrc[0]}`)(nextCronRun);
 
 // ---- parsePhone i reconciliació del Worker (s'extreuen del codi desplegat) ----
 const workerSrc = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
@@ -240,4 +246,24 @@ test("onboardingState: cada pas es dedueix del pla i de la configuració; la gui
 
   // Pla o configuració encara no carregats: no peta.
   assert.equal(onboardingState(undefined, undefined).visible, true);
+});
+
+// ---- previsió de dates a "Entrega por inactividad" (mateix criteri que el cron) ----
+
+test("forecast: les dates són el dia de la primera execució del cron (08:00 o 20:00 UTC) a partir de cada termini", () => {
+  const lastSeen = Date.UTC(2026, 8, 20, 10, 20) / 1000;       // 20/09/2026 12:20 a Madrid
+  const f = forecast(lastSeen, 8, 21);
+  assert.equal(f.warnAt, Date.UTC(2026, 8, 28, 20) / 1000, "8 dies → 28/09 a les 20:00 UTC");
+  assert.equal(f.releaseAt, Date.UTC(2026, 9, 11, 20) / 1000, "21 dies → 11/10 a les 20:00 UTC");
+  assert.equal(nextCronRun(Date.UTC(2026, 8, 28, 8) / 1000), Date.UTC(2026, 8, 28, 8) / 1000, "just a l'hora del cron: aquella execució");
+  assert.equal(nextCronRun(Date.UTC(2026, 8, 28, 20, 0, 1) / 1000), Date.UTC(2026, 8, 29, 8) / 1000, "un segon després de l'última del dia: l'endemà");
+});
+
+test("forecast: sense tres dies entre avís i entrega no hi ha data d'entrega", () => {
+  const lastSeen = Date.UTC(2026, 8, 20, 10, 20) / 1000;
+  assert.equal(forecast(lastSeen, 1, 3).releaseAt, null);
+  assert.ok(forecast(lastSeen, 1, 3).warnAt, "la data del primer avís sí");
+  assert.ok(forecast(lastSeen, 1, 4).releaseAt);
+  assert.equal(forecast(lastSeen, 0, 4).warnAt, null, "l'avís ha de ser d'un dia com a mínim");
+  assert.equal(forecast(lastSeen, 8, 731).releaseAt, null, "màxim 730 dies");
 });
