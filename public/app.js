@@ -1164,6 +1164,53 @@ async function markOnboarding(patch) {
 
 // --------------------------------------------------------------- render
 
+// Icones de traç, 16×16, dibuixades amb path; el color surt de currentColor (style.css: .icon).
+const ICONS = {
+  mail: ["M2 4h12v8.5H2z", "M2 4.5l6 5 6-5"],
+  phone: ["M5 1.5h6a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1z", "M7 12h2"],
+  pencil: ["M11 2.5l2.5 2.5-8 8H3v-2.5z", "M9.5 4l2.5 2.5"],
+};
+
+function svgIcon(kind) {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("class", "icon");
+  svg.setAttribute("aria-hidden", "true");
+  for (const d of ICONS[kind]) {
+    const path = document.createElementNS(NS, "path");
+    path.setAttribute("d", d);
+    svg.append(path);
+  }
+  return svg;
+}
+
+function clip(text, max) {
+  return text.length > max ? text.slice(0, max - 1).trimEnd() + "\u2026" : text;
+}
+
+// «Leer más» només quan les instruccions no caben en les dues línies retallades. Es mesura amb la llista
+// visible (després de pintar, i en tornar-hi); si és amagada no es toca res.
+function fitExcerpts() {
+  for (const more of $$(".cards .item-more")) {
+    const p = more.previousElementSibling;
+    if (!p.clientHeight || p.classList.contains("is-open")) continue;
+    more.hidden = p.scrollHeight <= p.clientHeight + 1;
+  }
+}
+
+window.addEventListener("resize", () => requestAnimationFrame(fitExcerpts));
+
+const SHORT_MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+// «18 sep», o «18 sep 2025» si no és d'enguany. updatedAt és en mil·lisegons.
+function shortDate(ms) {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const s = `${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`;
+  return d.getFullYear() === new Date().getFullYear() ? s : `${s} ${d.getFullYear()}`;
+}
+
 function recipientName(id) {
   return state.vault.recipients.find((p) => p.id === id)?.name ?? null;
 }
@@ -1245,31 +1292,66 @@ function renderList() {
   $("#empty").hidden = items.length > 0 || !$("#onboarding").hidden;
   renderReleaseNotice();
 
+  // Una fitxa per element: títol (35 caràcters) amb «Editar», les instruccions retallades a dues línies
+  // («Leer más» les desplega), un botó per fitxer, i al peu les persones amb inicial i la data del darrer canvi.
   for (const item of items) {
     const li = el("li", { class: "item" });
-    const row = el("div", { class: "item-row" });
-    row.append(el("h3", {}, item.title));
+    const body = el("div", { class: "item-body" });
+    const head = el("div", { class: "item-head" });
+    head.append(el("h3", { title: item.title }, clip(item.title, 35)));
     const edit = el("button", { type: "button", class: "link" }, "Editar");
     edit.addEventListener("click", () => navigate({ name: "item", id: item.id }));
-    row.append(edit);
-    li.append(row);
-    const who = item.recipientIds.map(recipientName).filter(Boolean).join(", ");
-    li.append(el("p", { class: who ? "item-recipient" : "item-recipient none" }, who ? `Para ${who}` : "Solo para ti"));
+    head.append(edit);
+    body.append(head);
 
-    if (item.notes) li.append(el("p", { class: "item-notes" }, item.notes));
+    const notes = (item.notes || "").trim();
+    if (notes) {
+      const p = el("p", { class: "item-excerpt" }, notes);
+      const more = el("button", { type: "button", class: "link item-more" }, "Leer más");
+      more.hidden = true;   // només si el text no cap en dues línies (fitExcerpts)
+      more.addEventListener("click", () => {
+        const open = p.classList.toggle("is-open");
+        more.textContent = open ? "Leer menos" : "Leer más";
+      });
+      body.append(p, more);
+    } else {
+      body.append(el("p", { class: "item-excerpt none" }, "Sin instrucciones"));
+    }
 
     if (item.files.length) {
       const files = el("div", { class: "item-files" });
       for (const f of item.files) {
-        const b = el("button", { type: "button", class: "link" }, f.name + (f.key ? "" : " (vuelve a subirlo para compartirlo)"));
+        const b = el("button", { type: "button", class: "file-chip" });
+        const dot = f.name.lastIndexOf(".");
+        if (dot > 0) b.append(el("span", { class: "file-kind" }, f.name.slice(dot + 1, dot + 5).toUpperCase()));
+        b.append(el("span", { class: "file-name" }, f.name + (f.key ? "" : " (vuelve a subirlo para compartirlo)")));
+        b.append(el("span", { class: "file-arrow", "aria-hidden": "true" }, "\u2193"));
         b.addEventListener("click", () => downloadFile(f));
         files.append(b);
       }
-      li.append(files);
+      body.append(files);
     }
+    li.append(body);
 
+    const foot = el("div", { class: "item-foot" });
+    const who = el("div", { class: "item-people" });
+    const names = item.recipientIds.map(recipientName).filter(Boolean);
+    if (names.length) {
+      who.append(el("span", { class: "item-people-label" }, "Para"));
+      for (const n of names.slice(0, 4)) {
+        const person = el("span", { class: "item-person" });
+        person.append(el("span", { class: "avatar", "aria-hidden": "true" }, n[0].toUpperCase()), n);
+        who.append(person);
+      }
+      if (names.length > 4) who.append(el("span", { class: "item-people-label" }, `y ${names.length - 4} más`));
+    } else {
+      who.append(el("span", { class: "item-people-label" }, "Solo para ti"));
+    }
+    foot.append(who, el("time", { class: "item-date" }, `Actualizado ${shortDate(item.updatedAt)}`));
+    li.append(foot);
     list.append(li);
   }
+  requestAnimationFrame(fitExcerpts);
 }
 
 function renderDraftFiles() {
@@ -1317,22 +1399,63 @@ function renderPeople() {
   $("#add-person").hidden = atLimit;
   $("#people-limit").hidden = !atLimit;
 
+  $("#people-label").hidden = people.length === 0;
+  $("#people-count").textContent = String(people.length);
+
+  // Una fitxa per persona: inicial, nom amb «Editar», correu i mòbil; al peu, els elements assignats
+  // (es despleguen per veure'n els títols) i l'estat de l'entrega amb la data.
   for (const p of people) {
-    const li = el("li", { class: "item" });
-    const row = el("div", { class: "item-row" });
-    row.append(el("h3", {}, p.name));
-    const edit = el("button", { type: "button", class: "link" }, "Editar");
+    const li = el("li", { class: "person-card" });
+    const body = el("div", { class: "person-body" });
+    body.append(el("span", { class: "person-avatar", "aria-hidden": "true" }, p.name.trim()[0]?.toUpperCase() ?? "?"));
+    const main = el("div", { class: "person-main" });
+    const head = el("div", { class: "person-head" });
+    head.append(el("h3", {}, p.name));
+    const edit = el("button", { type: "button", class: "link person-edit" });
+    edit.append(svgIcon("pencil"), "Editar");
     edit.addEventListener("click", () => navigate({ name: "person", id: p.id }));
-    row.append(edit);
-    li.append(row);
-    li.append(el("p", { class: "item-recipient" }, p.email));
+    head.append(edit);
+    main.append(head);
+    const contact = el("ul", { class: "person-contact" });
+    const mail = el("li");
+    mail.append(svgIcon("mail"), p.email);
+    contact.append(mail);
+    if (p.phone) {
+      const tel = el("li");
+      tel.append(svgIcon("phone"), p.phone);
+      contact.append(tel);
+    }
+    main.append(contact);
+    body.append(main);
+    li.append(body);
 
     const st = personStatus(p);
-    const line = el("p", { class: "item-notes" });
-    line.append(el("span", { class: "status" }, st.label));
-    if (st.date) line.append(` · ${dateEs(st.date)}`);
-    if (st.n) line.append(` · ${st.n} ${st.n === 1 ? "elemento" : "elementos"}`);
-    li.append(line);
+    const foot = el("div", { class: "person-foot" });
+    const row = el("div", { class: "person-foot-row" });
+    const assigned = state.vault.items.filter((it) => it.recipientIds.includes(p.id));
+    if (assigned.length) {
+      const toggle = el("button", { type: "button", class: "person-toggle", "aria-expanded": "false" },
+        `${assigned.length} ${assigned.length === 1 ? "elemento asignado" : "elementos asignados"}`);
+      const detail = el("ul", { class: "person-items" });
+      detail.hidden = true;
+      for (const it of assigned) detail.append(el("li", {}, it.title));
+      toggle.addEventListener("click", () => {
+        const show = detail.hidden;
+        detail.hidden = !show;
+        toggle.setAttribute("aria-expanded", String(show));
+      });
+      row.append(toggle);
+      foot.append(row, detail);
+    } else {
+      row.append(el("span", { class: "person-none" }, "Sin elementos asignados"));
+      foot.append(row);
+    }
+    // L'estat només si diu res més que «sense elements» (això ja ho diu l'esquerra).
+    if (st.label !== "Sin elementos asignados") {
+      const tone = /^Acceso/.test(st.label) ? " is-sent" : /^Enlace/.test(st.label) ? " is-warn" : "";
+      row.append(el("span", { class: `person-status${tone}` }, st.label + (st.date ? ` · ${shortDate(st.date * 1000)}` : "")));
+    }
+    li.append(foot);
     list.append(li);
   }
 
@@ -1443,6 +1566,7 @@ function showScreen(name) {
     $("#nav-people").classList.toggle("is-current", name === "people" || name === "person-edit");
     $("#nav-account").classList.toggle("is-current", name === "account");
   }
+  if (name === "list") requestAnimationFrame(fitExcerpts);
   if (name === "login") $("#login-email").focus();
   if (name === "register") $("#register-email").focus();
   window.scrollTo({ top: 0 });

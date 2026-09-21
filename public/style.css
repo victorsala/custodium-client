@@ -1202,3 +1202,296 @@ body:not(.is-entry) .pillars { display: none; }
 .entry-card button.link:hover { color: #fff; }
 
 .entry-card .message { color: #F6CDBF; }
+
+
+/* v5.2 · «Tu plan» en fitxes: títol amb un rombe i «Editar», les instruccions retallades a dues línies
+   («Leer más» les desplega), un botó per fitxer amb el tipus, i un peu verdós amb les persones i la data. */
+
+.items.cards { display: grid; gap: 16px; border-top: 0; }
+
+.cards .item {
+  display: block;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(27,43,46,.04), 0 10px 24px -16px rgba(27,43,46,.28);
+  overflow: hidden;
+}
+
+.cards .item-body { display: grid; gap: 10px; padding: 18px 22px; }
+.cards .item-body > * { min-width: 0; }   /* perquè el títol i els xips es retallin en comptes d'eixamplar la fitxa */
+
+.cards .item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cards .item-head h3 {
+  min-width: 0;
+  font-size: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cards .item-head h3::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin: 0 12px 3px 0;
+  background: var(--teal);
+  transform: rotate(45deg);
+  vertical-align: middle;
+}
+
+.cards .item-head button.link { font-size: 14px; flex-shrink: 0; }
+
+.cards .item-excerpt {
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.cards .item-excerpt.is-open { display: block; white-space: pre-wrap; }
+.cards .item-excerpt.none { color: #9AA6A9; }
+.cards .item-more { justify-self: start; margin-top: -4px; font-size: 14px; }
+
+.cards .item-files { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+
+.cards .file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+  max-width: 100%;
+  padding: 6px 10px 6px 7px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.cards .file-chip:hover { background: var(--ivory); border-color: var(--teal); }
+
+.cards .file-kind {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(28,93,84,.1);
+  color: var(--teal);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+
+.cards .file-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cards .file-arrow { color: var(--teal); }
+
+.cards .item-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 22px;
+  background: rgba(28,93,84,.07);
+  border-top: 1px solid rgba(28,93,84,.18);
+  font-size: 14px;
+}
+
+.cards .item-people { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; }
+.cards .item-people-label { color: var(--teal); }
+.cards .item-person { display: inline-flex; align-items: center; gap: 7px; color: var(--ink); font-weight: 500; }
+
+.cards .item-person .avatar {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--teal);
+  color: var(--ivory);
+  font-size: 11px; font-weight: 700;
+  display: grid; place-items: center;
+}
+
+.cards .item-date { flex-shrink: 0; font-size: 13px; color: var(--teal); }
+
+
+/* v5.3 · Personas en fitxes: inicial gran, nom amb «Editar», contacte amb icones, i un peu verdós amb els
+   elements assignats (desplegable amb els títols) i l'estat de l'entrega. */
+
+.icon {
+  width: 15px; height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+.list-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 12px;
+  font-size: 14px;
+  color: var(--slate);
+}
+
+.count-chip {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px; height: 22px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: rgba(27,43,46,.08);
+  color: var(--ink);
+  font-size: 12px; font-weight: 600;
+}
+
+.people-cards { display: grid; gap: 16px; border-top: 0; }
+
+.person-card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(27,43,46,.04), 0 10px 24px -16px rgba(27,43,46,.28);
+  overflow: hidden;
+}
+
+.person-body { display: flex; gap: 16px; padding: 18px 22px 16px; }
+
+.person-avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: rgba(28,93,84,.1);
+  border: 1px solid rgba(28,93,84,.18);
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 20px;
+  display: grid; place-items: center;
+  flex: none;
+}
+
+.person-main { flex: 1; min-width: 0; display: grid; gap: 10px; align-content: start; }
+
+.person-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+}
+
+.person-head h3 {
+  min-width: 0;
+  font-size: 18px;
+  line-height: 40px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.person-edit { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; flex-shrink: 0; }
+
+.person-contact {
+  list-style: none;
+  margin: -6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--slate);
+}
+
+.person-contact li { display: flex; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+
+.person-foot {
+  padding: 10px 22px;
+  background: rgba(28,93,84,.07);
+  border-top: 1px solid rgba(28,93,84,.18);
+  font-size: 14px;
+}
+
+.person-foot-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 16px;
+}
+
+.person-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--teal-dark);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.person-toggle::before {
+  content: "";
+  width: 7px; height: 7px;
+  margin-left: 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 160ms ease-out;
+  flex: none;
+}
+
+.person-toggle[aria-expanded="true"]::before { transform: rotate(45deg); }
+.person-toggle:hover { background: none; color: var(--teal); }
+
+.person-none { color: var(--slate); }
+
+.person-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--slate);
+}
+
+.person-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #B9C3C4; flex: none; }
+.person-status.is-sent { color: var(--teal); }
+.person-status.is-sent::before { background: var(--teal); }
+.person-status.is-warn { color: var(--brass); }
+.person-status.is-warn::before { background: var(--brass); }
+
+.person-items {
+  list-style: none;
+  margin: 10px 0 2px;
+  padding: 10px 0 0;
+  border-top: 1px solid rgba(28,93,84,.14);
+  display: grid;
+  gap: 6px;
+  color: var(--ink);
+}
+
+.person-items li { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+.person-items li::before {
+  content: "";
+  width: 6px; height: 6px;
+  margin-left: 2px;
+  border: 1px solid var(--slate);
+  transform: rotate(45deg);
+  flex: none;
+}
