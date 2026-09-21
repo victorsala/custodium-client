@@ -22,8 +22,12 @@
 
   <main class="wrap">
 
+    <!-- Portada: la targeta d'entrada (o d'alta) a l'esquerra i la presentació a la dreta.
+         La presentació i els pilars són fora de les pantalles: es veuen mentre no hi ha sessió (body.is-entry). -->
+    <div class="entry">
+
     <!-- Entrar -->
-    <section data-screen="login" hidden>
+    <section data-screen="login" class="entry-card" hidden>
       <h1>Abre tu plan.</h1>
       <p class="intro">Tu plan se descifra aquí, en tu navegador.</p>
       <form id="login-form" novalidate>
@@ -36,11 +40,12 @@
         <p id="login-message" class="message" aria-live="polite"></p>
         <div class="actions"><button id="login-submit" type="submit">Entrar</button></div>
       </form>
-      <p class="switch">¿Primera vez? <button id="to-register" type="button" class="link">Crear una cuenta</button></p>
+      <p class="switch">¿Primera vez?<br><button id="to-register" type="button" class="link">Crear una cuenta</button></p>
+      <p class="hint entry-note">Si has recibido un correo de Custodium con un enlace, no necesitas entrar aquí: ábrelo desde el correo.</p>
     </section>
 
     <!-- Crear cuenta -->
-    <section data-screen="register" hidden>
+    <section data-screen="register" class="entry-card" hidden>
       <h1>Crea tu cuenta.</h1>
       <p class="intro">El contenido de tu plan se cifrará en tu navegador antes de enviarse a Custodium.</p>
 
@@ -84,8 +89,47 @@
         <p id="register-message" class="message" aria-live="polite"></p>
         <div class="actions"><button id="register-submit" type="submit">Crear cuenta</button></div>
       </form>
-      <p class="switch">¿Ya tienes cuenta? <button id="to-login" type="button" class="link">Entrar</button></p>
+      <p class="switch">¿Ya tienes cuenta?<br><button id="to-login" type="button" class="link">Entrar</button></p>
     </section>
+
+    <!-- Presentació: què és, un exemple de pla (dades fictícies; línies i moviment a portada.js) i què no és. -->
+    <aside class="pitch" aria-labelledby="pitch-title">
+      <p class="eyebrow">Qué es Custodium</p>
+      <h2 id="pitch-title">Deja tu vida digital preparada.</h2>
+      <p class="lead">Un plan privado con tus cuentas, documentos e instrucciones, y qué debe recibir cada persona de confianza si un día no puedes actuar.</p>
+      <figure class="pitch-figure plan" aria-label="Ejemplo de un plan: tres elementos asignados a una o varias personas de confianza">
+        <figcaption class="plan-caption">Ejemplo de un plan</figcaption>
+        <div class="plan-board" id="plan-board">
+          <div class="plan-card">
+            <div class="plan-head">
+              <span class="mark" aria-hidden="true"></span>
+              <div><strong>El plan de Ana</strong><span>Privado · Cifrado</span></div>
+            </div>
+            <ul class="plan-items">
+              <li class="plan-item" data-to="person-luis"><div><span class="item-kind">Cuentas online</span><span class="item-name">Correo y redes</span></div><span class="item-dot" aria-hidden="true"></span></li>
+              <li class="plan-item" data-to="person-marta"><div><span class="item-kind">Documentos</span><span class="item-name">Documentos familiares</span></div><span class="item-dot" aria-hidden="true"></span></li>
+              <li class="plan-item" data-to="person-marta person-jose"><div><span class="item-kind">Finanzas</span><span class="item-name">Cuenta bancaria</span></div><span class="item-dot" aria-hidden="true"></span></li>
+            </ul>
+          </div>
+          <ul class="plan-people">
+            <li class="person" id="person-luis"><span class="avatar" aria-hidden="true">L</span><div><strong>Luis</strong><span>Hermano</span></div></li>
+            <li class="person" id="person-marta"><span class="avatar" aria-hidden="true">M</span><div><strong>Marta</strong><span>Pareja</span></div></li>
+            <li class="person" id="person-jose"><span class="avatar" aria-hidden="true">J</span><div><strong>Jose</strong><span>Asesor</span></div></li>
+          </ul>
+          <svg class="plan-links" aria-hidden="true" focusable="false"></svg>
+        </div>
+      </figure>
+      <p class="notice">Custodium no es un gestor de contraseñas ni un testamento, y no custodia dinero ni activos. No hay recuperación de contraseña: si la pierdes, pierdes el acceso a tu plan.</p>
+    </aside>
+
+    </div>
+
+    <ul class="pillars">
+      <li><strong>Cifrado en tu navegador.</strong><span>Tu plan se cifra antes de salir de tu dispositivo. Custodium guarda el plan cifrado, nunca las claves.</span></li>
+      <li><strong>Cada persona, solo su parte.</strong><span>Asignas cada elemento a quien deba recibirlo. Cada persona abre lo suyo con su propia frase.</span></li>
+      <li><strong>Entrega por inactividad.</strong><span>Si dejas de entrar, primero te avisamos a ti, por correo y SMS. Solo si sigues sin responder se entrega el plan.</span></li>
+      <li><strong>Una copia fuera de Custodium.</strong><span>Descarga una copia cifrada que se abre sin servidor ni cuenta. Si Custodium no estuviera, seguiría abriéndose.</span></li>
+    </ul>
 
     <!-- Lista -->
     <section data-screen="list" hidden>
@@ -373,5 +417,6 @@
   <p id="toast" class="toast" hidden role="status"></p>
 
   <script type="module" src="/app.js"></script>
+  <script type="module" src="/portada.js"></script>
 </body>
 </html>

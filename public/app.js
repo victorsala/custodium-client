@@ -1437,6 +1437,7 @@ function showScreen(name) {
   for (const s of $$("[data-screen]")) s.hidden = s.dataset.screen !== name;
   const inside = !["login", "register"].includes(name);
   $("#top-nav").hidden = !inside;
+  document.body.classList.toggle("is-entry", !inside);
   if (inside) {
     $("#nav-plan").classList.toggle("is-current", name === "list" || name === "edit");
     $("#nav-people").classList.toggle("is-current", name === "people" || name === "person-edit");
