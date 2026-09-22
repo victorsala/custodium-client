@@ -157,18 +157,20 @@
       </p>
       <ul id="items" class="items cards"></ul>
 
-      <section class="settings">
-        <h2>Una copia fuera de Custodium</h2>
-        <p class="hint">
-          Descarga una copia cifrada de tu plan y sus archivos. Incluye todo lo necesario para abrirla sin conexión,
-          aunque Custodium deje de estar disponible.
-        </p>
-        <div class="actions"><button id="export" type="button" class="secondary">Descargar copia cifrada</button></div>
-        <p class="hint">
-          Para abrirla necesitarás tu contraseña. Cada persona de confianza podrá abrir su parte con su propia frase,
-          sin esperar al envío de acceso de Custodium.
-        </p>
-        <p class="hint">Vuelve a descargarla cuando hagas cambios importantes.</p>
+      <section class="acct-card copy-card" aria-labelledby="copy-title">
+        <div class="acct-body">
+          <h2 id="copy-title" class="copy-title"><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><rect x="2.5" y="4" width="11" height="9.5" rx="1.5"/><path d="M2.5 7h11"/><path d="M6.5 10h3"/></svg></span>Una copia fuera de Custodium</h2>
+          <p class="hint">Descarga una copia cifrada de tu plan y sus archivos. Incluye todo lo necesario para abrirla sin conexión, aunque Custodium deje de estar disponible.</p>
+          <hr class="copy-rule">
+          <ul class="copy-points">
+            <li><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><circle cx="5.5" cy="6.5" r="3"/><path d="M7.8 8.8l5.7 5.7"/><path d="M10.5 11.5l1.5-1.5"/><path d="M12.5 13.5l1.5-1.5"/></svg></span><div><strong>Para abrir tu copia</strong><p>Necesitarás <b>tu contraseña</b>.</p></div></li>
+            <li><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><circle cx="6" cy="6" r="2.2"/><path d="M2.5 13c0-2 1.6-3.5 3.5-3.5S9.5 11 9.5 13"/><circle cx="11" cy="6.5" r="1.8"/><path d="M10.5 9.8c1.8.2 3 1.6 3 3.2"/></svg></span><div><strong>Para tus personas de confianza</strong><p>Cada persona podrá abrir su parte con su propia frase, <b>sin esperar al envío de acceso de Custodium</b>.</p></div></li>
+          </ul>
+        </div>
+        <div class="acct-foot acct-foot-actions copy-foot">
+          <span class="hint"><svg class="icon" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.5"/><path d="M13 2.5v3h-3"/></svg>Vuelve a descargarla tras cambios importantes.</span>
+          <button id="export" type="button"><svg class="icon" viewBox="0 0 16 16"><path d="M8 2.5v8"/><path d="M5 7.5l3 3 3-3"/><path d="M3 13.5h10"/></svg>Descargar copia cifrada</button>
+        </div>
       </section>
     </section>
 
