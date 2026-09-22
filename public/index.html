@@ -158,21 +158,6 @@
       </p>
       <ul id="items" class="items cards"></ul>
 
-      <section class="acct-card copy-card" aria-labelledby="copy-title">
-        <div class="acct-body">
-          <h2 id="copy-title" class="copy-title"><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><rect x="2.5" y="4" width="11" height="9.5" rx="1.5"/><path d="M2.5 7h11"/><path d="M6.5 10h3"/></svg></span>Una copia fuera de Custodium</h2>
-          <p class="hint">Descarga una copia cifrada de tu plan y sus archivos. Incluye todo lo necesario para abrirla sin conexión, aunque Custodium deje de estar disponible.</p>
-          <hr class="copy-rule">
-          <ul class="copy-points">
-            <li><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><circle cx="5.5" cy="6.5" r="3"/><path d="M7.8 8.8l5.7 5.7"/><path d="M10.5 11.5l1.5-1.5"/><path d="M12.5 13.5l1.5-1.5"/></svg></span><div><strong>Para abrir tu copia</strong><p>Necesitarás <b>tu contraseña</b>.</p></div></li>
-            <li><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><circle cx="6" cy="6" r="2.2"/><path d="M2.5 13c0-2 1.6-3.5 3.5-3.5S9.5 11 9.5 13"/><circle cx="11" cy="6.5" r="1.8"/><path d="M10.5 9.8c1.8.2 3 1.6 3 3.2"/></svg></span><div><strong>Para tus personas de confianza</strong><p>Cada persona podrá abrir su parte con su propia frase, <b>sin esperar al envío de acceso de Custodium</b>.</p></div></li>
-          </ul>
-        </div>
-        <div class="acct-foot acct-foot-actions copy-foot">
-          <span class="hint"><svg class="icon" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.5"/><path d="M13 2.5v3h-3"/></svg>Vuelve a descargarla tras cambios importantes.</span>
-          <button id="export" type="button"><svg class="icon" viewBox="0 0 16 16"><path d="M8 2.5v8"/><path d="M5 7.5l3 3 3-3"/><path d="M3 13.5h10"/></svg>Descargar copia cifrada</button>
-        </div>
-      </section>
     </section>
 
     <!-- Añadir / editar elemento -->
@@ -221,57 +206,13 @@
       <p class="intro">
         Decide quién recibirá cada información si no puedes actuar. Cada persona tendrá acceso solo a los elementos que le asignes.
       </p>
+      <p class="hint people-note">Los plazos de aviso y de entrega se definen en <a href="#/cuenta">Cuenta</a>.</p>
 
       <p id="people-empty" class="hint">Aún no has añadido a nadie.</p>
       <p id="people-limit" class="hint" hidden>Has llegado al máximo de 20 personas de confianza. Para añadir a alguien, quita antes a otra persona.</p>
       <p id="people-label" class="list-label" hidden>Tus personas <span id="people-count" class="count-chip"></span></p>
       <ul id="people" class="items people-cards"></ul>
 
-      <!-- Dos passos en vertical (primer m'avisen a mi; si no responc, entreguen) i una
-           previsió amb dates calculada com al servidor. Sense «última actividad»: les dates ja ho diuen. -->
-      <form id="settings-form" class="settings deadlines" novalidate>
-        <h2>Entrega por inactividad</h2>
-        <p class="hint">Decide cuándo quieres que te avisemos y cuándo se entregará el plan si no respondes.</p>
-        <p class="callout">Si <strong>entras en tu cuenta</strong> o confirmas <strong>«Sigo aquí»</strong> desde un aviso, la cuenta atrás vuelve a empezar.</p>
-
-        <section class="step" aria-labelledby="step-warn">
-          <h3 id="step-warn"><span class="step-num" aria-hidden="true">1</span>Primero, te avisamos a ti</h3>
-          <label>
-            <span>Empezarás a recibir avisos después de:</span>
-            <span class="with-unit"><input id="warn-days" type="number" min="1" max="365" required><em>días sin entrar ni confirmar que sigues aquí</em></span>
-          </label>
-          <p class="chips"><span class="chip"><strong>2 correos</strong> al día</span><span id="chip-sms" class="chip" hidden><strong>1 SMS</strong> al día</span></p>
-          <p class="hint">Recibirás avisos cada día para que confirmes que sigues aquí. Estos avisos son para ti, no para tus personas de confianza.</p>
-          <p id="sms-hint" class="hint" hidden>Añade tu móvil en Cuenta para recibir también un SMS al día.</p>
-          <p class="hint">Para responder, entra en tu cuenta o abre el enlace de un aviso y pulsa «Sigo aquí». No basta con abrir el correo.</p>
-        </section>
-
-        <section class="step" aria-labelledby="step-release">
-          <h3 id="step-release"><span class="step-num" aria-hidden="true">2</span>Si no respondes, entregamos el plan</h3>
-          <label>
-            <span>La entrega se hará después de:</span>
-            <span class="with-unit"><input id="release-days" type="number" min="4" max="730" required><em>días sin entrar ni confirmar que sigues aquí</em></span>
-          </label>
-          <p id="release-message" class="message" aria-live="polite"></p>
-          <p class="hint">Cada persona de confianza recibirá un correo con un enlace para acceder <strong>solo a los elementos que le has asignado</strong> y descargarlos.</p>
-          <p class="hint">Para abrirlos, necesitará su frase.</p>
-          <p class="hint step-foot"><strong>Los dos plazos empiezan a la vez:</strong> se cuentan desde tu última entrada o confirmación, no uno después del otro.</p>
-        </section>
-
-        <section id="forecast" class="forecast">
-          <p id="forecast-eyebrow" class="eyebrow">Previsión con los plazos actuales</p>
-          <h3>Si desde hoy no volvieras a dar señales…</h3>
-          <p class="hint">Esto pasaría si, a partir de hoy, no entraras en tu cuenta ni confirmaras que sigues aquí.</p>
-          <ol class="timeline">
-            <li><time id="forecast-warn"></time><p><strong>Empezaríamos a avisarte.</strong> <span id="forecast-warn-text"></span></p></li>
-            <li><time id="forecast-release"></time><p><strong>Si siguieras sin responder, entregaríamos el plan.</strong> Enviaríamos a tus personas de confianza los enlaces a los elementos que les has asignado.</p></li>
-          </ol>
-          <p class="hint forecast-foot"><strong>Si entraras en tu cuenta o confirmaras «Sigo aquí» antes de la entrega, el plan no se entregaría.</strong> Los avisos se detendrían y las dos fechas volverían a calcularse.</p>
-        </section>
-
-        <p id="settings-message" class="message" aria-live="polite"></p>
-        <div class="actions"><button type="submit">Guardar plazos</button></div>
-      </form>
     </section>
 
     <!-- Añadir / editar persona -->
@@ -315,7 +256,12 @@
     <!-- Cuenta -->
     <section data-screen="account" hidden>
       <div class="vault-head"><h1>Tu cuenta</h1></div>
-      <p class="intro">Gestiona tus datos de contacto y la contraseña con la que abres tu plan.</p>
+      <p class="intro">Gestiona tus datos de contacto, la seguridad de tu cuenta y cómo se conserva y entrega tu plan.</p>
+      <!-- «En esta página»: un enllaç per fitxa, generat a partir dels títols (app.js: buildPageNav). -->
+      <nav class="page-nav" aria-label="En esta página">
+        <p class="eyebrow">En esta página</p>
+        <ul id="page-nav-list"></ul>
+      </nav>
 
       <!-- Correu i mòbil en fitxes (closca i peu compartits amb «Tu plan» i «Personas»). -->
       <section class="acct-card" aria-labelledby="acct-email-title">
@@ -344,6 +290,73 @@
           <button id="phone-save" type="submit" class="secondary" disabled>Guardar móvil</button>
         </div>
       </form>
+
+      <!-- Terminis: dos passos en vertical (primer m'avisen a mi; si no responc, entreguen) i una
+           previsió amb dates calculada com al servidor. Sense «última actividad»: les dates ja ho diuen. -->
+      <form id="settings-form" class="acct-card" novalidate>
+        <div class="acct-body deadlines">
+        <h2 class="acct-title"><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="10" rx="1.5"/><path d="M2.5 7h11"/><path d="M5.5 2v3M10.5 2v3"/><path d="M8 9.5l1 1 2-2"/></svg></span>Definir entrega por inactividad</h2>
+        <p class="hint">Decide cuándo quieres que te avisemos y cuándo se entregará el plan si no respondes.</p>
+        <p class="callout">Si <strong>entras en tu cuenta</strong> o confirmas <strong>«Sigo aquí»</strong> desde un aviso, la cuenta atrás vuelve a empezar.</p>
+
+        <section class="step" aria-labelledby="step-warn">
+          <h3 id="step-warn"><span class="step-num" aria-hidden="true">1</span>Primero, te avisamos a ti</h3>
+          <label>
+            <span>Empezarás a recibir avisos después de:</span>
+            <span class="with-unit"><input id="warn-days" type="number" min="1" max="365" required><em>días sin entrar ni confirmar que sigues aquí</em></span>
+          </label>
+          <p class="chips"><span class="chip"><strong>2 correos</strong> al día</span><span id="chip-sms" class="chip" hidden><strong>1 SMS</strong> al día</span></p>
+          <p class="hint">Recibirás avisos cada día para que confirmes que sigues aquí. Estos avisos son para ti, no para tus personas de confianza.</p>
+          <p id="sms-hint" class="hint" hidden>Añade tu móvil más arriba para recibir también un SMS al día.</p>
+          <p class="hint">Para responder, entra en tu cuenta o abre el enlace de un aviso y pulsa «Sigo aquí». No basta con abrir el correo.</p>
+        </section>
+
+        <section class="step" aria-labelledby="step-release">
+          <h3 id="step-release"><span class="step-num" aria-hidden="true">2</span>Si no respondes, entregamos el plan</h3>
+          <label>
+            <span>La entrega se hará después de:</span>
+            <span class="with-unit"><input id="release-days" type="number" min="4" max="730" required><em>días sin entrar ni confirmar que sigues aquí</em></span>
+          </label>
+          <p id="release-message" class="message" aria-live="polite"></p>
+          <p class="hint">Cada persona de confianza recibirá un correo con un enlace para acceder <strong>solo a los elementos que le has asignado</strong> y descargarlos.</p>
+          <p class="hint">Para abrirlos, necesitará su frase.</p>
+          <p class="hint step-foot"><strong>Los dos plazos empiezan a la vez:</strong> se cuentan desde tu última entrada o confirmación, no uno después del otro.</p>
+        </section>
+
+        <section id="forecast" class="forecast">
+          <p id="forecast-eyebrow" class="eyebrow">Previsión con los plazos actuales</p>
+          <h3>Si desde hoy no volvieras a dar señales…</h3>
+          <p class="hint">Esto pasaría si, a partir de hoy, no entraras en tu cuenta ni confirmaras que sigues aquí.</p>
+          <ol class="timeline">
+            <li><time id="forecast-warn"></time><p><strong>Empezaríamos a avisarte.</strong> <span id="forecast-warn-text"></span></p></li>
+            <li><time id="forecast-release"></time><p><strong>Si siguieras sin responder, entregaríamos el plan.</strong> Enviaríamos a tus personas de confianza los enlaces a los elementos que les has asignado.</p></li>
+          </ol>
+          <p class="hint forecast-foot"><strong>Si entraras en tu cuenta o confirmaras «Sigo aquí» antes de la entrega, el plan no se entregaría.</strong> Los avisos se detendrían y las dos fechas volverían a calcularse.</p>
+        </section>
+
+        <p id="settings-message" class="message" aria-live="polite"></p>
+        </div>
+        <div class="acct-foot acct-foot-actions">
+          <span class="hint">Los cambios se aplican al guardar.</span>
+          <button type="submit">Guardar plazos</button>
+        </div>
+      </form>
+
+      <section class="acct-card copy-card" aria-labelledby="copy-title">
+        <div class="acct-body">
+          <h2 id="copy-title" class="copy-title"><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><rect x="2.5" y="4" width="11" height="9.5" rx="1.5"/><path d="M2.5 7h11"/><path d="M6.5 10h3"/></svg></span>Una copia fuera de Custodium</h2>
+          <p class="hint">Descarga una copia cifrada de tu plan y sus archivos. Incluye todo lo necesario para abrirla sin conexión, aunque Custodium deje de estar disponible.</p>
+          <hr class="copy-rule">
+          <ul class="copy-points">
+            <li><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><circle cx="5.5" cy="6.5" r="3"/><path d="M7.8 8.8l5.7 5.7"/><path d="M10.5 11.5l1.5-1.5"/><path d="M12.5 13.5l1.5-1.5"/></svg></span><div><strong>Para abrir tu copia</strong><p>Necesitarás <b>tu contraseña</b>.</p></div></li>
+            <li><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><circle cx="6" cy="6" r="2.2"/><path d="M2.5 13c0-2 1.6-3.5 3.5-3.5S9.5 11 9.5 13"/><circle cx="11" cy="6.5" r="1.8"/><path d="M10.5 9.8c1.8.2 3 1.6 3 3.2"/></svg></span><div><strong>Para tus personas de confianza</strong><p>Cada persona podrá abrir su parte con su propia frase, <b>sin esperar al envío de acceso de Custodium</b>.</p></div></li>
+          </ul>
+        </div>
+        <div class="acct-foot acct-foot-actions copy-foot">
+          <span class="hint"><svg class="icon" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.5"/><path d="M13 2.5v3h-3"/></svg>Vuelve a descargarla tras cambios importantes.</span>
+          <button id="export" type="button"><svg class="icon" viewBox="0 0 16 16"><path d="M8 2.5v8"/><path d="M5 7.5l3 3 3-3"/><path d="M3 13.5h10"/></svg>Descargar copia cifrada</button>
+        </div>
+      </section>
 
       <!-- Canvi de contrasenya: la casella «He guardado…» activa el botó. -->
       <form id="password-form" class="acct-card" novalidate>
@@ -461,7 +474,7 @@
               <li>Los enlaces que hayan recibido dejarán de funcionar.</li>
             </ul>
           </div>
-          <p class="hint">Si quieres conservar una copia, descárgala antes desde <a href="#/plan">Tu plan</a>.</p>
+          <p class="hint">Si quieres conservar una copia, descárgala antes desde «Una copia fuera de Custodium», más arriba.</p>
           <label>
             <span>Contraseña actual</span>
             <span class="input-reveal">

@@ -1464,7 +1464,6 @@ body:not(.is-entry) .pillars { display: none; }
 
 .acct-card { margin-top: 20px; }
 .acct-card + .acct-card { margin-top: 16px; }
-.settings + .acct-card { margin-top: 40px; }   /* després d'un bloc clàssic (Actividad reciente), més aire */
 form.acct-card { display: block; }
 
 .acct-body { display: grid; gap: 12px; padding: 20px 22px 18px; }
@@ -1637,9 +1636,7 @@ form.acct-card { display: block; }
 }
 
 
-/* v5.5 · «Una copia fuera de Custodium» (Tu plan) en fitxa: títol serif amb icona, dos punts amb icona i el botó al peu */
-
-.copy-card { margin-top: 40px; }
+/* v5.5 · «Una copia fuera de Custodium» (Cuenta) en fitxa: títol serif amb icona, dos punts amb icona i el botó al peu */
 
 .copy-title {
   display: flex;
@@ -1665,3 +1662,17 @@ form.acct-card { display: block; }
 
 .copy-foot .hint { display: flex; align-items: center; gap: 8px; }
 .copy-foot button { display: inline-flex; align-items: center; gap: 8px; }
+
+.people-note { margin: -20px 0 24px; }
+
+
+/* «En esta página» (Cuenta): enllaços a cada fitxa, en línia i saltant de línia si cal */
+
+.page-nav { margin: -12px 0 32px; }
+.page-nav .eyebrow { margin-bottom: 10px; }
+.page-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px 22px; }
+.page-nav button.link { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; text-underline-offset: 4px; }
+.page-nav .icon { width: 12px; height: 12px; color: var(--brass); }
+
+.acct-card { scroll-margin-top: 16px; }
+.acct-card h2:focus-visible { outline: 3px solid rgba(28,93,84,.35); outline-offset: 4px; border-radius: 4px; }

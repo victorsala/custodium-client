@@ -805,6 +805,11 @@ function showAccount() {
   $("#delete-message").textContent = "";
   syncDeleteState();
   $("#events-filter").value = "all";
+  if (state.settings) {
+    $("#warn-days").value = state.settings.warnDays;
+    $("#release-days").value = state.settings.releaseDays;
+    renderDeadlines();
+  }
   $("#pw-current").type = "password";
   $("#pw-current").value = "";
   proposePassphrase("pw");
@@ -1252,6 +1257,7 @@ const ICONS = {
   monitor: ["M2.5 3.5h11v7.5h-11z", "M6 13.5h4", "M8 11v2.5"],
   up: ["M4 10l4-4 4 4"],
   down: ["M4 6l4 4 4-4"],
+  goto: ["M4 4l8 8", "M12 5v7H5"],
 };
 
 function svgIcon(kind) {
@@ -1289,6 +1295,33 @@ async function moveItem(id, delta) {
   // Un flaix breu a la fitxa al seu lloc nou, perquè es vegi on ha anat a parar.
   card.classList.add("is-moved");
   card.addEventListener("animationend", () => card.classList.remove("is-moved"), { once: true });
+}
+
+// «En esta página» (Cuenta): un enllaç per fitxa, a partir dels títols, que desplaça fins a la fitxa
+// i hi posa el focus. Sense tocar el fragment de l'URL, que és del router.
+function buildPageNav() {
+  const ul = $("#page-nav-list");
+  const cards = $$('[data-screen="account"] .acct-card');
+  const seen = new Set();
+  for (const card of cards) {
+    const h2 = card.querySelector("h2");
+    const title = h2?.textContent.trim();
+    if (!title || seen.has(title)) continue;
+    seen.add(title);
+    const b = el("button", { type: "button", class: "link" }, title);
+    b.append(svgIcon("goto"));
+    b.addEventListener("click", () => {
+      // El canvi de correu té dues fitxes amb el mateix títol (els dos passos): va a la que es veu.
+      const target = [...cards].find((c) => !c.hidden && c.querySelector("h2")?.textContent.trim() === title) ?? card;
+      target.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+      const heading = target.querySelector("h2");
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    });
+    const li = el("li");
+    li.append(b);
+    ul.append(li);
+  }
 }
 
 function clip(text, max) {
@@ -1360,7 +1393,7 @@ const ONBOARDING_TEXTS = {
   person: { text: "Añade una persona", action: "Personas", go: () => navigate(PEOPLE) },
   item: { text: "Crea el primer elemento", action: "Añadir elemento", go: () => navigate(NEW_ITEM) },
   phone: { text: "Añade tu móvil para avisos", action: "Cuenta", go: () => navigate(ACCOUNT) },
-  deadlines: { text: "Revisa los plazos de entrega", action: "Personas", go: () => navigate(PEOPLE) },
+  deadlines: { text: "Revisa los plazos de entrega", action: "Cuenta", go: () => navigate(ACCOUNT) },
   copy: { text: "Descarga una copia", action: "Descargar copia cifrada", go: () => exportBundle() },
 };
 
@@ -1579,12 +1612,6 @@ function renderPeople() {
     }
     li.append(foot);
     list.append(li);
-  }
-
-  if (state.settings) {
-    $("#warn-days").value = state.settings.warnDays;
-    $("#release-days").value = state.settings.releaseDays;
-    renderDeadlines();
   }
 }
 
@@ -1857,6 +1884,7 @@ function boot() {
   $("#pw-own").addEventListener("click", () => preferOwnPassword("pw"));
   $("#pw-saved").addEventListener("change", syncPasswordState);
   $("#close-sessions").addEventListener("click", closeSessions);
+  buildPageNav();
   $("#events-filter").addEventListener("change", () => { eventsPage = 0; renderEvents(); });
   $("#events-prev").addEventListener("click", () => { eventsPage--; renderEvents(); });
   $("#events-next").addEventListener("click", () => { eventsPage++; renderEvents(); });
