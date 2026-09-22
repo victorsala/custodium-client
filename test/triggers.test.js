@@ -5,7 +5,7 @@
 
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import worker from "../src/index.js";
+import worker, { mailHtml } from "../src/index.js";
 
 const DAY = 86400, HOUR = 3600;
 const CRON = "0 8,20 * * *";
@@ -187,6 +187,8 @@ test("avisos: cap abans de warn_days; després un a cada execució, amb SMS com 
   assert.match(mails[0].subject, /sigues ahí/);
   assert.match(mails[0].text, /desde hace un día/);
   assert.match(mails[0].text, /a partir del/);
+  assert.match(mails[0].html, /Sigues ahí\?/);
+  assert.match(mails[0].html, /aqui\.html\?t=/);
   assert.equal(sms.length, 1);
   assert.equal(u.warn_count, 1);
   await tick(12);                                   // 1,5 dies: segon avís, sense SMS (fa 12 h)
@@ -369,4 +371,12 @@ test("terminis: l'entrega ha de ser com a mínim tres dies després del primer a
   assert.equal(await put({ warnDays: 8, releaseDays: 10 }), 400);
   assert.equal(await put({ warnDays: 1, releaseDays: 4 }), 200);
   assert.equal(await put({ warnDays: 8, releaseDays: 21 }), 200);
+});
+
+test("correu HTML: escapa el que ve de fora i porta l'enllaç", () => {
+  const html = mailHtml({ subject: "x", title: "<t>", paragraphs: ["a<b>&"], button: { label: "Ir", url: "https://e.com/?t=a&b" }, box: { label: "L", lines: ["<x@e.com>"] } });
+  assert.ok(html.includes("&lt;t&gt;"));
+  assert.ok(!html.includes("<b>"));
+  assert.ok(html.includes("&lt;x@e.com&gt;"));
+  assert.ok(html.includes('href="https://e.com/?t=a&amp;b"'));
 });

@@ -199,7 +199,13 @@ async function issueCode(env, email, purpose) {
     const salt = randomBytes(16);
     codeHash = `${b64.encode(salt)}.${b64.encode(await hashSignupCode(salt, code))}`;
     expiresAt = ts + SIGNUP_CODE_TTL_S;
-    await sendMail(env, email, CODE_MAIL[purpose].subject, CODE_MAIL[purpose].text(code));
+    await sendMail(env, email, CODE_MAIL[purpose].subject, CODE_MAIL[purpose].text(code), mailHtml({
+      subject: CODE_MAIL[purpose].subject,
+      eyebrow: "Código de verificación",
+      title: purpose === "signup" ? "Tu código para crear la cuenta." : "Tu código para cambiar el correo.",
+      box: { label: "Escribe este código", big: code, text: "Caduca en 15 minutos." },
+      after: ["Si no has sido tú, ignora este mensaje."],
+    }));
   }
 
   await env.DB
@@ -210,8 +216,17 @@ async function issueCode(env, email, purpose) {
 }
 
 async function sendAccountExistsMail(env, email) {
-  await sendMail(env, email, "Ya tienes una cuenta en Custodium",
-    `Ya existe una cuenta con este correo.\n\nSi eres tú, entra en ${env.SITE}.\nSi has olvidado la contraseña, no hay forma de recuperarla: tu plan sigue cifrado con ella.\nSi no has sido tú, ignora este mensaje.`);
+  const subject = "Ya tienes una cuenta en Custodium";
+  await sendMail(env, email, subject,
+    `Ya existe una cuenta con este correo.\n\nSi eres tú, entra en ${env.SITE}.\nSi has olvidado la contraseña, no hay forma de recuperarla: tu plan sigue cifrado con ella.\nSi no has sido tú, ignora este mensaje.`,
+    mailHtml({
+      subject,
+      eyebrow: "Tu cuenta",
+      title: "Ya tienes una cuenta.",
+      paragraphs: ["Ya existe una cuenta con este correo. Si eres tú, entra con tu contraseña."],
+      button: { label: "Entrar en Custodium", url: env.SITE },
+      after: ["Si has olvidado la contraseña, no hay forma de recuperarla: tu plan sigue cifrado con ella.", "Si no has sido tú, ignora este mensaje."],
+    }));
 }
 
 // Sis xifres a l'atzar, amb zeros al davant si cal. Rebutja la cua de
@@ -465,7 +480,14 @@ async function changeEmail(request, env) {
 
   // Primer l'avís a l'adreça antiga; si Resend no l'accepta, no es canvia res.
   await sendMail(env, user.email, "Tu correo de Custodium ha cambiado",
-    `Tu correo de Custodium ha pasado a ser ${newEmail}. Si no has sido tú, escríbenos a ${env.MAIL_CONTACT}.`);
+    `Tu correo de Custodium ha pasado a ser ${newEmail}. Si no has sido tú, escríbenos a ${env.MAIL_CONTACT}.`,
+    mailHtml({
+      subject: "Tu correo de Custodium ha cambiado",
+      eyebrow: "Tu cuenta",
+      title: "Tu correo ha cambiado.",
+      paragraphs: [`Tu correo de Custodium ha pasado a ser **${newEmail}**.`],
+      after: [`Si no has sido tú, escríbenos a ${env.MAIL_CONTACT}.`],
+    }));
 
   try {
     await env.DB.batch([
@@ -878,7 +900,8 @@ async function releaseRecipient(env, user, rec, mode) {
     ? `${user.email} ha preparado en Custodium información para ti y te la entrega ahora.`
     : `${user.email} preparó en Custodium información para ti, para cuando no pudiera actuar. Ha pasado el plazo que fijó sin dar señales, y por eso recibes este mensaje.`;
 
-  await sendMail(env, rec.email, "Custodium — hay información preparada para ti", [
+  const subject = "Custodium — hay información preparada para ti";
+  await sendMail(env, rec.email, subject, [
     intro,
     "",
     "Puedes abrirla aquí:",
@@ -888,7 +911,17 @@ async function releaseRecipient(env, user, rec, mode) {
     `El enlace es válido hasta el ${dateEs(expiresAt)}.`,
     "",
     "Custodium · Guardamos el plan, nunca las claves.",
-  ].join("\n"));
+  ].join("\n"), mailHtml({
+    subject,
+    eyebrow: "Información preparada para ti",
+    title: "Hay información para ti.",
+    paragraphs: [intro],
+    steps: ["Abre la página desde el botón de este correo.", "Escribe la **frase** que te entregó en persona. Sin ella no se puede abrir: nadie más, tampoco Custodium, puede leer este contenido."],
+    button: { label: "Abrir la información", url: link },
+    box: { label: "Enlace válido hasta el", big: dateEs(expiresAt) },
+    link: { text: "Si el botón no funciona, copia y pega este enlace en tu navegador.", url: link },
+    foot: `Recibes este correo porque ${user.email} te designó como persona de confianza en Custodium.`,
+  }));
 
   if (rec.phone) {
     await sendSms(env, rec.phone, `Custodium: ${user.email} te ha enviado un correo con informacion importante para ti. Revisa tu bandeja de entrada y tambien la carpeta de spam.`);
@@ -918,8 +951,10 @@ async function sendReminder(env, user, rec, ts) {
   const days = Math.floor((ts - rec.released_at) / 86400);
   let sent = true;
   try {
-    await sendMail(env, rec.email, "Custodium — sigue habiendo información preparada para ti", [
-      `${days === 1 ? "Hace un día" : `Hace ${days} días`} te avisamos de que ${user.email} había preparado en Custodium información para ti. Todavía no se ha abierto.`,
+    const subject = "Custodium — sigue habiendo información preparada para ti";
+    const intro = `${days === 1 ? "Hace un día" : `Hace ${days} días`} te avisamos de que ${user.email} había preparado en Custodium información para ti. Todavía no se ha abierto.`;
+    await sendMail(env, rec.email, subject, [
+      intro,
       "",
       "Puedes abrirla aquí:",
       link,
@@ -928,7 +963,18 @@ async function sendReminder(env, user, rec, ts) {
       `Este enlace es válido hasta el ${dateEs(expiresAt)}.`,
       "",
       "Custodium · Guardamos el plan, nunca las claves.",
-    ].join("\n"));
+    ].join("\n"), mailHtml({
+      subject,
+      eyebrow: "Información preparada para ti",
+      title: "Sigue habiendo información para ti.",
+      paragraphs: [intro],
+      steps: ["Abre la página desde el botón de este correo.", "Escribe la **frase** que te entregó en persona."],
+      button: { label: "Abrir la información", url: link },
+      box: { label: "Enlace válido hasta el", big: dateEs(expiresAt) },
+      after: ["Los enlaces de los correos anteriores siguen siendo válidos."],
+      link: { text: "Si el botón no funciona, copia y pega este enlace en tu navegador.", url: link },
+      foot: `Recibes este correo porque ${user.email} te designó como persona de confianza en Custodium.`,
+    }));
   } catch (err) {
     sent = false;
     console.error("reminder failed for recipient", rec.id, err);
@@ -946,7 +992,8 @@ async function sendReminder(env, user, rec, ts) {
 // El servidor només coneix els emails: els noms viuen dins del pla.
 async function notifyOwnerReleased(env, user, released, ts) {
   const emails = released.map((r) => r.email);
-  await sendMail(env, user.email, "Custodium — se ha entregado tu plan", [
+  const subject = "Custodium — se ha entregado tu plan";
+  await sendMail(env, user.email, subject, [
     "Ha pasado el plazo que fijaste sin señales tuyas, y por eso se ha entregado a tus personas de confianza la parte del plan que les corresponde.",
     "",
     "Se ha entregado a:",
@@ -956,7 +1003,16 @@ async function notifyOwnerReleased(env, user, released, ts) {
     env.SITE,
     "",
     "Custodium · Guardamos el plan, nunca las claves.",
-  ].join("\n"));
+  ].join("\n"), mailHtml({
+    subject,
+    eyebrow: "Entrega realizada",
+    title: "Se ha entregado tu plan.",
+    paragraphs: ["Ha pasado el plazo que fijaste sin señales tuyas, y por eso se ha entregado a tus personas de confianza la parte del plan que les corresponde."],
+    box: { label: "Se ha entregado a", lines: emails },
+    after: ["Si es un error, entra en tu cuenta y anula el acceso desde «Personas»."],
+    button: { label: "Entrar en Custodium", url: env.SITE, last: true },
+    foot: "Recibirás este aviso durante unos días, hasta que entres en tu cuenta.",
+  }));
   await env.DB.batch(released.map((r) => env.DB.prepare("UPDATE recipients SET owner_notified_at = ? WHERE id = ?").bind(ts, r.id)));
 
   if (await ownerSmsDue(env, user, ts)) {
@@ -986,17 +1042,32 @@ async function sendWarning(env, user, ts, idleS, releaseAfterS) {
   const link = `${env.SITE}/aqui.html?t=${b64.encodeUrl(token)}`;
   const site = env.SITE.replace(/^https?:\/\//, "");
 
-  await sendMail(env, user.email, "Custodium — ¿sigues ahí?", [
-    `No has entrado en Custodium desde hace ${days === 1 ? "un día" : `${days} días`}.`,
+  const subject = "Custodium — ¿sigues ahí?";
+  const since = `No has entrado en Custodium desde hace ${days === 1 ? "un día" : `${days} días`}.`;
+  await sendMail(env, user.email, subject, [
+    since,
     "",
     "Si todo va bien, confírmalo aquí (un solo clic):",
     link,
     "",
     `Si no lo confirmas, a partir del ${dateEs(deadline)} entregaremos a tus personas de confianza la parte del plan que les corresponde.`,
     `Entrar en ${site} también cuenta como confirmación. Los botones de los avisos anteriores siguen sirviendo.`,
+    "Recibirás este aviso dos veces al día hasta que confirmes.",
     "",
     "Custodium · Guardamos el plan, nunca las claves.",
-  ].join("\n"));
+  ].join("\n"), mailHtml({
+    subject,
+    eyebrow: "Confirmación de actividad",
+    title: "¿Sigues ahí?",
+    paragraphs: [`${since} Confirma que sigues aquí para que la cuenta atrás de la entrega vuelva a empezar.`],
+    steps: ["Abre la página desde el botón de este correo.", "Allí, pulsa **«Sigo aquí»** para completar la confirmación."],
+    button: { label: "Abrir la página de confirmación", url: link },
+    note: "Abrir el enlace no basta: debes pulsar el botón en la página.",
+    box: { label: "Confirma antes del", big: dateEs(deadline), text: "Si no recibimos tu confirmación antes de esa fecha, entregaremos a tus personas de confianza únicamente la información que hayas asignado a cada una, según tu plan." },
+    after: [`Entrar en tu cuenta en ${site} también cuenta como confirmación. Los botones de los avisos anteriores siguen sirviendo.`, "Recibirás este aviso dos veces al día hasta que confirmes."],
+    link: { text: "Si el botón no funciona, copia y pega este enlace en tu navegador. Después, pulsa «Sigo aquí» en la página.", url: link },
+    foot: "Recibes este aviso como parte del seguimiento de actividad de tu cuenta.",
+  }));
 
   await env.DB.batch([
     env.DB.prepare("INSERT INTO checkin_tokens (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)").bind(hash, user.id, ts, deadline + 7 * 24 * 3600),
@@ -1128,12 +1199,99 @@ async function backupFiles(env) {
 
 // ------------------------------------------------------------------ mail
 
-async function sendMail(env, to, subject, text) {
+// ------------------------------------------------------------ correu HTML
+//
+// Cada correu surt amb text pla (la font de veritat: és el que comproven els
+// tests i el que veu qui llegeix en text) i una versió HTML muntada amb la
+// mateixa plantilla per a tots: capçalera verd fosc amb un filet de llautó,
+// targeta clara, botó teal. Taules i estils en línia, que és el que entenen els
+// clients de correu; Georgia en lloc de Fraunces, perquè les fonts web no hi
+// arriben; cap imatge. Mai contingut del pla: només enllaços, dates, codis i
+// adreces.
+
+// Colors: els de la Guia Visual. La capçalera en --teal-dark (la nit del web surt quasi
+// negra en un correu); la targeta en un blanc càlid molt lleuger i el fons de fora quasi
+// neutre. Gmail al mòbil inverteix els fons clars en mode fosc, i un marfil càlid
+// invertit surt d'un oliva brut; un blanc quasi neutre surt d'un gris net. Els clients
+// que entenen prefers-color-scheme (Apple Mail, Outlook) reben una versió fosca
+// dissenyada (l'<style> del cap) en comptes d'una inversió automàtica.
+const M = { header: "#164A43", ivory: "#F7F4EE", outer: "#F4F3F1", card: "#FBFAF8", ink: "#1B2B2E", slate: "#5E6E72", teal: "#1C5D54", tealDark: "#164A43", tealSoft: "#E4EEEA", brass: "#AE8E5C", hair: "#E5E5E2", box: "#F1F4F2", boxLine: "#DCE3DE" };
+const SANS = "Helvetica, Arial, sans-serif";
+const SERIF = "Georgia, 'Times New Roman', serif";
+const DARK_CSS = `
+  :root { color-scheme: light dark; supported-color-schemes: light dark; }
+  @media (prefers-color-scheme: dark) {
+    .bg-outer { background: #141A1A !important; }
+    .bg-card { background: #1C2426 !important; }
+    .bg-box { background: #243033 !important; border-color: #33474A !important; }
+    .tx-ink { color: #F0EDE6 !important; }
+    .tx-slate { color: #B7C1C3 !important; }
+    .tx-teal { color: #8CC7BA !important; }
+    .hr { border-top-color: #33474A !important; }
+  }`;
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+// **negreta** dins d'un text; s'escapa primer, així que el text mai pot dur HTML.
+function fmt(s) {
+  return esc(s).replace(/\*\*(.+?)\*\*/g, `<strong class="tx-ink" style="color:${M.ink};">$1</strong>`);
+}
+
+// Peces, en aquest ordre: etiqueta, títol, paràgrafs, passos numerats, botó, nota
+// sota el botó, caixa destacada (etiqueta + dada gran o llista de línies + text),
+// més paràgrafs, enllaç de recanvi. button.last el posa al final, després de tot.
+function mailHtml({ subject, eyebrow, title, paragraphs = [], steps = [], button, note, box, after = [], link, foot }) {
+  const para = (t) => `<p class="tx-slate" style="margin:0 0 14px;font-size:16px;line-height:1.6;color:${M.slate};">${fmt(t)}</p>`;
+  const btn = () => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 12px;"><tr><td align="center" style="background:${M.teal};border-radius:10px;"><a href="${esc(button.url)}" style="display:block;padding:15px 24px;font-family:${SANS};font-size:16px;font-weight:600;color:${M.ivory};text-decoration:none;">${esc(button.label)}</a></td></tr></table>`;
+  let body = "";
+  if (eyebrow) body += `<p class="tx-teal" style="margin:0 0 10px;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${M.teal};">${esc(eyebrow)}</p>`;
+  if (title) body += `<h1 class="tx-ink" style="margin:0 0 18px;font-family:${SERIF};font-weight:normal;font-size:32px;line-height:1.1;color:${M.ink};">${esc(title)}</h1>`;
+  body += paragraphs.map(para).join("");
+  if (steps.length) {
+    body += `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 10px;">` + steps.map((t, i) =>
+      `<tr><td valign="top" style="padding:0 0 12px;"><div style="width:28px;height:28px;border-radius:14px;background:${M.tealSoft};color:${M.teal};font-family:${SANS};font-size:13px;font-weight:600;text-align:center;line-height:28px;">${i + 1}</div></td>` +
+      `<td class="tx-ink" valign="top" style="padding:2px 0 12px 12px;font-family:${SANS};font-size:16px;line-height:1.5;color:${M.ink};">${fmt(t)}</td></tr>`).join("") + `</table>`;
+  }
+  if (button && !button.last) body += btn();
+  if (note) body += `<p class="tx-slate" style="margin:0 0 20px;font-size:14px;line-height:1.5;color:${M.slate};">${fmt(note)}</p>`;
+  if (box) {
+    body += `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;"><tr><td class="bg-box" style="padding:22px 24px;background:${M.box};border:1px solid ${M.boxLine};border-radius:12px;">`;
+    if (box.label) body += `<p class="tx-slate" style="margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:${M.slate};">${esc(box.label)}</p>`;
+    if (box.big) body += `<p class="tx-ink" style="margin:0 0 10px;font-family:${SERIF};font-size:30px;line-height:1.15;color:${M.ink};">${esc(box.big)}</p>`;
+    for (const line of box.lines ?? []) body += `<p class="tx-ink" style="margin:0 0 4px;font-size:16px;line-height:1.5;color:${M.ink};">${esc(line)}</p>`;
+    if (box.text) body += `<p class="tx-slate" style="margin:${box.lines ? "10px" : "0"} 0 0;font-size:15px;line-height:1.6;color:${M.slate};">${fmt(box.text)}</p>`;
+    body += `</td></tr></table>`;
+  }
+  body += after.map(para).join("");
+  if (button?.last) body += btn();
+  if (link) {
+    body += `<hr class="hr" style="border:0;border-top:1px solid ${M.hair};margin:24px 0;">` +
+      `<p class="tx-slate" style="margin:0 0 8px;font-size:14px;line-height:1.5;color:${M.slate};">${fmt(link.text)}</p>` +
+      `<p style="margin:0 0 14px;font-size:14px;word-break:break-all;"><a class="tx-teal" href="${esc(link.url)}" style="color:${M.teal};">${esc(link.url)}</a></p>` +
+      `<p class="tx-slate" style="margin:0;font-size:14px;line-height:1.5;color:${M.slate};">Este enlace es personal. No lo compartas ni reenvíes este correo.</p>`;
+  }
+  const preheader = paragraphs[0] ?? box?.text ?? subject;
+  return `<!doctype html><html lang="es" xml:lang="es"><head><meta charset="utf-8"><meta http-equiv="content-language" content="es"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><title>${esc(subject)}</title><style>${DARK_CSS}</style></head>` +
+    `<body class="bg-outer" style="margin:0;padding:0;background:${M.outer};">` +
+    `<div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:${M.outer};">${esc(preheader)}</div>` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="bg-outer" style="background:${M.outer};"><tr><td align="center" style="padding:24px 12px;">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">` +
+    `<tr><td style="background:${M.header};border-bottom:2px solid ${M.brass};border-radius:12px 12px 0 0;padding:24px 32px;"><span style="font-family:${SERIF};font-size:26px;color:${M.ivory};">Custodium</span></td></tr>` +
+    `<tr><td class="bg-card" style="background:${M.card};border-radius:0 0 12px 12px;padding:32px 32px 28px;font-family:${SANS};color:${M.ink};">${body}</td></tr>` +
+    `<tr><td align="center" class="tx-slate" style="padding:28px 24px 8px;font-family:${SANS};font-size:13px;line-height:1.5;color:${M.slate};"><div class="tx-teal" style="font-family:${SERIF};font-size:22px;color:${M.tealDark};">Custodium</div><div style="margin-top:4px;">Guardamos el plan, nunca las claves.</div>${foot ? `<div style="margin-top:12px;">${fmt(foot)}</div>` : ""}</td></tr>` +
+    `</table></td></tr></table></body></html>`;
+}
+
+export { mailHtml };
+
+async function sendMail(env, to, subject, text, html) {
   if (!env.RESEND_API_KEY) throw new HttpError(500, "mail_not_configured");
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({ from: env.MAIL_FROM, to: [to], subject, text }),
+    body: JSON.stringify({ from: env.MAIL_FROM, to: [to], subject, text, ...(html ? { html } : {}) }),
   });
   if (!res.ok) {
     console.error("resend error", res.status, await res.text());
