@@ -796,6 +796,7 @@ function showAccount() {
   resetEmailChange();
   $("#account-phone").value = state.settings?.phone ?? "";
   $("#phone-message").textContent = "";
+  syncPhoneState();
   $("#pw-current").type = "password";
   $("#pw-current").value = "";
   proposePassphrase("pw");
@@ -909,6 +910,13 @@ function normalizePhone(value) {
   return /^\+[1-9]\d{6,14}$/.test(v) ? v : false;
 }
 
+// «Guardar móvil» només s'activa quan el camp difereix del mòbil desat; el peu ho diu.
+function syncPhoneState() {
+  const dirty = $("#account-phone").value.trim() !== (state.settings?.phone ?? "");
+  $("#phone-save").disabled = !dirty;
+  $("#phone-status").textContent = dirty ? "Cambios sin guardar" : "Sin cambios pendientes";
+}
+
 async function savePhone(event) {
   event.preventDefault();
   const phone = normalizePhone($("#account-phone").value);
@@ -917,7 +925,9 @@ async function savePhone(event) {
   const r = await api("/api/settings", { method: "PUT", body: { phone } });
   if (r.status === 200) {
     state.settings = { ...state.settings, phone };
+    $("#account-phone").value = phone ?? "";
     msg("");
+    syncPhoneState();
     toast(phone ? "Móvil guardado." : "Móvil eliminado.");
   } else {
     msg("No se ha podido guardar el móvil.");
@@ -1669,6 +1679,7 @@ function setBusy(on, text = "") {
   $("#busy").textContent = text;
   $("#busy").hidden = !on;
   for (const b of $$("button[type=submit]")) b.disabled = on;
+  if (!on) syncPhoneState();   // «Guardar móvil» només s'activa amb canvis, també en tornar d'estar ocupats
 }
 
 let toastTimer = null;
@@ -1738,6 +1749,7 @@ function boot() {
   $("#export").addEventListener("click", exportBundle);
   $("#onboarding-close").addEventListener("click", () => markOnboarding({ dismissedAt: Date.now() }).then(renderList));
   $("#phone-form").addEventListener("submit", savePhone);
+  $("#account-phone").addEventListener("input", syncPhoneState);
   $("#release-notice-go").addEventListener("click", () => navigate(PEOPLE));
   $("#item-form").addEventListener("submit", applyItem);
   fillTemplateOptions();

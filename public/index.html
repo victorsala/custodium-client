@@ -314,22 +314,32 @@
       <div class="vault-head"><h1>Tu cuenta</h1></div>
       <p class="intro">Gestiona tus datos de contacto y la contraseña con la que abres tu plan.</p>
 
-      <dl class="account-data">
-        <div><dt>Email</dt><dd id="account-email"></dd></div>
-      </dl>
+      <!-- Correu i mòbil en fitxes (closca i peu compartits amb «Tu plan» i «Personas»). -->
+      <section class="acct-card" aria-labelledby="acct-email-title">
+        <div class="acct-body">
+          <h2 id="acct-email-title" class="acct-title"><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><path d="M2 4h12v8.5H2z"/><path d="M2 4.5l6 5 6-5"/></svg></span>Email de tu cuenta</h2>
+          <p class="field-label">Correo electrónico</p>
+          <p id="account-email" class="acct-value"></p>
+        </div>
+        <div class="acct-foot"><p class="hint">Aquí recibirás los avisos de actividad de tu cuenta.</p></div>
+      </section>
 
-      <form id="phone-form" class="settings" novalidate>
-        <h2>Móvil para avisos</h2>
-        <p class="hint">
-          Si dejas de entrar, además del correo te avisaremos por SMS. Es un canal independiente del correo: si un filtro de spam se traga el aviso, el SMS llega igual.
-        </p>
-        <label>
-          <span>Número de móvil — opcional</span>
-          <input id="account-phone" type="tel" placeholder="+34 600 000 000">
-          <small class="hint">Incluye el prefijo internacional, por ejemplo, +34. Los SMS no contienen enlaces ni contenido del plan.</small>
-        </label>
-        <p id="phone-message" class="message" aria-live="polite"></p>
-        <div class="actions"><button type="submit" class="secondary">Guardar móvil</button></div>
+      <form id="phone-form" class="acct-card" novalidate>
+        <div class="acct-body">
+          <h2 class="acct-title"><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><path d="M5 1.5h6a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1z"/><path d="M7 12h2"/></svg></span>Móvil para avisos</h2>
+          <p class="hint">Si dejas de entrar, también te avisaremos por SMS. Un canal adicional por si no ves el correo.</p>
+          <label>
+            <span>Número de móvil <em>Opcional</em></span>
+            <input id="account-phone" type="tel" placeholder="+34 600 000 000">
+            <small class="hint">Incluye el prefijo internacional, por ejemplo, +34. Para quitar el móvil, deja el campo vacío y guarda.</small>
+          </label>
+          <p class="hint acct-note"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/></svg>Los SMS no contienen enlaces ni contenido de tu plan.</p>
+          <p id="phone-message" class="message" aria-live="polite"></p>
+        </div>
+        <div class="acct-foot acct-foot-actions">
+          <span id="phone-status" class="hint">Sin cambios pendientes</span>
+          <button id="phone-save" type="submit" class="secondary" disabled>Guardar móvil</button>
+        </div>
       </form>
 
       <form id="password-form" class="settings" novalidate>

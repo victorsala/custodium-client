@@ -242,34 +242,10 @@ button.ghost:hover { background: rgba(255,255,255,.06); }
 
 .vault-head h1 { margin: 0; }
 
-.vault-tools { display: flex; align-items: center; gap: 16px; }
-
-.dirty {
-  font-size: 13px;
-  color: var(--brass);
-  font-weight: 500;
-}
-
 .items {
   list-style: none;
   margin: 0 0 28px;
   padding: 0;
-  border-top: 1px solid var(--hairline);
-}
-
-.item {
-  padding: 20px 0;
-  border-bottom: 1px solid var(--hairline);
-  display: grid;
-  gap: 10px;
-}
-
-.item.is-editing { opacity: .5; }
-
-.item-recipient {
-  font-size: 14px;
-  color: var(--teal);
-  margin-top: 2px;
 }
 
 .item-notes {
@@ -280,14 +256,6 @@ button.ghost:hover { background: rgba(255,255,255,.06); }
 }
 
 .item-actions { display: flex; gap: 18px; font-size: 14px; }
-
-.item-form {
-  margin-top: 8px;
-  padding: 28px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-}
 
 /* Peu i estats */
 
@@ -347,16 +315,6 @@ label span em {
 }
 
 .notice { margin-top: 4px; }
-
-.item-files {
-  font-size: 14px;
-  color: var(--slate);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-}
-
-.item-files button.link { font-size: 14px; }
 
 .files-block { display: grid; gap: 10px; }
 
@@ -460,8 +418,6 @@ select:focus-visible {
 
 label .hint { margin-top: 2px; }
 
-.item-recipient.none { color: #9AA6A9; }
-
 .pass-block {
   display: grid;
   gap: 12px;
@@ -489,12 +445,6 @@ label .hint { margin-top: 2px; }
 }
 
 .settings h2 { margin-bottom: 8px; }
-
-.settings-row {
-  display: grid;
-  gap: 18px;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-}
 
 .with-unit {
   display: flex;
@@ -627,8 +577,6 @@ label .hint { margin-top: 2px; }
 
 /* v3.3 · exportar i avís d'entrega */
 
-.vault-tools { display: flex; align-items: center; gap: 22px; }
-
 .release-notice {
   display: flex;
   flex-wrap: wrap;
@@ -647,24 +595,6 @@ label .hint { margin-top: 2px; }
 
 .hint button.link { font-size: 14px; }
 
-
-/* v3.4 · cuenta */
-
-.account-data {
-  margin: 0 0 12px;
-  padding: 0;
-  border-top: 1px solid var(--hairline);
-}
-
-.account-data > div {
-  display: flex;
-  gap: 24px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--hairline);
-}
-
-.account-data dt { color: var(--slate); font-size: 14px; min-width: 96px; }
-.account-data dd { margin: 0; }
 
 
 /* v3.5 · mostrar frase */
@@ -745,17 +675,6 @@ form > .hint { margin-top: -4px; }
 
 
 /* v4.2 · personas */
-
-.item-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.item-row button.link { font-size: 14px; flex-shrink: 0; }
-
-.status { color: var(--ink); font-weight: 500; }
 
 .callout {
   padding: 14px 18px;
@@ -1204,20 +1123,31 @@ body:not(.is-entry) .pillars { display: none; }
 .entry-card .message { color: #F6CDBF; }
 
 
-/* v5.2 · «Tu plan» en fitxes: títol amb un rombe i «Editar», les instruccions retallades a dues línies
-   («Leer más» les desplega), un botó per fitxer amb el tipus, i un peu verdós amb les persones i la data. */
+/* v5.2 · Fitxes. La closca (fons, vora, ombra) i la banda verdosa del peu són les mateixes a «Tu plan»
+   (.cards .item), a «Personas» (.person-card) i a «Cuenta» (.acct-card); la resta és pròpia de cada pantalla.
+   «Tu plan»: títol amb un rombe i «Editar», les instruccions retallades a dues línies («Leer más» les
+   desplega), un botó per fitxer amb el tipus, i al peu les persones i la data. */
 
-.items.cards { display: grid; gap: 16px; border-top: 0; }
-
-.cards .item {
-  display: block;
-  padding: 0;
+.cards .item,
+.person-card,
+.acct-card {
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: 12px;
   box-shadow: 0 1px 2px rgba(27,43,46,.04), 0 10px 24px -16px rgba(27,43,46,.28);
   overflow: hidden;
 }
+
+.cards .item-foot,
+.person-foot,
+.acct-foot {
+  background: rgba(28,93,84,.07);
+  border-top: 1px solid rgba(28,93,84,.18);
+}
+
+.items.cards { display: grid; gap: 16px; }
+
+.cards .item { display: block; }
 
 .cards .item-body { display: grid; gap: 10px; padding: 18px 22px; }
 .cards .item-body > * { min-width: 0; }   /* perquè el títol i els xips es retallin en comptes d'eixamplar la fitxa */
@@ -1265,7 +1195,7 @@ body:not(.is-entry) .pillars { display: none; }
 .cards .item-excerpt.none { color: #9AA6A9; }
 .cards .item-more { justify-self: start; margin-top: -4px; font-size: 14px; }
 
-.cards .item-files { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+.cards .item-files { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; font-size: 14px; color: var(--slate); }
 
 .cards .file-chip {
   display: inline-flex;
@@ -1303,8 +1233,6 @@ body:not(.is-entry) .pillars { display: none; }
   justify-content: space-between;
   gap: 16px;
   padding: 10px 22px;
-  background: rgba(28,93,84,.07);
-  border-top: 1px solid rgba(28,93,84,.18);
   font-size: 14px;
 }
 
@@ -1324,8 +1252,8 @@ body:not(.is-entry) .pillars { display: none; }
 .cards .item-date { flex-shrink: 0; font-size: 13px; color: var(--teal); }
 
 
-/* v5.3 · Personas en fitxes: inicial gran, nom amb «Editar», contacte amb icones, i un peu verdós amb els
-   elements assignats (desplegable amb els títols) i l'estat de l'entrega. */
+/* v5.3 · Personas en fitxes (closca i peu a v5.2): inicial gran, nom amb «Editar», contacte amb icones, i al peu
+   els elements assignats (desplegable amb els títols) i l'estat de l'entrega. */
 
 .icon {
   width: 15px; height: 15px;
@@ -1357,15 +1285,7 @@ body:not(.is-entry) .pillars { display: none; }
   font-size: 12px; font-weight: 600;
 }
 
-.people-cards { display: grid; gap: 16px; border-top: 0; }
-
-.person-card {
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(27,43,46,.04), 0 10px 24px -16px rgba(27,43,46,.28);
-  overflow: hidden;
-}
+.people-cards { display: grid; gap: 16px; }
 
 .person-body { display: flex; gap: 16px; padding: 18px 22px 16px; }
 
@@ -1414,12 +1334,7 @@ body:not(.is-entry) .pillars { display: none; }
 
 .person-contact li { display: flex; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
 
-.person-foot {
-  padding: 10px 22px;
-  background: rgba(28,93,84,.07);
-  border-top: 1px solid rgba(28,93,84,.18);
-  font-size: 14px;
-}
+.person-foot { padding: 10px 22px; font-size: 14px; }
 
 .person-foot-row {
   display: flex;
@@ -1494,4 +1409,58 @@ body:not(.is-entry) .pillars { display: none; }
   border: 1px solid var(--slate);
   transform: rotate(45deg);
   flex: none;
+}
+
+
+/* v5.4 · «Cuenta»: correu i mòbil en fitxes (closca i peu a v5.2), amb una icona rodona al títol. */
+
+.acct-card { margin-top: 20px; }
+.acct-card + .acct-card { margin-top: 16px; }
+form.acct-card { display: block; }
+
+.acct-body { display: grid; gap: 12px; padding: 20px 22px 18px; }
+
+.acct-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 4px;
+  font-family: var(--body);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.acct-icon {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: rgba(28,93,84,.06);
+  border: 1px solid rgba(28,93,84,.25);
+  color: var(--teal);
+  display: grid; place-items: center;
+  flex: none;
+}
+
+.field-label { margin-top: 4px; font-size: 14px; font-weight: 500; color: var(--slate); }
+.acct-value { font-size: 16px; color: var(--ink); overflow-wrap: anywhere; }
+.acct-note { display: flex; align-items: center; gap: 8px; }
+.acct-body .message:empty { display: none; }
+
+.acct-foot { padding: 12px 22px; }
+.acct-foot .hint { font-size: 13px; }
+
+.acct-foot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.acct-foot button.secondary { background: var(--surface); }
+
+.acct-foot button.secondary:disabled {
+  background: rgba(27,43,46,.06);
+  border-color: transparent;
+  color: #7C8A8D;
 }
