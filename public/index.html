@@ -342,77 +342,137 @@
         </div>
       </form>
 
-      <form id="password-form" class="settings" novalidate>
-        <h2>Cambiar la contraseña</h2>
-        <p class="hint">Puedes cambiar la contraseña con la que abres tu plan. Las frases de tus personas de confianza no cambiarán.</p>
-        <label><span>Contraseña actual</span><input id="pw-current" type="password" autocomplete="current-password" required></label>
-
-        <div class="group">
+      <!-- Canvi de contrasenya: la casella «He guardado…» activa el botó. -->
+      <form id="password-form" class="acct-card" novalidate>
+        <div class="acct-body">
+          <h2 class="acct-title"><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><circle cx="5.5" cy="6.5" r="3"/><path d="M7.8 8.8l5.7 5.7"/><path d="M10.5 11.5l1.5-1.5"/><path d="M12.5 13.5l1.5-1.5"/></svg></span>Cambiar la contraseña</h2>
+          <p class="hint">Puedes cambiar la contraseña con la que abres tu plan. Las frases de tus personas de confianza no cambiarán.</p>
+          <label><span>Contraseña actual</span><input id="pw-current" type="password" autocomplete="current-password" required></label>
           <label><span>Nueva contraseña</span><input id="pw-new" type="text" autocomplete="new-password" spellcheck="false" required></label>
           <label><span>Repite la nueva contraseña</span><input id="pw-confirm" type="text" autocomplete="new-password" spellcheck="false" required></label>
-          <p id="pw-proposed" class="hint">
-            Te proponemos una frase de seis palabras: más fuerte y más fácil de recordar que una contraseña inventada.
-            Apúntala antes de continuar.
-            <button id="pw-own" type="button" class="link">prefiero escribir la mía</button>
-          </p>
+          <div id="pw-proposed" class="pw-mode">
+            <p class="hint">Te proponemos una frase de seis palabras. Puedes usarla, modificarla o escribir tu propia contraseña.</p>
+            <button id="pw-own" type="button" class="secondary">Prefiero escribir mi contraseña</button>
+          </div>
           <p id="pw-own-hint" class="hint" hidden>Escribe una contraseña de 16 caracteres o más y guárdala en tu gestor de contraseñas.</p>
+          <div class="brass-box">
+            <p><strong>Guarda tu contraseña antes de continuar.</strong></p>
+            <p>Custodium no puede recuperarla ni restablecerla. Si la pierdes, perderás el acceso a tu plan. Guárdala en tu gestor de contraseñas.</p>
+          </div>
+          <label class="check-line"><input id="pw-saved" type="checkbox"><span>He guardado mi nueva contraseña.</span></label>
+          <p id="pw-message" class="message" aria-live="polite"></p>
         </div>
-
-        <p class="notice">
-          Guarda tu contraseña antes de continuar.<br>
-          Custodium no puede recuperarla ni restablecerla.<br>
-          Si la pierdes, perderás el acceso a tu plan.<br>
-          Guárdala en tu gestor de contraseñas.
-        </p>
-        <p class="hint">Al cambiar la contraseña, se cerrarán las demás sesiones de tu cuenta.</p>
-        <p id="pw-message" class="message" aria-live="polite"></p>
-        <div class="actions"><button type="submit">Cambiar la contraseña</button></div>
+        <div class="acct-foot acct-foot-actions">
+          <span class="hint">Se cerrarán las demás sesiones de tu cuenta.</span>
+          <button id="pw-submit" type="submit" disabled>Cambiar la contraseña</button>
+        </div>
       </form>
 
-      <div class="settings">
-        <h2>Sesiones</h2>
-        <div class="actions"><button id="close-sessions" type="button" class="secondary">Cerrar todas las sesiones</button></div>
-        <p class="hint">Cierra tu plan en cualquier otro dispositivo donde lo hayas abierto.</p>
-      </div>
+      <section class="acct-card" aria-labelledby="acct-sessions-title">
+        <div class="acct-body">
+          <h2 id="acct-sessions-title" class="acct-title"><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="8" rx="1.5"/><path d="M6 13.5h4"/><path d="M8 11v2.5"/></svg></span>Sesiones</h2>
+          <p class="hint">Cierra tu plan en cualquier otro dispositivo donde lo hayas abierto.</p>
+        </div>
+        <div class="acct-foot acct-foot-actions">
+          <span class="hint">Tu sesión en este dispositivo seguirá abierta.</span>
+          <button id="close-sessions" type="button">Cerrar las demás sesiones</button>
+        </div>
+      </section>
 
-      <div class="settings">
-        <h2>Actividad reciente</h2>
-        <p class="hint">Lo que el servidor ha registrado sobre tu cuenta. Sirve para detectar accesos que no reconozcas.</p>
-        <ul id="events" class="events"></ul>
-      </div>
+      <!-- Actividad: els 50 últims registres del servidor, filtrats i paginats aquí (app.js: renderEvents). -->
+      <section class="acct-card" aria-labelledby="acct-events-title">
+        <div class="acct-body">
+          <h2 id="acct-events-title" class="acct-title"><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><path d="M8 2.5a5.5 5.5 0 1 1 0 11a5.5 5.5 0 0 1 0-11z"/><path d="M8 5v3.2l2 1.3"/></svg></span>Actividad reciente</h2>
+          <p class="hint">Lo que el servidor ha registrado sobre tu cuenta. Sirve para detectar accesos que no reconozcas.</p>
+          <div class="events-bar">
+            <label class="events-filter">
+              <span>Mostrar</span>
+              <select id="events-filter">
+                <option value="all">Toda la actividad</option>
+                <option value="access">Entradas y sesiones</option>
+                <option value="changes">Cambios en la cuenta</option>
+                <option value="delivery">Avisos y entregas</option>
+              </select>
+            </label>
+            <span class="hint">Más reciente primero</span>
+          </div>
+          <ul id="events" class="events"></ul>
+          <p id="events-empty" class="hint" hidden></p>
+        </div>
+        <div class="acct-foot acct-foot-actions">
+          <span id="events-range" class="hint"></span>
+          <div id="events-pager" class="pager" hidden>
+            <button id="events-prev" type="button" class="secondary">Anterior</button>
+            <span id="events-page" class="hint"></span>
+            <button id="events-next" type="button" class="secondary">Siguiente</button>
+          </div>
+        </div>
+        <p class="events-note">¿No reconoces una entrada? Cierra las demás sesiones y cambia tu contraseña.</p>
+      </section>
 
-      <!-- Canvi de correu en dos passos: el nou correu rep un codi; després codi + contrasenya actual. -->
-      <form id="email-start-form" class="settings" novalidate>
-        <h2>Cambiar el correo</h2>
-        <p class="hint">Los avisos y la entrega dependen de este correo. Úsalo solo si lo consultas habitualmente.</p>
-        <label>
-          <span>Nuevo correo</span>
-          <input id="email-new" type="email" autocomplete="off">
-          <small class="hint">Te enviaremos un código para comprobar que es tuyo.</small>
-        </label>
-        <p id="email-start-message" class="message" aria-live="polite"></p>
-        <div class="actions"><button type="submit" class="secondary">Enviar código</button></div>
+      <!-- Canvi de correu en dos passos (una fitxa que canvia d'estat): el nou correu rep un codi; després codi + contrasenya actual. -->
+      <form id="email-start-form" class="acct-card" novalidate>
+        <div class="acct-body">
+          <h2 class="acct-title"><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><path d="M2 4h12v8.5H2z"/><path d="M2 4.5l6 5 6-5"/></svg></span>Cambiar el correo</h2>
+          <p class="hint">Los avisos y la entrega dependen de este correo. Usa una dirección que consultes habitualmente.</p>
+          <label>
+            <span>Nuevo correo</span>
+            <input id="email-new" type="email" autocomplete="off" placeholder="nombre@ejemplo.com">
+            <small class="hint">Te enviaremos un código para comprobar que es tuyo.</small>
+          </label>
+          <p id="email-start-message" class="message" aria-live="polite"></p>
+        </div>
+        <div class="acct-foot acct-foot-actions">
+          <span class="hint">El cambio se completará cuando verifiques el nuevo correo.</span>
+          <button type="submit">Enviar código</button>
+        </div>
       </form>
-      <form id="email-form" class="settings" novalidate hidden>
-        <h2>Cambiar el correo</h2>
-        <p class="hint">Te hemos enviado un código a <strong id="email-sent-to"></strong>. Si no lo ves, mira en la carpeta de spam.</p>
-        <label>
-          <span>Código (seis cifras)</span>
-          <input id="email-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" spellcheck="false">
-          <small class="hint">Caduca en 15 minutos. <button id="email-resend" type="button" class="link">No me ha llegado</button> · <button id="email-back" type="button" class="link">Cambiar de idea</button></small>
-        </label>
-        <label><span>Contraseña actual</span><input id="email-password" type="password" autocomplete="current-password"></label>
-        <p class="hint">Al cambiar el correo, se cerrarán las demás sesiones de tu cuenta y avisaremos a la dirección anterior.</p>
-        <p id="email-message" class="message" aria-live="polite"></p>
-        <div class="actions"><button type="submit">Cambiar el correo</button></div>
+      <form id="email-form" class="acct-card" novalidate hidden>
+        <div class="acct-body">
+          <h2 class="acct-title"><span class="acct-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><path d="M2 4h12v8.5H2z"/><path d="M2 4.5l6 5 6-5"/></svg></span>Cambiar el correo</h2>
+          <p class="hint">Te hemos enviado un código a <strong id="email-sent-to"></strong>. Si no lo ves, mira en la carpeta de spam.</p>
+          <label>
+            <span>Código (seis cifras)</span>
+            <input id="email-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" spellcheck="false">
+            <small class="hint">Caduca en 15 minutos. <button id="email-resend" type="button" class="link">No me ha llegado</button> · <button id="email-back" type="button" class="link">Cambiar de idea</button></small>
+          </label>
+          <label><span>Contraseña actual</span><input id="email-password" type="password" autocomplete="current-password"></label>
+          <p class="hint">Al cambiar el correo, se cerrarán las demás sesiones de tu cuenta y avisaremos a la dirección anterior.</p>
+          <p id="email-message" class="message" aria-live="polite"></p>
+        </div>
+        <div class="acct-foot acct-foot-actions">
+          <span class="hint">Con el código y tu contraseña actual se completa el cambio.</span>
+          <button type="submit">Cambiar el correo</button>
+        </div>
       </form>
 
-      <form id="delete-form" class="settings" novalidate>
-        <h2>Eliminar la cuenta</h2>
-        <p class="hint">Se borrará tu plan, tus archivos, tus personas de confianza y los enlaces que hayan recibido no funcionarán. Esta acción no se puede deshacer. Si quieres conservar una copia, descárgala antes desde «Tu plan».</p>
-        <label><span>Contraseña actual</span><input id="delete-password" type="password" autocomplete="current-password" required></label>
-        <p id="delete-message" class="message" aria-live="polite"></p>
-        <div class="actions"><button type="submit" class="danger">Eliminar mi cuenta</button></div>
+      <!-- Eliminar el compte: la casella de confirmació activa el botó. -->
+      <form id="delete-form" class="acct-card acct-card-danger" novalidate>
+        <div class="acct-body">
+          <h2 class="acct-title"><span class="acct-icon acct-icon-danger" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><path d="M3 4.5h10"/><path d="M6 4.5V3h4v1.5"/><path d="M4.5 4.5l.7 8.5h5.6l.7-8.5"/><path d="M6.8 7v4M9.2 7v4"/></svg></span>Eliminar la cuenta</h2>
+          <div class="danger-box">
+            <p><strong>Esta acción no se puede deshacer.</strong></p>
+            <ul>
+              <li>Se borrarán tu plan y todos tus archivos.</li>
+              <li>Se eliminarán tus personas de confianza.</li>
+              <li>Los enlaces que hayan recibido dejarán de funcionar.</li>
+            </ul>
+          </div>
+          <p class="hint">Si quieres conservar una copia, descárgala antes desde <a href="#/plan">Tu plan</a>.</p>
+          <label>
+            <span>Contraseña actual</span>
+            <span class="input-reveal">
+              <input id="delete-password" type="password" autocomplete="current-password" required>
+              <button id="delete-reveal" type="button" class="link">Mostrar</button>
+            </span>
+          </label>
+          <label class="check-line"><input id="delete-confirm" type="checkbox"><span>Entiendo que se eliminará mi cuenta y no podré recuperar su contenido.</span></label>
+          <p id="delete-message" class="message" aria-live="polite"></p>
+        </div>
+        <div class="acct-foot acct-foot-actions">
+          <span class="hint">Eliminación permanente de tu cuenta.</span>
+          <button id="delete-submit" type="submit" class="danger" disabled>Eliminar mi cuenta</button>
+        </div>
       </form>
     </section>
 

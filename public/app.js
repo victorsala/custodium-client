@@ -230,6 +230,8 @@ function lock(message) {
   state.draft = null;
   state.personDraft = null;
   state.pendingDeletes = [];
+  eventsAll = [];
+  $("#events").replaceChildren();
   showScreen("login");
   $("#login-message").textContent = message || "";
 }
@@ -797,10 +799,18 @@ function showAccount() {
   $("#account-phone").value = state.settings?.phone ?? "";
   $("#phone-message").textContent = "";
   syncPhoneState();
+  $("#delete-password").value = "";
+  setDeleteReveal(false);
+  $("#delete-confirm").checked = false;
+  $("#delete-message").textContent = "";
+  syncDeleteState();
+  $("#events-filter").value = "all";
   $("#pw-current").type = "password";
   $("#pw-current").value = "";
   proposePassphrase("pw");
   $("#pw-message").textContent = "";
+  $("#pw-saved").checked = false;
+  syncPasswordState();
   showScreen("account");
   loadEvents(); // en segon pla: la pantalla no s'ha d'esperar
 }
@@ -836,14 +846,27 @@ async function closeSessions() {
   else toast("No se han podido cerrar las sesiones. Prueba de nuevo.");
 }
 
+// «Cambiar la contraseña» només s'activa amb la casella «He guardado…» marcada.
+function syncPasswordState() {
+  $("#pw-submit").disabled = !$("#pw-saved").checked;
+}
+
+// «Eliminar mi cuenta» només s'activa amb la casella marcada; és la confirmació.
+function syncDeleteState() {
+  $("#delete-submit").disabled = !$("#delete-confirm").checked;
+}
+
+function setDeleteReveal(show) {
+  $("#delete-password").type = show ? "text" : "password";
+  $("#delete-reveal").textContent = show ? "Ocultar" : "Mostrar";
+}
+
 async function deleteAccount(event) {
   event.preventDefault();
   const password = $("#delete-password").value;
   const msg = (t) => { $("#delete-message").textContent = t; };
   if (!password) return msg("Escribe tu contraseña actual.");
-
-  const warning = "Se borrará tu plan, tus archivos, tus personas de confianza y los enlaces que hayan recibido no funcionarán. Esta acción no se puede deshacer. Si quieres conservar una copia, descárgala antes desde «Tu plan».";
-  if (!window.confirm(warning)) return;
+  if (!$("#delete-confirm").checked) return msg("Marca la casilla para confirmar.");
 
   setBusy(true, "Eliminando la cuenta…");
   try {
@@ -879,21 +902,63 @@ const EVENT_TEXTS = {
   reminder_failed: (d) => `No se ha podido enviar el recordatorio a ${d}`,
 };
 
+// Grups del filtre i icona de cada tipus; el que no és a cap grup és «avisos i entregues».
+const EVENT_GROUPS = {
+  access: ["login", "login_failed", "sessions_closed", "checkin"],
+  changes: ["password_changed", "email_changed", "phone_changed", "settings_changed"],
+};
+const EVENT_ICONS = { login: "enter", login_failed: "alert", checkin: "check", sessions_closed: "monitor" };
+const EVENTS_PAGE = 8;
+let eventsAll = [];
+let eventsPage = 0;
+
 async function loadEvents() {
-  const list = $("#events");
   // No es buida la llista fins que arriben dades noves: si la resposta triga
   // o falla, es continua veient l'última versió en lloc d'un buit.
   const r = await api("/api/events");
   if (r.status !== 200) return;
-  list.textContent = "";
-  for (const e of r.data.events) {
+  eventsAll = r.data.events;
+  eventsPage = 0;
+  renderEvents();
+}
+
+function eventsFiltered() {
+  const f = $("#events-filter").value;
+  if (f === "all") return eventsAll;
+  if (f === "delivery") return eventsAll.filter((e) => !EVENT_GROUPS.access.includes(e.kind) && !EVENT_GROUPS.changes.includes(e.kind));
+  return eventsAll.filter((e) => EVENT_GROUPS[f].includes(e.kind));
+}
+
+// Pinta la pàgina actual del filtre actual: una fila per registre (icona, text, data i hora, país).
+function renderEvents() {
+  const all = eventsFiltered();
+  const pages = Math.max(1, Math.ceil(all.length / EVENTS_PAGE));
+  eventsPage = Math.min(eventsPage, pages - 1);
+  const list = $("#events");
+  list.replaceChildren();
+  for (const e of all.slice(eventsPage * EVENTS_PAGE, (eventsPage + 1) * EVENTS_PAGE)) {
     const d = new Date(e.createdAt * 1000);
     const hour = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     const text = (EVENT_TEXTS[e.kind] || (() => e.kind))(e.detail);
-    const li = document.createElement("li");
-    li.textContent = `${dateEs(e.createdAt)}, ${hour} — ${text}${e.country ? ` (${e.country})` : ""}`;
-    list.appendChild(li);
+    const tone = EVENT_GROUPS.changes.includes(e.kind) ? " is-change" : /_failed$/.test(e.kind) ? " is-warn" : "";
+    const li = el("li", { class: "event" });
+    const icon = el("span", { class: `event-icon${tone}`, "aria-hidden": "true" });
+    icon.append(svgIcon(EVENT_ICONS[e.kind] || (EVENT_GROUPS.changes.includes(e.kind) ? "pencil" : "mail")));
+    const main = el("div", { class: "event-main" });
+    main.append(el("strong", {}, text), el("span", { class: "event-when" }, `${dateEs(e.createdAt)} · ${hour}`));
+    li.append(icon, main);
+    if (e.country) li.append(el("span", { class: "event-country" }, e.country));
+    list.append(li);
   }
+  $("#events-empty").hidden = all.length > 0;
+  $("#events-empty").textContent = eventsAll.length ? "Sin actividad de este tipo." : "Todavía no hay actividad registrada.";
+  const from = all.length ? eventsPage * EVENTS_PAGE + 1 : 0;
+  const to = Math.min(all.length, (eventsPage + 1) * EVENTS_PAGE);
+  $("#events-range").textContent = all.length ? `${from}–${to} de ${all.length} ${all.length === 1 ? "registro" : "registros"}` : "Sin registros";
+  $("#events-pager").hidden = pages <= 1;
+  $("#events-page").textContent = `${eventsPage + 1} / ${pages}`;
+  $("#events-prev").disabled = eventsPage === 0;
+  $("#events-next").disabled = eventsPage >= pages - 1;
 }
 
 // Cal el prefix internacional: "+" o "00" al davant; sense prefix es rebutja
@@ -945,6 +1010,7 @@ async function changePassword(event) {
   if (next.length < 16) return msg("La nueva contraseña debe tener al menos 16 caracteres.");
   if (next !== confirm) return msg("Las dos contraseñas nuevas no coinciden.");
   if (next === current) return msg("La nueva contraseña es igual que la actual.");
+  if (!$("#pw-saved").checked) return msg("Marca la casilla cuando hayas guardado la nueva contraseña.");
 
   setBusy(true, "Derivando las claves y cifrando de nuevo el plan…");
   try {
@@ -970,6 +1036,7 @@ async function changePassword(event) {
     state.version = r.data.version;
     $("#pw-current").value = "";
     proposePassphrase("pw");
+    $("#pw-saved").checked = false;
     msg("");
     toast("Contraseña cambiada. El plan se ha cifrado de nuevo.");
   } catch (err) {
@@ -1179,6 +1246,10 @@ const ICONS = {
   mail: ["M2 4h12v8.5H2z", "M2 4.5l6 5 6-5"],
   phone: ["M5 1.5h6a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1z", "M7 12h2"],
   pencil: ["M11 2.5l2.5 2.5-8 8H3v-2.5z", "M9.5 4l2.5 2.5"],
+  enter: ["M9 3h4v10H9", "M2 8h7", "M6.5 5.5L9 8l-2.5 2.5"],
+  alert: ["M8 2.5l6 11H2z", "M8 6.5v3", "M8 11.5h.01"],
+  check: ["M3 8.5l3 3 7-7"],
+  monitor: ["M2.5 3.5h11v7.5h-11z", "M6 13.5h4", "M8 11v2.5"],
 };
 
 function svgIcon(kind) {
@@ -1679,7 +1750,7 @@ function setBusy(on, text = "") {
   $("#busy").textContent = text;
   $("#busy").hidden = !on;
   for (const b of $$("button[type=submit]")) b.disabled = on;
-  if (!on) syncPhoneState();   // «Guardar móvil» només s'activa amb canvis, també en tornar d'estar ocupats
+  if (!on) { syncPhoneState(); syncDeleteState(); syncPasswordState(); }   // els botons condicionats de Cuenta, també en tornar d'estar ocupats
 }
 
 let toastTimer = null;
@@ -1743,8 +1814,14 @@ function boot() {
   $("#email-resend").addEventListener("click", resendEmailCode);
   $("#email-back").addEventListener("click", resetEmailChange);
   $("#pw-own").addEventListener("click", () => preferOwnPassword("pw"));
+  $("#pw-saved").addEventListener("change", syncPasswordState);
   $("#close-sessions").addEventListener("click", closeSessions);
+  $("#events-filter").addEventListener("change", () => { eventsPage = 0; renderEvents(); });
+  $("#events-prev").addEventListener("click", () => { eventsPage--; renderEvents(); });
+  $("#events-next").addEventListener("click", () => { eventsPage++; renderEvents(); });
   $("#delete-form").addEventListener("submit", deleteAccount);
+  $("#delete-confirm").addEventListener("change", syncDeleteState);
+  $("#delete-reveal").addEventListener("click", () => setDeleteReveal($("#delete-password").type === "password"));
   $("#add").addEventListener("click", () => navigate(NEW_ITEM));
   $("#export").addEventListener("click", exportBundle);
   $("#onboarding-close").addEventListener("click", () => markOnboarding({ dismissedAt: Date.now() }).then(renderList));

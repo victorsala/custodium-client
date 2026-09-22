@@ -695,18 +695,6 @@ form > .hint { margin-top: -4px; }
 .settings .actions { margin: 16px 0 18px; }
 .settings .actions + .hint { margin-bottom: 8px; }
 
-/* Actividad reciente (Cuenta) */
-.events {
-  list-style: none;
-  margin-top: 12px;
-  font-size: 14px;
-  color: var(--slate);
-}
-.events li {
-  padding: 7px 0;
-  border-top: 1px solid var(--hairline);
-}
-
 /* Franja fixa de staging (la injecta app.js quan /api/env respon "staging"). */
 .env-banner {
   position: fixed;
@@ -1412,10 +1400,12 @@ body:not(.is-entry) .pillars { display: none; }
 }
 
 
-/* v5.4 · «Cuenta»: correu i mòbil en fitxes (closca i peu a v5.2), amb una icona rodona al títol. */
+/* v5.4 · «Cuenta»: correu, mòbil, canvi de correu i eliminació en fitxes (closca i peu a v5.2), amb una icona
+   rodona al títol; la d'eliminar, en to de perill. */
 
 .acct-card { margin-top: 20px; }
 .acct-card + .acct-card { margin-top: 16px; }
+.settings + .acct-card { margin-top: 40px; }   /* després d'un bloc clàssic (Actividad reciente), més aire */
 form.acct-card { display: block; }
 
 .acct-body { display: grid; gap: 12px; padding: 20px 22px 18px; }
@@ -1459,8 +1449,130 @@ form.acct-card { display: block; }
 
 .acct-foot button.secondary { background: var(--surface); }
 
-.acct-foot button.secondary:disabled {
+.acct-foot button:disabled {
   background: rgba(27,43,46,.06);
   border-color: transparent;
   color: #7C8A8D;
+}
+
+.hint a { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Contrasenya amb «Mostrar» a dins del camp */
+.input-reveal { position: relative; display: block; }
+.input-reveal input { padding-right: 88px; }
+.input-reveal .link {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+/* Casella de confirmació */
+.check-line { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.check-line input { width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--teal); flex: none; }
+.check-line span { font-size: 15px; font-weight: 400; color: var(--ink); line-height: 1.5; }
+
+/* Contrasenya: la proposta de frase i el botó per escriure'n una de pròpia */
+.pw-mode { display: grid; gap: 10px; justify-items: start; }
+
+/* Avís en to de llautó (guarda la contrasenya) */
+.brass-box {
+  padding: 14px 16px;
+  background: rgba(174,142,92,.09);
+  border: 1px solid rgba(174,142,92,.45);
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--slate);
+}
+
+.brass-box strong { color: var(--ink); }
+.brass-box p + p { margin-top: 4px; }
+
+/* Eliminar el compte: la mateixa fitxa, en to de perill */
+.danger-box {
+  padding: 14px 16px;
+  background: rgba(138,59,46,.06);
+  border: 1px solid rgba(138,59,46,.25);
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--slate);
+}
+
+.danger-box strong { color: var(--danger); }
+.danger-box ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+
+.acct-card-danger { border-color: rgba(138,59,46,.3); }
+.acct-card-danger .acct-foot { background: rgba(138,59,46,.05); border-top-color: rgba(138,59,46,.2); }
+
+.acct-icon-danger {
+  color: var(--danger);
+  background: rgba(138,59,46,.06);
+  border-color: rgba(138,59,46,.3);
+}
+
+/* Sesiones i Actividad reciente (Cuenta): filtre, files amb icona i paginació al peu */
+
+.events-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 4px;
+}
+
+.events-filter { display: flex; align-items: center; gap: 10px; }
+.events-filter select { width: auto; padding: 8px 12px; font-size: 14px; }
+
+.events { list-style: none; margin: 4px 0 0; padding: 0; }
+
+.event {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.event-icon {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--slate);
+  display: grid; place-items: center;
+  flex: none;
+}
+
+.event-icon.is-change { color: var(--brass); }
+.event-icon.is-warn { color: var(--danger); }
+
+.event-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.event-main strong { font-size: 14px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.event-when { font-size: 13px; color: var(--slate); }
+
+.event-country {
+  flex: none;
+  padding: 3px 7px;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  color: var(--slate);
+}
+
+.pager { display: flex; align-items: center; gap: 12px; }
+.pager button { min-height: 36px; padding: 6px 14px; font-size: 14px; }
+.pager .hint { font-size: 13px; white-space: nowrap; }
+
+.events-note {
+  padding: 10px 22px 12px;
+  border-top: 1px solid var(--hairline);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--slate);
 }
