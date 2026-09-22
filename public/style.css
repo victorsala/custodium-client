@@ -1163,9 +1163,47 @@ body:not(.is-entry) .pillars { display: none; }
 
 .cards .item-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+
+.item-head-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+
+/* Fletxes per reordenar: un parell de botons petits dins d'una píndola discreta */
+.item-move {
+  display: inline-flex;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.item-move-btn {
+  width: 30px; height: 28px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--slate);
+  display: grid; place-items: center;
+}
+
+.item-move-btn + .item-move-btn { border-left: 1px solid var(--hairline); }
+.item-move-btn:hover { background: var(--ivory); color: var(--teal); }
+.item-move-btn:disabled { background: var(--surface); color: #CDD3D4; cursor: default; }
+.item-move-btn .icon { width: 14px; height: 14px; }
+
+/* Flaix de la fitxa acabada de moure: un anell i un fons teal que s'esvaeixen */
+.cards .item.is-moved { animation: card-flash 900ms ease-out; }
+
+@keyframes card-flash {
+  0% { background: rgba(28,93,84,.12); box-shadow: 0 0 0 3px rgba(28,93,84,.35), 0 10px 24px -16px rgba(27,43,46,.28); }
+  100% { background: var(--surface); box-shadow: 0 1px 2px rgba(27,43,46,.04), 0 10px 24px -16px rgba(27,43,46,.28); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cards .item.is-moved { animation: none; }
 }
 
 .cards .item-head h3 {

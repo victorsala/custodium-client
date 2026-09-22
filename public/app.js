@@ -1250,6 +1250,8 @@ const ICONS = {
   alert: ["M8 2.5l6 11H2z", "M8 6.5v3", "M8 11.5h.01"],
   check: ["M3 8.5l3 3 7-7"],
   monitor: ["M2.5 3.5h11v7.5h-11z", "M6 13.5h4", "M8 11v2.5"],
+  up: ["M4 10l4-4 4 4"],
+  down: ["M4 6l4 4 4-4"],
 };
 
 function svgIcon(kind) {
@@ -1264,6 +1266,29 @@ function svgIcon(kind) {
     svg.append(path);
   }
   return svg;
+}
+
+// Puja o baixa un element una posició. L'ordre de la llista és el de l'array del pla,
+// així que es desa com qualsevol altre canvi; si no es pot desar, es desfà.
+async function moveItem(id, delta) {
+  const items = state.vault.items;
+  const i = items.findIndex((it) => it.id === id);
+  const j = i + delta;
+  if (i < 0 || j < 0 || j >= items.length) return;
+  [items[i], items[j]] = [items[j], items[i]];
+  const ok = await persist();
+  if (!ok && state.vault.items === items) {
+    [items[i], items[j]] = [items[j], items[i]];
+    renderList();
+    return;
+  }
+  const card = $(`.cards .item[data-id="${id}"]`);
+  if (!card) return;
+  const btn = card.querySelector(delta < 0 ? ".item-move-btn:first-child" : ".item-move-btn:last-child");
+  if (btn && !btn.disabled) btn.focus(); else card.querySelector(".item-head .link")?.focus();
+  // Un flaix breu a la fitxa al seu lloc nou, perquè es vegi on ha anat a parar.
+  card.classList.add("is-moved");
+  card.addEventListener("animationend", () => card.classList.remove("is-moved"), { once: true });
 }
 
 function clip(text, max) {
@@ -1375,14 +1400,30 @@ function renderList() {
 
   // Una fitxa per element: títol (35 caràcters) amb «Editar», les instruccions retallades a dues línies
   // («Leer más» les desplega), un botó per fitxer, i al peu les persones amb inicial i la data del darrer canvi.
-  for (const item of items) {
-    const li = el("li", { class: "item" });
+  for (const [i, item] of items.entries()) {
+    const li = el("li", { class: "item", "data-id": item.id });
     const body = el("div", { class: "item-body" });
     const head = el("div", { class: "item-head" });
     head.append(el("h3", { title: item.title }, clip(item.title, 35)));
+    const actions = el("div", { class: "item-head-actions" });
+    if (items.length > 1) {
+      // Fletxes per pujar o baixar l'element una posició; la primera i l'última van apagades.
+      const move = el("div", { class: "item-move" });
+      const up = el("button", { type: "button", class: "item-move-btn", "aria-label": `Subir «${item.title}»` });
+      up.append(svgIcon("up"));
+      up.disabled = i === 0;
+      up.addEventListener("click", () => moveItem(item.id, -1));
+      const down = el("button", { type: "button", class: "item-move-btn", "aria-label": `Bajar «${item.title}»` });
+      down.append(svgIcon("down"));
+      down.disabled = i === items.length - 1;
+      down.addEventListener("click", () => moveItem(item.id, 1));
+      move.append(up, down);
+      actions.append(move);
+    }
     const edit = el("button", { type: "button", class: "link" }, "Editar");
     edit.addEventListener("click", () => navigate({ name: "item", id: item.id }));
-    head.append(edit);
+    actions.append(edit);
+    head.append(actions);
     body.append(head);
 
     const notes = (item.notes || "").trim();
