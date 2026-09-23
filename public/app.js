@@ -402,7 +402,12 @@ function applyTemplate() {
 
 function fillTemplateOptions() {
   const sel = $("#item-template");
-  for (const t of TEMPLATES) sel.append(el("option", { value: t.id }, t.name));
+  // Un optgroup per grup, en l'ordre en què apareixen a templates.js.
+  const groups = new Map();
+  for (const t of TEMPLATES) {
+    if (!groups.has(t.group)) { groups.set(t.group, el("optgroup", { label: t.group })); sel.append(groups.get(t.group)); }
+    groups.get(t.group).append(el("option", { value: t.id }, t.name));
+  }
 }
 
 function fillRecipientChecks(selected) {

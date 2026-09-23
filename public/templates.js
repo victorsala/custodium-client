@@ -2,12 +2,86 @@
 //
 // Només client, sense xarxa. Triar-ne una omple el títol (si és buit) i les
 // instruccions; el titular ho edita lliurement. Per afegir-ne una, afegeix
-// un objecte { id, name, title, notes } aquí (name és el text del
-// desplegable): app.js no cal tocar-lo.
+// un objecte { id, group, name, title, notes } aquí (group és el títol del
+// grup al desplegable; name, el text de l'opció): app.js no cal tocar-lo.
+
+const CUENTAS = "Cuentas y accesos";
+const DINERO = "Dinero y patrimonio";
+const CASA = "Casa y documentos";
+const OTROS = "Trabajo, personas y otros";
 
 export const TEMPLATES = [
   {
+    id: "email",
+    group: CUENTAS,
+    name: "Correo electrónico principal",
+    title: "Correo … en …",
+    notes: [
+      "Proveedor y dirección: …",
+      "Contraseña, o dónde está guardada (gestor de contraseñas): …",
+      "Verificación en dos pasos: qué método y dónde están los códigos de recuperación: …",
+      "Qué cuentas y servicios dependen de este correo: …",
+      "Contacto o correo de recuperación configurado: …",
+      "Qué hay que hacer con la cuenta (mantenerla un tiempo, cerrarla): …",
+    ].join("\n"),
+  },
+  {
+    id: "passwords",
+    group: CUENTAS,
+    name: "Gestor de contraseñas",
+    title: "Gestor de contraseñas …",
+    notes: [
+      "Qué gestor es y con qué cuenta: …",
+      "Dónde está la contraseña maestra en papel (mejor no la escribas aquí): …",
+      "Clave de recuperación o segundo factor, y dónde están: …",
+      "Qué contiene, a grandes rasgos (bancos, correo, trabajo, familia): …",
+      "Quién debe recibir qué: …",
+    ].join("\n"),
+  },
+  {
+    id: "phone",
+    group: CUENTAS,
+    name: "Teléfono móvil y línea",
+    title: "Móvil … y línea de …",
+    notes: [
+      "Operador y número: …",
+      "Código de desbloqueo del teléfono, o dónde está: …",
+      "PIN y PUK de la tarjeta SIM, o dónde están: …",
+      "Qué verificaciones por SMS dependen de este número (banco, correo, otras): …",
+      "Qué hay que hacer con la línea (mantenerla un tiempo para recibir códigos, darla de baja): …",
+    ].join("\n"),
+  },
+  {
+    id: "devices",
+    group: CUENTAS,
+    name: "Ordenador y dispositivos",
+    title: "Ordenador … / dispositivos",
+    notes: [
+      "Qué dispositivos son y dónde están: …",
+      "Contraseña de acceso, o dónde está: …",
+      "Cifrado del disco y clave de recuperación: …",
+      "Dónde están las copias de seguridad: …",
+      "Qué hay dentro que importe (fotos, documentos, trabajo): …",
+      "Qué hay que hacer con ellos: …",
+    ].join("\n"),
+  },
+  {
+    id: "social",
+    group: CUENTAS,
+    name: "Redes sociales",
+    title: "Cuenta de … en …",
+    notes: [
+      "Red social y nombre de usuario (o enlace al perfil): …",
+      "Correo o teléfono con el que se creó la cuenta: …",
+      "Contraseña, o dónde está guardada (gestor de contraseñas): …",
+      "Verificación en dos pasos: qué método y dónde están los códigos de recuperación: …",
+      "Qué hay que hacer con la cuenta (cerrarla, convertirla en conmemorativa, mantenerla, publicar un último mensaje): …",
+      "Contacto de legado o heredero configurado en la plataforma, si lo hay: …",
+    ].join("\n"),
+  },
+  {
     id: "bank",
+    group: DINERO,
     name: "Cuenta bancaria",
     title: "Cuenta bancaria en …",
     notes: [
@@ -21,7 +95,22 @@ export const TEMPLATES = [
     ].join("\n"),
   },
   {
+    id: "investments",
+    group: DINERO,
+    name: "Inversiones y planes de pensiones",
+    title: "Inversiones en …",
+    notes: [
+      "Entidad o plataforma: …",
+      "Tipo (fondos, acciones, plan de pensiones, otros): …",
+      "Número de contrato o de cuenta: …",
+      "Beneficiarios designados, si los hay: …",
+      "Contacto (gestor, teléfono, correo): …",
+      "Qué hay que hacer (mantener, vender, traspasar): …",
+    ].join("\n"),
+  },
+  {
     id: "wallet",
+    group: DINERO,
     name: "Wallet de criptoactivos",
     title: "Wallet …",
     notes: [
@@ -34,20 +123,8 @@ export const TEMPLATES = [
     ].join("\n"),
   },
   {
-    id: "social",
-    name: "Redes sociales",
-    title: "Cuenta de … en …",
-    notes: [
-      "Red social y nombre de usuario (o enlace al perfil): …",
-      "Correo o teléfono con el que se creó la cuenta: …",
-      "Contraseña, o dónde está guardada (gestor de contraseñas): …",
-      "Verificación en dos pasos: qué método y dónde están los códigos de recuperación: …",
-      "Qué hay que hacer con la cuenta (cerrarla, convertirla en conmemorativa, mantenerla, publicar un último mensaje): …",
-      "Contacto de legado o heredero configurado en la plataforma, si lo hay: …",
-    ].join("\n"),
-  },
-  {
     id: "insurance",
+    group: DINERO,
     name: "Seguro o póliza",
     title: "Seguro de … con …",
     notes: [
@@ -57,6 +134,157 @@ export const TEMPLATES = [
       "Dónde está el contrato o la póliza: …",
       "Contacto (agente, teléfono, correo): …",
       "Plazo para reclamar y documentación que suele pedirse: …",
+    ].join("\n"),
+  },
+  {
+    id: "subscriptions",
+    group: DINERO,
+    name: "Suscripciones y pagos periódicos",
+    title: "Suscripción a …",
+    notes: [
+      "Servicio y cuenta con la que se paga: …",
+      "Cuenta bancaria o tarjeta de cargo: …",
+      "Cómo se cancela: …",
+      "Si conviene mantenerlo un tiempo y por qué (dominios, almacenamiento con documentos, licencias): …",
+    ].join("\n"),
+  },
+  {
+    id: "loans",
+    group: DINERO,
+    name: "Deudas y préstamos",
+    title: "Préstamo … con …",
+    notes: [
+      "Entidad o persona: …",
+      "Importe pendiente y cuotas: …",
+      "Garantías o avales: …",
+      "Dónde está la documentación: …",
+      "Contacto: …",
+      "Qué hay que hacer: …",
+    ].join("\n"),
+  },
+  {
+    id: "home",
+    group: CASA,
+    name: "Vivienda y escrituras",
+    title: "Vivienda en …",
+    notes: [
+      "Dirección: …",
+      "Propiedad o alquiler, y a nombre de quién: …",
+      "Dónde están las escrituras o el contrato: …",
+      "Hipoteca (entidad, cuota, cuenta de cargo), si la hay: …",
+      "Comunidad, suministros y quién los gestiona: …",
+      "Dónde hay copias de las llaves: …",
+    ].join("\n"),
+  },
+  {
+    id: "documents",
+    group: CASA,
+    name: "Documentos importantes",
+    title: "Documentos …",
+    notes: [
+      "Qué documentos son (testamento, poderes, títulos, certificados): …",
+      "Dónde está cada uno (notaría, caja fuerte, carpeta, nube): …",
+      "Si hay copias y dónde: …",
+      "Quién debe recibirlos o consultarlos: …",
+    ].join("\n"),
+  },
+  {
+    id: "vehicle",
+    group: CASA,
+    name: "Vehículo",
+    title: "Vehículo …",
+    notes: [
+      "Qué vehículo es y matrícula: …",
+      "Dónde están las llaves y la documentación: …",
+      "Seguro (compañía y número de póliza): …",
+      "Préstamo o renting, si lo hay: …",
+      "Qué hay que hacer con él: …",
+    ].join("\n"),
+  },
+  {
+    id: "objects",
+    group: CASA,
+    name: "Objetos y lugares",
+    title: "…",
+    notes: [
+      "Qué es (joyas, llaves, un USB con copias, una caja, una obra): …",
+      "Dónde está exactamente: …",
+      "Cómo se accede (llave, código, y dónde están): …",
+      "A quién debe ir: …",
+      "Qué hay que hacer con ello: …",
+    ].join("\n"),
+  },
+  {
+    id: "business",
+    group: OTROS,
+    name: "Negocio o actividad profesional",
+    title: "Negocio …",
+    notes: [
+      "Empresa o actividad, y forma (sociedad, autónomo): …",
+      "Gestoría o asesor y contacto: …",
+      "Accesos críticos (dominios, facturación, banca de empresa) y dónde están: …",
+      "Compromisos pendientes con clientes o proveedores: …",
+      "Quién puede continuar o cerrar la actividad, y cómo: …",
+    ].join("\n"),
+  },
+  {
+    id: "domain",
+    group: OTROS,
+    name: "Dominio y web personal",
+    title: "Dominio …",
+    notes: [
+      "Dominio y registrador, con qué cuenta: …",
+      "Cuándo se renueva y cómo se paga: …",
+      "Hosting o servicio donde está la web: …",
+      "Qué hay que hacer (mantener, redirigir, cerrar): …",
+    ].join("\n"),
+  },
+  {
+    id: "contacts",
+    group: OTROS,
+    name: "Contactos clave",
+    title: "Personas a las que avisar",
+    notes: [
+      "Quién (abogado, gestor, médico, amistades, familia): …",
+      "Teléfono y correo de cada uno: …",
+      "Para qué hay que contar con cada uno: …",
+    ].join("\n"),
+  },
+  {
+    id: "pets",
+    group: OTROS,
+    name: "Mascotas",
+    title: "Cuidado de …",
+    notes: [
+      "Nombre y especie: …",
+      "Veterinario y dónde está la cartilla: …",
+      "Cuidados, comida y medicación: …",
+      "Quién puede hacerse cargo: …",
+    ].join("\n"),
+  },
+  {
+    id: "message",
+    group: OTROS,
+    name: "Mensaje personal",
+    title: "Mensaje para …",
+    notes: [
+      "Para quién es: …",
+      "Lo que quiero que sepa: …",
+      "Si hay una carta en papel o un archivo adjunto, dónde está: …",
+      "Qué me gustaría que hiciera: …",
+    ].join("\n"),
+  },
+  {
+    id: "todo",
+    group: OTROS,
+    name: "Gestiones pendientes y plazos",
+    title: "Gestiones pendientes",
+    notes: [
+      "Qué gestión es y con quién (organismo, empresa, persona): …",
+      "Plazo o fecha límite: …",
+      "Dónde está la documentación: …",
+      "A quién hay que avisar: …",
+      "Cómo se hace, paso a paso: …",
     ].join("\n"),
   },
 ];
