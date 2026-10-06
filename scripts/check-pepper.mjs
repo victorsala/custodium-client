@@ -35,7 +35,7 @@ if (!pepper) {
 
 // Mateixa normalització que parseEmail al Worker: trim i minúscules.
 const email = (positional[1] ?? `check-pepper-${Date.now().toString(36)}@example.invalid`).trim().toLowerCase();
-const base = staging ? "https://b2c-staging.custodium.space" : "https://b2c.custodium.space";
+const base = staging ? "https://b2c-staging.custodium.space" : "https://custodium.space";
 
 // deriveSalt i KDF_SALT_BYTES, del Worker que es desplega.
 const workerSrc = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");

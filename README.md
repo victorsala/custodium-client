@@ -2,7 +2,7 @@
 
 Pla de successió digital per a una persona: què tens, on és, com s'hi accedeix i qui ho ha de rebre quan tu no puguis actuar. Xifrat al navegador. El servidor guarda el pla, mai les claus.
 
-- Web: https://b2c.custodium.space
+- Web: https://custodium.space
 - Codi: github.com/victorsala/custodium-b2c (repo de treball, privat), publicat sencer com a mirall a [victorsala/custodium-client](https://github.com/victorsala/custodium-client) (client i servidor; llicència a `public/LICENSE`)
 - Estat: beta per a ús personal dels fundadors. No és un producte.
 
@@ -227,7 +227,7 @@ El zip i el sobre amb la frase han d'estar en mans diferents: cap dels dos, sol,
 ### Prova amb curl (sense navegador)
 
 ```sh
-BASE=https://b2c.custodium.space
+BASE=https://custodium.space
 HASH=$(openssl rand -base64 32)
 curl -s $BASE/api/salt?email=jo@example.com                     # {"salt":"…"}, la mateixa abans i després de l'alta
 curl -s -X POST $BASE/api/register/start -H 'content-type: application/json' -d '{"email":"jo@example.com"}'   # {"ok":true}; el codi arriba al correu
@@ -271,7 +271,7 @@ echo -n "$PEPPER" | node scripts/check-pepper.mjs - --staging    # staging
 
 | | Producció | Staging |
 | :--- | :--- | :--- |
-| Web | b2c.custodium.space | b2c-staging.custodium.space |
+| Web | custodium.space (i www) | b2c-staging.custodium.space |
 | Worker | custodium-b2c | custodium-b2c-staging |
 | D1 | custodium-b2c | custodium-b2c-staging |
 | R2 | custodium-b2c-files i -files-backup | custodium-b2c-staging-files i -backup |
@@ -289,7 +289,7 @@ git push              # la CI passa els tests i, a main, desplega staging
 
 Comprovar staging: `https://b2c-staging.custodium.space/VERSION` ha de retornar el hash del commit, i la web ha de funcionar (amb la franja d'avís). Producció, sempre amb el botó: GitHub → Actions → **deploy-production** → Run workflow. Mai automàtic; les migracions en queden fora i van sempre abans, a mà i amb confirmació.
 
-El workflow de producció repeteix els tests i fa el que feia `npm run deploy` en local: `scripts/public-commit.sh` pren l'arbre del commit, en treu `CLAUDE.md` i `.github/` i l'encadena a la història del **mirall públic** [victorsala/custodium-client](https://github.com/victorsala/custodium-client) (si l'arbre no ha canviat, reutilitza el commit anterior); escriu el hash resultant a `public/VERSION` (que no es versiona: és un artefacte del deploy), fa `wrangler deploy`, comprova que `/VERSION` respon exactament aquell hash i, només llavors, publica el mirall. Qualsevol pot fer `git checkout` d'aquell hash al repo públic, comparar fitxer a fitxer el contingut de `public/` amb el que serveix `b2c.custodium.space` (instruccions a `public/README.md`) i llegir el Worker (`src/index.js`) desplegat amb aquella mateixa versió. El peu de totes les pàgines mostra la versió; `abrir-offline.html` no la mostra expressament (ha de funcionar sense servidor i la seva CSP no permet connexions).
+El workflow de producció repeteix els tests i fa el que feia `npm run deploy` en local: `scripts/public-commit.sh` pren l'arbre del commit, en treu `CLAUDE.md` i `.github/` i l'encadena a la història del **mirall públic** [victorsala/custodium-client](https://github.com/victorsala/custodium-client) (si l'arbre no ha canviat, reutilitza el commit anterior); escriu el hash resultant a `public/VERSION` (que no es versiona: és un artefacte del deploy), fa `wrangler deploy`, comprova que `/VERSION` respon exactament aquell hash i, només llavors, publica el mirall. Qualsevol pot fer `git checkout` d'aquell hash al repo públic, comparar fitxer a fitxer el contingut de `public/` amb el que serveix `custodium.space` (instruccions a `public/README.md`) i llegir el Worker (`src/index.js`) desplegat amb aquella mateixa versió. El peu de totes les pàgines mostra la versió; `abrir-offline.html` no la mostra expressament (ha de funcionar sense servidor i la seva CSP no permet connexions).
 
 **Deploy local d'emergència** (si GitHub Actions no hi és): sincronitzar el mirall i fer-ho a mà —
 
@@ -359,7 +359,7 @@ Les migracions ja aplicades es poden esborrar del repo un cop consolidades; `git
 
 Zona `custodium.space` → Security → WAF → Rate limiting rules → Create rule:
 
-- Expressió: `(http.host eq "b2c.custodium.space" and http.request.uri.path in {"/api/salt" "/api/register/start" "/api/email/start" "/api/login" "/api/register" "/api/password" "/api/email"})`
+- Expressió: `(http.host eq "custodium.space" and http.request.uri.path in {"/api/salt" "/api/register/start" "/api/email/start" "/api/login" "/api/register" "/api/password" "/api/email"})`
 - `/api/register/start` hi ha de ser: envia un correu a qualsevol adreça sense autenticar. El límit de tres codis per email i hora és del Worker; el del WAF, per IP, és el que atura un enviament massiu a adreces diferents.
 - `/api/salt` hi ha de ser: respon a qualsevol email sense autenticar i, tot i que la sal falsa no delata res, és la primera petició de cada intent d'entrada i no ha de poder-se martellejar.
 - Característica: IP. Límit: el més estricte que permeti el pla (al pla gratuït, p. ex. 5 peticions per 10 segons). Acció: Block.
