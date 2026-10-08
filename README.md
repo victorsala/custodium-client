@@ -59,7 +59,7 @@ El servidor guarda `SHA-256(sal aleatòria || authHash)` (una segona sal, `auth_
 
 Ni el nom ni el tipus dels fitxers arriben al servidor: viuen dins del pla.
 
-Que el servidor no pugui llegir el contingut no vol dir que no tingui res: correus, mòbils, país de connexió, dates d'activitat i les relacions entre titular i persones de confiança són dades personals, i les d'una persona de confiança ho són d'algú que no ha obert cap compte. Es guarden perquè sense elles no es pot avisar ni entregar, no per cap altre motiu; s'esborren amb el compte (`DELETE /api/account`, backup inclòs) i la política de privacitat de la beta (fase 3) n'ha de descriure la retenció.
+Que el servidor no pugui llegir el contingut no vol dir que no tingui res: correus, mòbils, país de connexió, dates d'activitat i les relacions entre titular i persones de confiança són dades personals, i les d'una persona de confiança ho són d'algú que no ha obert cap compte. Es guarden perquè sense elles no es pot avisar ni entregar, no per cap altre motiu; s'esborren amb el compte (`DELETE /api/account`, backup inclòs). `public/legal.html` (avís legal, política de privacitat, cookies i condicions de la beta; enllaçada al peu de totes les pàgines) descriu quines són, per a què, qui hi accedeix i la retenció. No hi ha cap cookie ni res a l'emmagatzematge del navegador: la sessió viu en memòria.
 
 ### 2.4 Format del pla (en clar, dins del navegador)
 
@@ -246,7 +246,7 @@ curl -s $BASE/api/vault -H "authorization: Bearer $TOKEN"      # {"error":"no_va
 ```
 src/index.js        Worker: API + cron
 public/             Client estàtic: index.html, app.js, routes.js (rutes del fragment), crypto.js, words.js, templates.js (plantilles d'element), fflate.js (zip, MIT), style.css, fonts/,
-                    abrir.* (persona, amb servidor), aqui.* (check-in), abrir-offline.html (obridor autònom), _headers,
+                    abrir.* (persona, amb servidor), aqui.* (check-in), abrir-offline.html (obridor autònom), legal.html (avís legal, privacitat, cookies, condicions), _headers,
                     README (bilingüe, amb la verificació), LICENSE (source-available) i THIRD_PARTY.md.
                     VERSION l'escriu el deploy (gitignored).
 scripts/            public-commit.sh: construeix el commit del mirall públic (vegeu "Desplegar un canvi")

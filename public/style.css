@@ -1676,3 +1676,22 @@ form.acct-card { display: block; }
 
 .acct-card { scroll-margin-top: 16px; }
 .acct-card h2:focus-visible { outline: 3px solid rgba(28,93,84,.35); outline-offset: 4px; border-radius: 4px; }
+
+
+/* Pàgina legal (legal.html) i enllaços del peu */
+a.brand { text-decoration: none; color: inherit; }
+.foot-legal { margin-top: 6px; }
+.legal { max-width: 720px; padding-bottom: 24px; }
+.legal .page-nav { margin: 24px 0 8px; }
+.legal-block { margin-top: 36px; }
+.legal-block h2 { margin-bottom: 12px; }
+.legal-block h3 { margin: 22px 0 6px; }
+.legal-block p, .legal-block li { line-height: 1.55; }
+.legal-block p + p { margin-top: 10px; }
+.legal-block ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 8px; }
+.legal-block a { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
+.legal-facts { margin: 12px 0; display: grid; gap: 6px; }
+.legal-facts div { display: grid; grid-template-columns: 150px 1fr; gap: 8px; }
+.legal-facts dt { color: var(--slate); }
+.legal-facts dd { margin: 0; }
+@media (max-width: 480px) { .legal-facts div { grid-template-columns: 1fr; gap: 0; } }
