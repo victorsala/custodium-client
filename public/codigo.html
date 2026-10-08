@@ -45,7 +45,39 @@
 
     <section id="comprobar" class="doc-block">
       <h2>Cómo comprobar lo que sirve esta web</h2>
-      <p>Al pie de la página de entrada aparece la versión desplegada; también está en <a href="/VERSION">custodium.space/VERSION</a>. Es el identificador de un commit del repositorio. Con estos comandos descargas cada fichero tal como lo recibe tu navegador y lo comparas con el publicado en ese commit:</p>
+      <p>Al pie de la página de entrada aparece la versión desplegada; también está en <a href="/VERSION">custodium.space/VERSION</a>. Es el identificador de un commit del repositorio.</p>
+      <figure class="fig">
+        <svg viewBox="0 0 500 200" role="img" aria-labelledby="fig-verificar">
+          <title id="fig-verificar">El pie de la web dice el commit que sirve; cada fichero descargado de la web se compara con ese commit en GitHub y resultan iguales</title>
+          <rect class="card" x="16" y="24" width="190" height="150" rx="12"/>
+          <text class="t-strong" x="32" y="48">custodium.space</text>
+          <text class="t-cap" x="32" y="66">lo que recibe tu navegador</text>
+          <path class="hair" d="M16 76 H206"/>
+          <text class="t-mono" x="32" y="96">versión a1b2c3d…</text>
+          <path class="hair" d="M16 106 H206"/>
+          <text class="t-mono" x="32" y="124">index.html</text>
+          <text class="t-mono" x="32" y="142">app.js</text>
+          <text class="t-mono" x="32" y="160">crypto.js …</text>
+          <rect class="card" x="294" y="24" width="190" height="150" rx="12"/>
+          <text class="t-strong" x="310" y="48">custodium-client</text>
+          <text class="t-cap" x="310" y="66">el repositorio público</text>
+          <path class="hair" d="M294 76 H484"/>
+          <text class="t-mono" x="310" y="96">commit a1b2c3d…</text>
+          <path class="hair" d="M294 106 H484"/>
+          <text class="t-mono" x="310" y="124">index.html</text>
+          <text class="t-mono" x="310" y="142">app.js</text>
+          <text class="t-mono" x="310" y="160">crypto.js …</text>
+          <path class="ln ln-link ln-dash" d="M206 92 H294"/>
+          <text class="t-cap t-teal" x="250" y="86" text-anchor="middle">mismo hash</text>
+          <path class="ln" d="M214 142 H286"/>
+          <path class="ln" d="M220 136 L214 142 L220 148 M280 136 L286 142 L280 148"/>
+          <text class="t-cap" x="250" y="132" text-anchor="middle">diff</text>
+          <path class="ln" d="M240 166 L247 173 L261 157"/>
+          <text class="t-cap t-teal" x="250" y="192" text-anchor="middle">iguales</text>
+        </svg>
+        <figcaption>El pie de la web dice qué commit se está sirviendo. Descargas cada fichero de la web, lo comparas con ese commit y, si todos son iguales, tu navegador ejecuta exactamente lo publicado.</figcaption>
+      </figure>
+      <p>Con estos comandos descargas cada fichero tal como lo recibe tu navegador y lo comparas con el publicado en ese commit:</p>
 <pre><code>git clone https://github.com/victorsala/custodium-client &amp;&amp; cd custodium-client
 git checkout $(curl -s https://custodium.space/VERSION)
 for f in index.html app.js routes.js crypto.js words.js templates.js abrir.html abrir.js aqui.html aqui.js abrir-offline.html fflate.js style.css; do
@@ -57,11 +89,62 @@ done</code></pre>
     <section id="servidor" class="doc-block">
       <h2>Lo que no se puede comprobar desde fuera</h2>
       <p>Que el servidor ejecute exactamente el programa publicado. Ningún servicio remoto puede demostrarlo. Por eso el diseño no exige confiar en él: todo lo sensible se cifra en el navegador, con código que sí puedes verificar, antes de enviarse. El programa del servidor publicado muestra lo que hace y, sobre todo, lo que no puede hacer: solo maneja datos cifrados, pruebas de acceso con sal y fechas de aviso y entrega.</p>
+      <figure class="fig">
+        <svg viewBox="0 0 500 190" role="img" aria-labelledby="fig-confianza">
+          <title id="fig-confianza">En el navegador, código verificable que cifra el plan; al servidor, que no se puede verificar desde fuera, solo llegan bloques cifrados</title>
+          <rect class="frame" x="14" y="14" width="250" height="160" rx="14"/>
+          <text class="t-cap" x="30" y="36">Tu navegador</text>
+          <rect class="card" x="28" y="56" width="100" height="70" rx="8"/>
+          <text class="t-strong" x="40" y="76">Tu plan</text>
+          <text x="40" y="96">cuentas</text>
+          <text x="40" y="114">documentos</text>
+          <path class="ln" d="M134 92 H166"/>
+          <path class="ln" d="M160 86 L166 92 L160 98"/>
+          <rect class="mark" x="145" y="65" width="10" height="10" transform="rotate(45 150 70)"/>
+          <rect class="card" x="172" y="56" width="80" height="70" rx="8"/>
+          <path class="cipher" d="M184 84 H236 M184 102 H228 M184 120 H240"/>
+          <path class="ln" d="M30 158 L35 163 L44 151"/>
+          <text class="t-cap t-teal" x="50" y="163">Código verificable: lo que lees es lo que se ejecuta</text>
+          <path class="ln" d="M270 92 H334"/>
+          <path class="ln" d="M328 86 L334 92 L328 98"/>
+          <text class="t-cap" x="302" y="82" text-anchor="middle">solo cifrado</text>
+          <rect class="card" x="340" y="46" width="146" height="92" rx="10"/>
+          <rect class="mark" x="352" y="63" width="8" height="8" transform="rotate(45 356 67)"/>
+          <text class="t-strong" x="368" y="71">Servidor</text>
+          <text class="t-cap" x="352" y="95">no verificable</text>
+          <text class="t-cap" x="352" y="111">desde fuera, pero</text>
+          <text class="t-cap" x="352" y="127">solo recibe cifrado</text>
+        </svg>
+        <figcaption>Lo que no puedes verificar, el servidor, solo recibe lo que ya has cifrado con lo que sí puedes verificar, el navegador. Por eso no hace falta confiar en él.</figcaption>
+      </figure>
     </section>
 
     <section id="terceros" class="doc-block">
       <h2>Sin scripts de terceros</h2>
       <p>La página no carga código de otros dominios: ni analítica, ni fuentes externas, ni etiquetas de publicidad. Una política de seguridad de contenido lo impide aunque alguien lo intentara. Los cuatro componentes ajenos (dos fuentes tipográficas, una biblioteca para crear archivos zip y la lista de palabras de las frases) están en <a href="/THIRD_PARTY.md">THIRD_PARTY.md</a> con su licencia.</p>
+      <figure class="fig">
+        <svg viewBox="0 0 500 150" role="img" aria-labelledby="fig-terceros">
+          <title id="fig-terceros">La página solo carga código de custodium.space; las conexiones a analítica, fuentes externas y publicidad están bloqueadas</title>
+          <rect class="card" x="16" y="30" width="176" height="90" rx="12"/>
+          <text class="t-strong" x="32" y="54">custodium.space</text>
+          <text class="t-cap" x="32" y="76">scripts, estilos y fuentes</text>
+          <text class="t-cap" x="32" y="94">solo de aquí</text>
+          <path class="ln" d="M32 108 L37 113 L46 101"/>
+          <path class="ln ln-link" d="M192 75 C 240 75, 250 38, 300 38"/>
+          <path class="ln ln-link" d="M192 75 H300"/>
+          <path class="ln ln-link" d="M192 75 C 240 75, 250 112, 300 112"/>
+          <path class="ln ln-danger" d="M304 31 L318 45 M318 31 L304 45"/>
+          <path class="ln ln-danger" d="M304 68 L318 82 M318 68 L304 82"/>
+          <path class="ln ln-danger" d="M304 105 L318 119 M318 105 L304 119"/>
+          <rect class="card" x="330" y="24" width="150" height="28" rx="8"/>
+          <text class="t-cap" x="405" y="43" text-anchor="middle">analítica</text>
+          <rect class="card" x="330" y="61" width="150" height="28" rx="8"/>
+          <text class="t-cap" x="405" y="80" text-anchor="middle">fuentes externas</text>
+          <rect class="card" x="330" y="98" width="150" height="28" rx="8"/>
+          <text class="t-cap" x="405" y="117" text-anchor="middle">publicidad</text>
+        </svg>
+        <figcaption>Una política de seguridad de contenido (CSP) impide que la página cargue código de otro dominio: ni analítica, ni fuentes externas, ni etiquetas de publicidad.</figcaption>
+      </figure>
     </section>
 
     <section id="licencia" class="doc-block">

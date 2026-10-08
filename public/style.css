@@ -1761,6 +1761,13 @@ a.btn-link { color: var(--teal); text-decoration: underline; text-underline-offs
 .fig .frame { fill: none; stroke: var(--slate); stroke-width: 1.2; stroke-dasharray: 4 4; opacity: .7; }
 .fig .hair { fill: none; stroke: var(--hairline); stroke-width: 1; }
 .fig .t-num { font-family: var(--display); font-size: 16px; fill: var(--ink); }
+.fig .t-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+.fig .ln-dash { stroke-dasharray: 4 4; }
+.fig .ln-danger { stroke: var(--danger); stroke-width: 2; }
+.fig .band-teal { fill: rgba(28,93,84,.14); }
+.fig .band-brass { fill: rgba(174,142,92,.22); }
+.fig .btn-fill { fill: var(--teal); }
+.fig .dot-hollow { fill: var(--surface); stroke: var(--slate); stroke-width: 1.4; }
 
 /* Regle dels terminis per defecte: 0 · 21 · 35, amb la franja d'avisos entre els dos últims. */
 .ruler { margin: 22px 0 6px; }
