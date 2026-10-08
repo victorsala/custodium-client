@@ -1,323 +1,327 @@
-# Custodium B2C · beta privada
+# Custodium B2C · beta
 
-Pla de successió digital per a una persona: què tens, on és, com s'hi accedeix i qui ho ha de rebre quan tu no puguis actuar. Xifrat al navegador. El servidor guarda el pla, mai les claus.
+Plan de sucesión digital para una persona: qué tienes, dónde está, cómo se accede y quién debe recibirlo cuando tú no puedas actuar. Cifrado en el navegador. El servidor guarda el plan, nunca las claves.
 
 - Web: https://custodium.space
-- Codi: github.com/victorsala/custodium-b2c (repo de treball, privat), publicat sencer com a mirall a [victorsala/custodium-client](https://github.com/victorsala/custodium-client) (client i servidor; llicència a `public/LICENSE`)
-- Estat: beta per a ús personal dels fundadors. No és un producte.
+- Código: github.com/victorsala/custodium-b2c (repo de trabajo, privado), publicado entero como espejo en [victorsala/custodium-client](https://github.com/victorsala/custodium-client) (cliente y servidor; licencia en `public/LICENSE`)
+- Estado: beta para uso personal de los fundadores. No es un producto.
 
 ---
 
-## 1. Què fa
+## 1. Qué hace
 
-1. **Un pla.** Una llista d'elements. Cada element és una cosa que algú hauria de saber: un compte, un document, un domini, una wallet. Té un títol, unes instruccions en text lliure i, si cal, fitxers adjunts.
-2. **Persones de confiança.** Cada element es pot assignar a una o diverses persones. Cada persona té la seva pròpia frase, diferent de la contrasenya del titular, i només pot obrir els elements que li corresponen.
-3. **Entrega.** Si el titular deixa de donar senyals de vida, el sistema l'avisa per correu (i per SMS, si ha posat el mòbil) i, si continua sense respondre, envia a cada persona un enllaç per obrir la seva part. També es pot entregar a mà, en vida.
-4. **Còpia fora de Custodium.** "Descargar copia cifrada" (a "Cuenta") baixa un zip xifrat amb tot i un obridor que funciona sense servidor ni internet. Custodium ha de ser prescindible: si el domini o l'empresa desapareixen, l'entrega es pot fer a mà.
+1. **Un plan.** Una lista de elementos. Cada elemento es algo que alguien debería saber: una cuenta, un documento, un dominio, una wallet. Tiene un título, unas instrucciones en texto libre y, si hace falta, archivos adjuntos.
+2. **Personas de confianza.** Cada elemento puede asignarse a una o varias personas. Cada persona tiene su propia frase, distinta de la contraseña del titular, y solo puede abrir los elementos que le corresponden.
+3. **Entrega.** Si el titular deja de dar señales de vida, el sistema le avisa por correo (y por SMS, si ha puesto el móvil) y, si sigue sin responder, envía a cada persona un enlace para abrir su parte. También se puede entregar a mano, en vida.
+4. **Copia fuera de Custodium.** "Descargar copia cifrada" (en "Cuenta") descarga un zip cifrado con todo y un abridor que funciona sin servidor ni internet. Custodium debe ser prescindible: si el dominio o la empresa desaparecen, la entrega puede hacerse a mano.
 
-El que **no** fa: no guarda contrasenyes ni claus en clar, no és un gestor de contrasenyes, no és un testament, no custodia actius. No té recuperació de contrasenya: qui la perd, perd el pla.
+Lo que **no** hace: no guarda contraseñas ni claves en claro, no es un gestor de contraseñas, no es un testamento, no custodia activos. No tiene recuperación de contraseña: quien la pierde, pierde el plan.
 
 ---
 
-## 2. Com funciona
+## 2. Cómo funciona
 
-### 2.1 Principi
+### 2.1 Principio
 
-Tot el que és sensible es xifra al navegador abans de sortir del dispositiu. El servidor rep i guarda bytes que no pot desxifrar. Això val per al pla, per als fitxers i per als paquets de cada persona.
+Todo lo sensible se cifra en el navegador antes de salir del dispositivo. El servidor recibe y guarda bytes que no puede descifrar. Esto vale para el plan, para los archivos y para los paquetes de cada persona.
 
-### 2.2 Claus
+### 2.2 Claves
 
-**Titular.** D'una sola contrasenya se'n deriven dues claus:
+**Titular.** De una sola contraseña se derivan dos claves:
 
 ```
-masterKey = PBKDF2-SHA256(contrasenya, salt = sal del compte, 600.000 iteracions)
-encKey    = HKDF(masterKey, "custodium-enc")   → AES-256-GCM. Xifra el pla. No surt mai del navegador.
-authHash  = HKDF(masterKey, "custodium-auth")  → 32 bytes. És l'únic que viatja al servidor, per entrar.
+masterKey = PBKDF2-SHA256(contraseña, salt = sal de la cuenta, 600.000 iteraciones)
+encKey    = HKDF(masterKey, "custodium-enc")   → AES-256-GCM. Cifra el plan. No sale nunca del navegador.
+authHash  = HKDF(masterKey, "custodium-auth")  → 32 bytes. Es lo único que viaja al servidor, para entrar.
 ```
 
-La **sal del compte** són 16 bytes (base64) que dóna el servidor: abans de crear el compte, d'entrar o de canviar la contrasenya, el client la demana a `GET /api/salt?email=` i deriva amb ella. Per a un email **sense** compte, la resposta és `HMAC-SHA256(SALT_PEPPER, email)` truncat a 16 bytes, amb `SALT_PEPPER` un secret del Worker. A l'alta, el servidor guarda exactament aquest valor a `users.kdf_salt`, i per a un email **amb** compte retorna el que té guardat. Així la resposta és idèntica abans i després de registrar un email: `/api/salt` no pot servir per saber si algú té compte. (Si la sal real fos aleatòria, la diferència entre l'HMAC d'abans i l'aleatòria de després delataria l'existència del compte.) La sal no és secreta, però sense el pepper ningú de fora pot calcular-la, és única per email, i dos titulars amb la mateixa contrasenya no comparteixen cap clau. Es guarda a la fila, en comptes de recalcular-la, perquè el compte sobrevisqui a un canvi de pepper i a un canvi de correu: un cop fixada, mana la fila. (Després d'un canvi de correu, `/api/salt` del correu nou retorna la sal fixada, no l'HMAC del correu nou: qui compari les dues pot deduir que aquell correu és d'un compte que va néixer amb una altra adreça. És el preu de no rexifrar el pla; assumit.) La còpia exportada porta la sal dins de `plan.json` perquè l'obridor autònom funcioni sense servidor.
+La **sal de la cuenta** son 16 bytes (base64) que da el servidor: antes de crear la cuenta, de entrar o de cambiar la contraseña, el cliente la pide a `GET /api/salt?email=` y deriva con ella. Para un email **sin** cuenta, la respuesta es `HMAC-SHA256(SALT_PEPPER, email)` truncado a 16 bytes, con `SALT_PEPPER` un secreto del Worker. En el alta, el servidor guarda exactamente ese valor en `users.kdf_salt`, y para un email **con** cuenta devuelve el que tiene guardado. Así la respuesta es idéntica antes y después de registrar un email: `/api/salt` no puede servir para saber si alguien tiene cuenta. (Si la sal real fuera aleatoria, la diferencia entre el HMAC de antes y la aleatoria de después delataría la existencia de la cuenta.) La sal no es secreta, pero sin el pepper nadie de fuera puede calcularla, es única por email, y dos titulares con la misma contraseña no comparten ninguna clave. Se guarda en la fila, en lugar de recalcularla, para que la cuenta sobreviva a un cambio de pepper y a un cambio de correo: una vez fijada, manda la fila. (Tras un cambio de correo, `/api/salt` del correo nuevo devuelve la sal fijada, no el HMAC del correo nuevo: quien compare las dos puede deducir que ese correo es de una cuenta que nació con otra dirección. Es el precio de no recifrar el plan; asumido.) La copia exportada lleva la sal dentro de `plan.json` para que el abridor autónomo funcione sin servidor.
 
-El servidor guarda `SHA-256(sal aleatòria || authHash)` (una segona sal, `auth_salt`, independent de la de derivació). Ni amb la base de dades a la mà es pot obtenir la contrasenya sense forçar-la a través de les 600.000 iteracions; i dos titulars amb la mateixa contrasenya no comparteixen cap clau.
+El servidor guarda `SHA-256(sal aleatoria || authHash)` (una segunda sal, `auth_salt`, independiente de la de derivación). Ni con la base de datos en la mano se puede obtener la contraseña sin forzarla a través de las 600.000 iteraciones; y dos titulares con la misma contraseña no comparten ninguna clave.
 
-**Persona de confiança.** De la seva frase, normalitzada (minúscules, sense accents, un espai entre paraules): `PBKDF2-SHA256(frase, salt = el seu email, 600.000 iteracions)` → clau AES-256. Es deriva un cop, quan el titular la crea, i es guarda **dins del pla del titular** (per tant xifrada amb encKey), juntament amb la frase mateixa. Així cada desat pot rexifrar el paquet sense tornar a demanar la frase, i el titular la pot tornar a veure. Guardar la frase no afegeix risc criptogràfic: qui pugui llegir el pla ja té la clau derivada. El servidor no veu mai ni l'una ni l'altra.
+**Persona de confianza.** De su frase, normalizada (minúsculas, sin acentos, un espacio entre palabras): `PBKDF2-SHA256(frase, salt = su email, 600.000 iteraciones)` → clave AES-256. Se deriva una vez, cuando el titular la crea, y se guarda **dentro del plan del titular** (por tanto cifrada con encKey), junto con la frase misma. Así cada guardado puede recifrar el paquete sin volver a pedir la frase, y el titular puede volver a verla. Guardar la frase no añade riesgo criptográfico: quien pueda leer el plan ya tiene la clave derivada. El servidor no ve nunca ni la una ni la otra.
 
-**Fitxers.** Cada fitxer té una clau aleatòria de 32 bytes. El fitxer xifrat és un sol objecte a R2; la clau viatja dins del pla del titular i dins del paquet de la persona que l'ha de rebre.
+**Archivos.** Cada archivo tiene una clave aleatoria de 32 bytes. El archivo cifrado es un solo objeto en R2; la clave viaja dentro del plan del titular y dentro del paquete de la persona que debe recibirlo.
 
-### 2.3 Què hi ha al servidor
+### 2.3 Qué hay en el servidor
 
-| On | Què | Pot llegir-ho el servidor? |
+| Dónde | Qué | ¿Puede leerlo el servidor? |
 | :--- | :--- | :--- |
-| D1 `users` | email, mòbil (opcional), sal de derivació de claus, hash d'autenticació amb sal, última senyal de vida, terminis, últim SMS | sí (dades personals) |
-| D1 `checkin_tokens` | hash de cada botó "Sigo aquí" enviat, amb caducitat | sí (només hashes) |
-| D1 `pending_signups` | altes en curs: email, hash amb sal del codi enviat, intents, codis enviats, caducitat | sí (mai el codi en clar) |
-| D1 `vaults` | el pla, xifrat amb encKey | no |
-| D1 `recipients` | email i mòbil (opcional) de la persona, el seu paquet xifrat, llista d'ids de fitxer, estat de l'entrega i recordatoris enviats | només email, mòbil, ids i estat |
-| D1 `release_tokens` | hash de cada enllaç d'obertura enviat, amb caducitat | sí (només hashes) |
-| D1 `files` | id i mida de cada fitxer | sí (només mida) |
-| D1 `events` | registre d'activitat: tipus d'acció, email de la persona si escau, país de la petició (mai IP ni user-agent), data | sí (dades personals) |
-| R2 | els bytes xifrats de cada fitxer, sota `userId/fileId` | no |
+| D1 `users` | email, móvil (opcional), sal de derivación de claves, hash de autenticación con sal, última señal de vida, plazos, último SMS | sí (datos personales) |
+| D1 `checkin_tokens` | hash de cada botón "Sigo aquí" enviado, con caducidad | sí (solo hashes) |
+| D1 `pending_signups` | altas en curso: email, hash con sal del código enviado, intentos, códigos enviados, caducidad | sí (nunca el código en claro) |
+| D1 `vaults` | el plan, cifrado con encKey | no |
+| D1 `recipients` | email y móvil (opcional) de la persona, su paquete cifrado, lista de ids de archivo, estado de la entrega y recordatorios enviados | solo email, móvil, ids y estado |
+| D1 `release_tokens` | hash de cada enlace de apertura enviado, con caducidad | sí (solo hashes) |
+| D1 `files` | id y tamaño de cada archivo | sí (solo tamaño) |
+| D1 `events` | registro de actividad: tipo de acción, email de la persona si procede, país de la petición (nunca IP ni user-agent), fecha | sí (datos personales) |
+| R2 | los bytes cifrados de cada archivo, bajo `userId/fileId` | no |
 
-Ni el nom ni el tipus dels fitxers arriben al servidor: viuen dins del pla.
+Ni el nombre ni el tipo de los archivos llegan al servidor: viven dentro del plan.
 
-Que el servidor no pugui llegir el contingut no vol dir que no tingui res: correus, mòbils, país de connexió, dates d'activitat i les relacions entre titular i persones de confiança són dades personals, i les d'una persona de confiança ho són d'algú que no ha obert cap compte. Es guarden perquè sense elles no es pot avisar ni entregar, no per cap altre motiu; s'esborren amb el compte (`DELETE /api/account`, backup inclòs). `public/legal.html` (avís legal, política de privacitat, cookies i condicions de la beta; enllaçada al peu de totes les pàgines) descriu quines són, per a què, qui hi accedeix i la retenció. No hi ha cap cookie ni res a l'emmagatzematge del navegador: la sessió viu en memòria.
+Que el servidor no pueda leer el contenido no significa que no tenga nada: correos, móviles, país de conexión, fechas de actividad y las relaciones entre titular y personas de confianza son datos personales, y los de una persona de confianza lo son de alguien que no ha abierto ninguna cuenta. Se guardan porque sin ellos no se puede avisar ni entregar, no por ningún otro motivo; se borran con la cuenta (`DELETE /api/account`, backup incluido). `public/legal.html` (aviso legal, política de privacidad, cookies y condiciones de la beta; enlazada en el pie de todas las páginas) describe cuáles son, para qué, quién accede a ellos y la retención. No hay ninguna cookie ni nada en el almacenamiento del navegador: la sesión vive en memoria.
 
-### 2.4 Format del pla (en clar, dins del navegador)
+### 2.4 Formato del plan (en claro, dentro del navegador)
 
 ```json
 {
   "v": 2,
   "recipients": [ { "id": "uuid", "name": "Roser", "email": "…", "phone": "+34…|null", "key": "base64", "phrase": "seis palabras", "createdAt": 0 } ],
   "items": [
-    { "id": "uuid", "title": "Compte a Indexa", "recipientIds": [ "uuid", "…" ],
-      "notes": "text lliure", "files": [ { "id": "uuid", "name": "x.pdf", "size": 1234, "key": "base64" } ],
+    { "id": "uuid", "title": "Cuenta en Indexa", "recipientIds": [ "uuid", "…" ],
+      "notes": "texto libre", "files": [ { "id": "uuid", "name": "x.pdf", "size": 1234, "key": "base64" } ],
       "updatedAt": 0 }
   ],
   "onboarding": { "exportedAt": 0, "plazosReviewed": 0, "dismissedAt": 0 }
 }
 ```
 
-`onboarding` és opcional: marques de la guia de primers passos (`exportedAt` en baixar una còpia, `plazosReviewed` en guardar els terminis un cop, `dismissedAt` en tancar la guia). La resta de passos es dedueixen del pla i de la configuració.
+`onboarding` es opcional: marcas de la guía de primeros pasos (`exportedAt` al descargar una copia, `plazosReviewed` al guardar los plazos una vez, `dismissedAt` al cerrar la guía). El resto de pasos se deducen del plan y de la configuración.
 
-Es xifra sencer com a `{ "v": 1, "iv": "base64 (12 bytes)", "ct": "base64" }`. Els fitxers es guarden com `iv (12 bytes) || ciphertext`.
+Se cifra entero como `{ "v": 1, "iv": "base64 (12 bytes)", "ct": "base64" }`. Los archivos se guardan como `iv (12 bytes) || ciphertext`.
 
-### 2.5 Paquets
+### 2.5 Paquetes
 
-A cada desat, per a cada persona, el navegador construeix `{ items: [ { title, notes, files: [ { id, name, size, key } ] } ] }` amb els elements que la inclouen (un element pot anar a diverses persones; la clau del fitxer viatja a cada paquet), el xifra amb la clau de la persona i el puja. El servidor guarda el paquet i la llista d'ids de fitxer que referencia (per servir-los després sense poder obrir-los).
+En cada guardado, para cada persona, el navegador construye `{ items: [ { title, notes, files: [ { id, name, size, key } ] } ] }` con los elementos que la incluyen (un elemento puede ir a varias personas; la clave del archivo viaja en cada paquete), lo cifra con la clave de la persona y lo sube. El servidor guarda el paquete y la lista de ids de archivo que referencia (para servirlos después sin poder abrirlos).
 
-### 2.6 Senyal de vida i entrega
+### 2.6 Señal de vida y entrega
 
-- **Senyal de vida:** qualsevol petició autenticada (entrar, editar) o el botó "Sigo aquí" del correu d'avís.
-- **Cron, dos cops al dia (08:00 i 20:00 UTC):** per a cada titular amb persones i paquets, segons el temps sense senyal:
-  - ≥ `warn_days` → correu d'avís ("¿sigues ahí?", amb el botó de `/aqui.html`) a **cada execució**, i SMS com a màxim un al dia si té mòbil. El correu diu a partir de quin dia s'entregarà (última senyal + `release_days`), i es compleix.
-  - ≥ `release_days`, amb almenys **dos** avisos entregats des de l'última senyal → entrega a totes les persones pendents. A partir d'aquí ja no hi ha "¿sigues ahí?": durant 5 dies, a cada execució, el titular rep "se ha entregado tu plan" (SMS un al dia) per si ha estat un fals positiu, i cada persona que no ha obert rep un recordatori amb l'enllaç als dies 1, 2, 4, 7, 10, 15, 21, 26, 33, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130 i 150 després de l'entrega (sense SMS). Entrar ho atura tot; els enllaços entregats continuen valent fins que el titular els anul·la des de Personas.
-  - `release_days` ha de ser com a mínim `warn_days + 3`: abans d'entregar hauran sortit sis avisos i tres SMS.
-- **Res es desa fins que el correu ha sortit.** Tant l'avís com l'entrega escriuen a la base de dades només després que Resend hagi acceptat el missatge. Si l'enviament falla no es desa res: l'avís no compta, la persona continua pendent i el cron ho torna a provar a l'execució següent. L'excepció són els recordatoris a les persones: un que Resend rebutja es dona per fet (queda a Actividad com "No se ha podido enviar el recordatorio") i es passa a la data següent, per no insistir dos cops al dia contra una adreça morta.
-- **`warn_count`** compta els avisos entregats i torna a zero amb qualsevol senyal de vida (entrar, qualsevol petició autenticada o el botó "Sigo aquí"). Exigir-ne dos vol dir que una sola incidència d'enviament no pot desencadenar una entrega: cal que el sistema hagi aconseguit avisar el titular dos cops i que ell no hagi respost cap de les dues vegades. Amb un avís a cada execució, això només frena l'entrega si el correu al titular no surt de cap manera.
-- **La notícia al titular** llista les adreces de les persones: el servidor no en sap els noms, que viuen dins del pla xifrat. Si Resend no l'accepta, es torna a provar a l'execució següent.
-- **Entrega:** cada correu que porta un enllaç (entrega, "Enviar de nuevo", recordatori) genera un token aleatori de 32 bytes nou; se'n guarda el hash a `release_tokens`, vàlid 90 dies des d'aquell correu, i **tots els enviats obren** fins que caduquen o s'anul·la l'accés. L'enllaç és `/abrir.html?t=…`; la persona escriu la frase, el navegador deriva la clau i desxifra el paquet i els fitxers. El servidor només sap quan s'ha obert un enllaç (baixat el paquet), no si la frase ha funcionat.
-- **Anular:** el titular pot anul·lar l'accés des de "Personas": s'esborren tots els enllaços de la persona. Entrar de nou no anul·la res automàticament.
-- **Pausa d'emergència:** amb la fila `pause_releases` de la taula `system` (D1) a `'1'`, el cron continua avisant però no entrega res; s'activa amb un `UPDATE`, sense deploy (vegeu §5). Les entregues manuals ("Entregar ahora") no es pausen.
-- El botó "Sigo aquí" és un botó de veritat (POST), no l'enllaç: els escàners de correu obren enllaços sols i comptarien com a senyal. Cada avís porta el seu botó (`checkin_tokens`) i tots els del període valen: un botó serveix mentre no ha caducat i no hi ha hagut cap senyal de vida després d'enviar-lo.
-- Els correus mai contenen contingut, només enllaços (i, a l'alta, el codi de sis xifres). Surten de `avisos@custodium.space` via Resend. Cada correu surt en text pla i en HTML amb la mateixa plantilla per a tots (`mailHtml` a `src/index.js`: capçalera en teal fosc amb un filet de llautó, targeta blanc càlid (#FBFAF8) sobre un fons quasi neutre, botó teal, taules i estils en línia, Georgia en lloc de Fraunces, cap imatge; els clients que entenen `prefers-color-scheme` reben una versió fosca dissenyada, i a Gmail mòbil, que inverteix els fons clars pel seu compte, el blanc neutre surt d'un gris net en lloc del marfil invertit). El text és la font de veritat: és el que comproven els tests i el que veu qui llegeix en text.
-- **SMS** (opcional, si hi ha mòbil): al titular, amb l'avís i amb la notícia d'entrega, com a màxim un al dia; a la persona, només en entregar ("te ha llegado un correo; mira también el spam"), no amb els recordatoris. Sense enllaços ni accents. Canal independent del correu: cobreix el filtre de spam i el compte de correu compromès. Un error d'SMS no atura res.
+- **Señal de vida:** cualquier petición autenticada (entrar, editar) o el botón "Sigo aquí" del correo de aviso.
+- **Plazos por defecto de una cuenta nueva:** `warn_days` 21 y `release_days` 35 (`DEFAULT_WARN_DAYS` y `DEFAULT_RELEASE_DAYS` en `src/index.js`, escritos en la fila al crearla: la DEFAULT del esquema solo cuenta para filas insertadas a mano, porque la tabla viva conserva la DEFAULT con la que se creó). Cambiarlos no toca las cuentas existentes: cada una conserva los suyos. Las páginas de visitante y los textos de Cuenta los citan: si cambian, hay que revisarlos.
+- **Cron, dos veces al día (08:00 y 20:00 UTC):** para cada titular con personas y paquetes, según el tiempo sin señal:
+  - ≥ `warn_days` → correo de aviso ("¿sigues ahí?", con el botón de `/aqui.html`) en **cada ejecución**, y SMS como máximo uno al día si tiene móvil. El correo dice a partir de qué día se entregará (última señal + `release_days`), y se cumple.
+  - ≥ `release_days`, con al menos **dos** avisos entregados desde la última señal → entrega a todas las personas pendientes. A partir de ahí ya no hay "¿sigues ahí?": durante 5 días, en cada ejecución, el titular recibe "se ha entregado tu plan" (SMS uno al día) por si ha sido un falso positivo, y cada persona que no ha abierto recibe un recordatorio con el enlace los días 1, 2, 4, 7, 10, 15, 21, 26, 33, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130 y 150 después de la entrega (sin SMS). Entrar lo detiene todo; los enlaces entregados siguen valiendo hasta que el titular los anula desde Personas.
+  - `release_days` debe ser como mínimo `warn_days + 3`: antes de entregar habrán salido seis avisos y tres SMS.
+- **Nada se guarda hasta que el correo ha salido.** Tanto el aviso como la entrega escriben en la base de datos solo después de que Resend haya aceptado el mensaje. Si el envío falla no se guarda nada: el aviso no cuenta, la persona sigue pendiente y el cron lo vuelve a intentar en la ejecución siguiente. La excepción son los recordatorios a las personas: uno que Resend rechaza se da por hecho (queda en Actividad como "No se ha podido enviar el recordatorio") y se pasa a la fecha siguiente, para no insistir dos veces al día contra una dirección muerta.
+- **`warn_count`** cuenta los avisos entregados y vuelve a cero con cualquier señal de vida (entrar, cualquier petición autenticada o el botón "Sigo aquí"). Exigir dos significa que una sola incidencia de envío no puede desencadenar una entrega: hace falta que el sistema haya conseguido avisar al titular dos veces y que él no haya respondido ninguna de las dos. Con un aviso en cada ejecución, esto solo frena la entrega si el correo al titular no sale de ninguna manera.
+- **La noticia al titular** lista las direcciones de las personas: el servidor no sabe sus nombres, que viven dentro del plan cifrado. Si Resend no la acepta, se vuelve a intentar en la ejecución siguiente.
+- **Entrega:** cada correo que lleva un enlace (entrega, "Enviar de nuevo", recordatorio) genera un token aleatorio de 32 bytes nuevo; se guarda su hash en `release_tokens`, válido 100 días desde ese correo, y **todos los enviados abren** hasta que caducan o se anula el acceso. El enlace es `/abrir.html?t=…`; la persona escribe la frase, el navegador deriva la clave y descifra el paquete y los archivos. El servidor solo sabe cuándo se ha abierto un enlace (descargado el paquete), no si la frase ha funcionado.
+- **Anular:** el titular puede anular el acceso desde "Personas": se borran todos los enlaces de la persona. Volver a entrar no anula nada automáticamente.
+- **Pausa de emergencia:** con la fila `pause_releases` de la tabla `system` (D1) a `'1'`, el cron sigue avisando pero no entrega nada; se activa con un `UPDATE`, sin deploy (véase §5). Las entregas manuales ("Entregar ahora") no se pausan.
+- El botón "Sigo aquí" es un botón de verdad (POST), no el enlace: los escáneres de correo abren enlaces solos y contarían como señal. Cada aviso lleva su botón (`checkin_tokens`) y todos los del periodo valen: un botón sirve mientras no ha caducado y no ha habido ninguna señal de vida después de enviarlo.
+- Los correos nunca contienen contenido, solo enlaces (y, en el alta, el código de seis cifras). Salen de `avisos@custodium.space` vía Resend. Cada correo sale en texto plano y en HTML con la misma plantilla para todos (`mailHtml` en `src/index.js`: cabecera en teal oscuro con un filete de latón, tarjeta blanco cálido (#FBFAF8) sobre un fondo casi neutro, botón teal, tablas y estilos en línea, Georgia en lugar de Fraunces, ninguna imagen; los clientes que entienden `prefers-color-scheme` reciben una versión oscura diseñada, y en Gmail móvil, que invierte los fondos claros por su cuenta, el blanco neutro sale de un gris limpio en lugar del marfil invertido). El texto es la fuente de verdad: es lo que comprueban los tests y lo que ve quien lee en texto.
+- **SMS** (opcional, si hay móvil): al titular, con el aviso y con la noticia de entrega, como máximo uno al día; a la persona, solo al entregar ("te ha llegado un correo; mira también el spam"), no con los recordatorios. Sin enlaces ni acentos. Canal independiente del correo: cubre el filtro de spam y la cuenta de correo comprometida. Un error de SMS no detiene nada.
 
 ### 2.7 API
 
 ```
-GET    /api/salt?email=             —                             { salt }   sal del compte; indistingible si l'email no existeix
-POST   /api/register/start          { email }                     { ok } | 429 too_many_codes   envia el codi (§3); 3 per email i hora
+GET    /api/salt?email=             —                             { salt }   sal de la cuenta; indistinguible si el email no existe
+POST   /api/register/start          { email }                     { ok } | 429 too_many_codes   envía el código (§3); 3 por email y hora
 POST   /api/register                { email, authHash, code }     201 | 400 invalid_code | code_expired | too_many_attempts
 POST   /api/login                   { email, authHash }           { token, expiresAt } | 401
 DELETE /api/session                 Bearer                        { ok }
-DELETE /api/sessions                Bearer                        { ok }   tanca les altres sessions
-DELETE /api/account                 { authHash }                  { ok } | 401   esborra el compte sencer (R2, backup i D1)
+DELETE /api/sessions                Bearer                        { ok }   cierra las demás sesiones
+DELETE /api/account                 { authHash }                  { ok } | 401   borra la cuenta entera (R2, backup y D1)
 POST   /api/password                { authHash, newAuthHash, blob, version }  { token, version } | 401 | 409
-POST   /api/email/start             { newEmail }  Bearer         { ok } | 429   codi al correu nou; mateixa taula i límits que l'alta
+POST   /api/email/start             { newEmail }  Bearer         { ok } | 429   código al correo nuevo; misma tabla y límites que el alta
 POST   /api/email                   { authHash, newEmail, code }  Bearer  { ok } | 401 | 400 invalid_code | code_expired | too_many_attempts
 GET    /api/vault                   Bearer                        { blob, version, updatedAt } | 404
 PUT    /api/vault                   { blob, version }             { version } | 409 version_conflict
 PUT    /api/files/:id               bytes (octet-stream)          201 | 413 | 507 quota
 GET    /api/files/:id               Bearer                        bytes | 404
 DELETE /api/files/:id               Bearer                        { ok }
-POST   /api/files/reconcile         { ids, version }              { deleted } | 409 version_conflict; orfes de >7 dies no inclosos
-GET    /api/events                  Bearer                        { events: [ { kind, detail, country, createdAt } ] }   últims 50
+POST   /api/files/reconcile         { ids, version }              { deleted } | 409 version_conflict; huérfanos de >7 días no incluidos
+GET    /api/events                  Bearer                        { events: [ { kind, detail, country, createdAt } ] }   últimos 50
 GET    /api/settings                Bearer                        { warnDays, releaseDays, phone, lastSeen }
 PUT    /api/settings                { warnDays?, releaseDays?, phone? }  { ok }
 GET    /api/recipients              Bearer                        { recipients: [ { id, email, releasedAt, openedAt, expiresAt, revokedAt, reminders } ] }
 PUT    /api/recipients/:id          { email, phone?, package, fileIds }  { ok }
 DELETE /api/recipients/:id          Bearer                        { ok }
-POST   /api/recipients/:id/release  Bearer                        { ok }   envia l'enllaç ara
-POST   /api/recipients/:id/revoke   Bearer                        { ok }   anul·la l'enllaç
-POST   /api/checkin                 { token }                     { ok }   botó del correu d'avís
+POST   /api/recipients/:id/release  Bearer                        { ok }   envía el enlace ahora
+POST   /api/recipients/:id/revoke   Bearer                        { ok }   anula el enlace
+POST   /api/checkin                 { token }                     { ok }   botón del correo de aviso
 GET    /api/release/:token          —                             { from, email, package } | 404
 GET    /api/release/:token/files/:id  —                           bytes | 404
 GET    /api/env                     —                             { env }   "production" | "staging"
 ```
 
-Alta amb verificació de l'email: `/api/register/start` genera un codi de sis xifres, en guarda `SHA-256(sal || codi)` a `pending_signups` (caduca als 15 minuts) i l'envia per correu. Si l'email ja té compte no envia cap codi sinó "Ya existe una cuenta con este correo" (amb l'enllaç per entrar i el recordatori que la contrasenya no es pot recuperar), però la resposta és la mateixa (`200 { ok }`) i la fila es crea igual sense codi, perquè ni la resposta ni el límit de codis diguin si el compte existeix. `/api/register` compara el codi en temps constant i compta els intents: a la cinquena fallada el codi queda inservible (`too_many_attempts`) i cal demanar-ne un de nou; només amb el codi bo es crea l'usuari (amb la seva `kdf_salt`) i s'esborra la fila. Per això no hi ha cap `409 email_exists`: per a un email amb compte no existeix cap codi vàlid, i la resposta és la d'un codi dolent. El cron esborra les files amb el codi caducat i la finestra del límit (una hora) passada.
+Alta con verificación del email: `/api/register/start` genera un código de seis cifras, guarda `SHA-256(sal || código)` en `pending_signups` (caduca a los 15 minutos) y lo envía por correo. Si el email ya tiene cuenta no envía ningún código sino "Ya existe una cuenta con este correo" (con el enlace para entrar y el recordatorio de que la contraseña no se puede recuperar), pero la respuesta es la misma (`200 { ok }`) y la fila se crea igual sin código, para que ni la respuesta ni el límite de códigos digan si la cuenta existe. `/api/register` compara el código en tiempo constante y cuenta los intentos: al quinto fallo el código queda inservible (`too_many_attempts`) y hay que pedir uno nuevo; solo con el código bueno se crea el usuario (con su `kdf_salt`) y se borra la fila. Por eso no hay ningún `409 email_exists`: para un email con cuenta no existe ningún código válido, y la respuesta es la de un código malo. El cron borra las filas con el código caducado y la ventana del límite (una hora) pasada.
 
-Canvi de correu, amb el mateix mecanisme: `/api/email/start` (amb sessió) envia el codi al correu **nou** (o "ya tienes cuenta", si ja en té; resposta igual) i `/api/email` exigeix la contrasenya actual (`authHash`) i el codi. Si el correu nou ja té compte, la resposta és la d'un codi dolent i el correu nou rep "ya tienes cuenta": no es revela res. Amb tot bé: s'actualitza `email`, es tanquen les altres sessions, es registra `email_changed` (amb el correu nou com a detall) i l'adreça antiga rep "Tu correo de Custodium ha pasado a ser …. Si no has sido tú, escríbenos a …" (`MAIL_CONTACT` a `wrangler.toml`), sense cap enllaç de desfer. La sal de derivació no canvia (§2.2), així que les claus i el pla queden com estaven; l'obridor de la còpia tampoc en depèn.
+Cambio de correo, con el mismo mecanismo: `/api/email/start` (con sesión) envía el código al correo **nuevo** (o "ya tienes cuenta", si ya la tiene; respuesta igual) y `/api/email` exige la contraseña actual (`authHash`) y el código. Si el correo nuevo ya tiene cuenta, la respuesta es la de un código malo y el correo nuevo recibe "ya tienes cuenta": no se revela nada. Con todo bien: se actualiza `email`, se cierran las demás sesiones, se registra `email_changed` (con el correo nuevo como detalle) y la dirección antigua recibe "Tu correo de Custodium ha pasado a ser …. Si no has sido tú, escríbenos a …" (`MAIL_CONTACT` en `wrangler.toml`), sin ningún enlace de deshacer. La sal de derivación no cambia (§2.2), así que las claves y el plan quedan como estaban; el abridor de la copia tampoco depende de ella.
 
-Sessió: token aleatori de 32 bytes, 24 hores, guardat hashejat; cada petició autenticada la renova, així que només caduca després d'un dia sencer sense obrir el pla. Límits: pla 1 MB, fitxer 50 MB, 1 GB per titular, 20 persones (`too_many_recipients`). Concurrència optimista al pla (`version`): dos dispositius no es trepitgen.
+Sesión: token aleatorio de 32 bytes, 24 horas, guardado hasheado; cada petición autenticada la renueva, así que solo caduca tras un día entero sin abrir el plan. Límites: plan 1 MB, archivo 50 MB, 1 GB por titular, 20 personas (`too_many_recipients`). Concurrencia optimista en el plan (`version`): dos dispositivos no se pisan.
 
-### 2.8 Client
+### 2.8 Cliente
 
-Sense frameworks ni dependències. Tot l'estat viu en memòria: tancar la pestanya tanca el pla; 15 minuts d'inactivitat també. `_headers` fixa una CSP estricta: scripts, estils, fonts i connexions només del propi origen, sense iframes. Les fonts (Fraunces i Inter, variables, subconjunt llatí) són a `public/fonts/`: el client no fa cap petició a tercers. A staging, `app.js` pregunta `/api/env` i mostra una franja fixa d'avís ("Entorno de pruebas · los datos pueden borrarse sin aviso"); a producció no apareix mai.
+Sin frameworks ni dependencias. Todo el estado vive en memoria: cerrar la pestaña cierra el plan; 15 minutos de inactividad también. `_headers` fija una CSP estricta: scripts, estilos, fuentes y conexiones solo del propio origen, sin iframes. Las fuentes (Fraunces e Inter, variables, subconjunto latino) están en `public/fonts/`: el cliente no hace ninguna petición a terceros. En staging, `app.js` pregunta `/api/env` y muestra una franja fija de aviso ("Entorno de pruebas · los datos pueden borrarse sin aviso"); en producción no aparece nunca.
 
-**Portada.** Sense sessió (entrada i alta), `main` s'eixampla (`body.is-entry`, que posa `showScreen`) i el formulari va en una targeta a l'esquerra, amb una presentació del producte a la dreta (què és, un exemple de pla amb dades fictícies, què no és) i quatre pilars a sota. L'exemple és el mateix tauler que la web B2B: HTML a `index.html` i, a `portada.js`, les línies element → persona (un SVG que es dibuixa un cop i es recalcula si canvia la mida; amb `prefers-reduced-motion` no hi ha moviment). Dins de l'app no existeix res d'això. El formulari va primer al DOM: al mòbil queda sol a dalt i el focus hi entra igual que abans.
+**Portada.** Sin sesión (entrada y alta), `main` se ensancha (`body.is-entry`, que pone `showScreen`) y el formulario va en una tarjeta a la izquierda, con una presentación del producto a la derecha (qué es, un ejemplo de plan con datos ficticios, qué no es) y cuatro pilares debajo. El ejemplo es el mismo tablero que la web B2B: HTML en `index.html` y, en `portada.js`, las líneas elemento → persona (un SVG que se dibuja una vez y se recalcula si cambia el tamaño; con `prefers-reduced-motion` no hay movimiento). Dentro de la app no existe nada de esto. El formulario va primero en el DOM: en el móvil queda solo arriba y el foco entra igual que antes.
 
-**Rutes.** La pantalla viu al fragment de l'URL, que el servidor no veu mai: `#/plan` (per defecte), `#/elemento/nuevo`, `#/elemento/<id>`, `#/personas`, `#/persona/nueva`, `#/persona/<id>`, `#/cuenta` i `#/crear-cuenta` (`public/routes.js`: `parseRoute` i `routeHash`, pures, provades a `test/routes.test.js`). Al fragment només hi van noms de pantalla i ids (UUIDs generats al navegador): cap token ni cap dada. Dos sentits: l'app canvia de pantalla amb `navigate(ruta)` (`history.pushState` i pintar), i enrere, endavant o una URL escrita a mà disparen `hashchange` i es pinta la ruta que porta; així el navegador funciona com a qualsevol web (enrere, endavant, recarregar, enllaçar). Sense sessió (enllaç directe, recàrrega, bloqueig per inactivitat) es mostra l'entrada amb la ruta al fragment i, en entrar, s'hi va. Sortir d'un editor per qualsevol via (enrere inclòs) el tanca com «Cancelar» (els fitxers pujats i no desats s'esborren) i, si hi ha canvis sense desar, demana confirmació abans; el mateix criteri val per a l'avís en tancar la pestanya. «Cancelar», «Listo» i les baixes tornen a l'entrada anterior de l'historial (l'editor no hi queda) o, si s'hi ha arribat per enllaç directe, a la llista que li toca. Un id que ja no és al pla avisa i porta a la llista. `abrir.html` i `aqui.html` no tenen rutes.
+**Rutas.** La pantalla vive en el fragmento de la URL, que el servidor no ve nunca: `#/plan` (por defecto), `#/elemento/nuevo`, `#/elemento/<id>`, `#/personas`, `#/persona/nueva`, `#/persona/<id>`, `#/cuenta` y `#/crear-cuenta` (`public/routes.js`: `parseRoute` y `routeHash`, puras, probadas en `test/routes.test.js`). En el fragmento solo van nombres de pantalla e ids (UUID generados en el navegador): ningún token ni ningún dato. Dos sentidos: la app cambia de pantalla con `navigate(ruta)` (`history.pushState` y pintar), y atrás, adelante o una URL escrita a mano disparan `hashchange` y se pinta la ruta que lleva; así el navegador funciona como en cualquier web (atrás, adelante, recargar, enlazar). Sin sesión (enlace directo, recarga, bloqueo por inactividad) se muestra la entrada con la ruta en el fragmento y, al entrar, se va a ella. Salir de un editor por cualquier vía (atrás incluido) lo cierra como «Cancelar» (los archivos subidos y no guardados se borran) y, si hay cambios sin guardar, pide confirmación antes; el mismo criterio vale para el aviso al cerrar la pestaña. «Cancelar», «Listo» y las bajas vuelven a la entrada anterior del historial (el editor no queda en él) o, si se ha llegado por enlace directo, a la lista que le toca. Un id que ya no está en el plan avisa y lleva a la lista. `abrir.html` y `aqui.html` no tienen rutas.
 
-Fitxers orfes: si es tanca la pestanya a mitja edició, un fitxer pujat pot quedar al servidor sense que cap pla l'apunti. En obrir el pla, el client envia la llista d'ids vius i la versió del pla (`POST /api/files/reconcile`); el servidor només esborra els d'aquell usuari que no hi siguin i tinguin més de 7 dies si aquella versió encara és l'actual. Amb un `409 version_conflict` no esborra res.
+Archivos huérfanos: si se cierra la pestaña a media edición, un archivo subido puede quedar en el servidor sin que ningún plan lo apunte. Al abrir el plan, el cliente envía la lista de ids vivos y la versión del plan (`POST /api/files/reconcile`); el servidor solo borra los de ese usuario que no estén en ella y tengan más de 7 días si esa versión sigue siendo la actual. Con un `409 version_conflict` no borra nada.
+
+**Páginas de visitante.** Mientras no hay sesión, la cabecera muestra una navegación (`.visitor-nav`, oculta por CSS cuando `#top-nav` es visible) hacia cuatro páginas estáticas, sin script, pensadas para quien llega desde un anuncio: `como-funciona` (el plan, las personas, la línea de tiempo de los avisos y la entrega con los valores por defecto, la copia, cómo probarlo), `seguridad` (qué puede y qué no puede leer el servidor, qué pasaría con una brecha, contraseña perdida, correos y SMS, límites conocidos y parámetros criptográficos), `codigo` (el espejo público, las órdenes de verificación, qué no se puede verificar, licencia, cómo avisar de un error) y `preguntas` (precio y beta, qué es y qué no, avisos, personas, límites, quién hay detrás). `legal` lleva el aviso legal, la política de privacidad, las cookies (no hay) y las condiciones de la beta. Todas comparten cabecera, pie y la llamada final «Crear una cuenta» (`/#/crear-cuenta`). Los hechos que explican (plazos, límites, qué guarda el servidor) salen de este README: si cambia el comportamiento, hay que revisarlas. `test/pages.test.js` comprueba que ningún enlace interno quede roto y que todas lleven la navegación y el pie legal.
 
 ---
 
-## 3. Manual d'ús
+## 3. Manual de uso
 
 ### Titular
 
-1. **Crear compte**, en dos passos. (1) Email → "Enviar código": arriba un correu amb un codi de sis xifres que caduca en 15 minuts (si l'email ja té compte, arriba un correu que ho diu i cap codi; la pantalla no ho distingeix). (2) "Te hemos enviado un código a …": el codi i la contrasenya. Els camps de contrasenya surten ja omplerts amb una frase de sis paraules generada al navegador, visible, amb l'avís "Apúntala antes de continuar"; l'enllaç "prefiero escribir la mía" buida els camps, els oculta i exigeix 16+ caràcters. "No me ha llegado" envia un altre codi (només val l'últim; tres per hora com a màxim); "Cambiar el email" torna al pas 1. Cinc codis equivocats i cal demanar-ne un de nou. Les claus es deriven només al pas 2. No hi ha recuperació de la contrasenya: guarda-la al gestor de contrasenyes.
-   - **Primers passos.** Sota la intro de "Tu plan", un bloc "Primeros pasos" amb sis caselles (contrasenya guardada, una persona, primer element, mòbil per als avisos, terminis revisats, còpia baixada), cadascuna deduïda del pla o de la configuració (cap dada nova al servidor; "terminis revisats" i "còpia baixada" són marques dins del pla xifrat, la primera en prémer "Guardar plazos" un cop). Cada pas pendent enllaça a l'acció. Desapareix quan les sis estan fetes o en tancar-lo amb la X (`onboarding.dismissedAt`, no torna a sortir). Mentre és visible no es mostra "Aún no hay nada".
-2. **Afegir elements.** "+ Añadir elemento": què és, persones que l'han de rebre (caselles; cap = només per a tu), instruccions, fitxers (fins a 50 MB). El desplegable "Empezar desde una plantilla (opcional)" omple el títol (si és buit) i les instruccions amb un guió. Vint-i-una plantilles en quatre grups (cuentas y accesos · dinero y patrimonio · casa y documentos · trabajo, personas y otros), a `public/templates.js` (`{ id, group, name, title, notes }`); s'hi afegeixen sense tocar `app.js`. "Listo" xifra i desa al moment. No hi ha botó de desar. "Cancelar" torna a la pantalla anterior. A "Tu plan" cada element és una fitxa: el títol (retallat a 35 caràcters) amb «Editar» al costat, les instruccions retallades a dues línies («Leer más» les desplega, només si no hi caben), un botó per baixar cada fitxer amb el tipus (PDF, MP3…) i, al peu, les persones que l'han de rebre (inicial i nom, fins a quatre) i la data del darrer canvi. Les dues fletxes de cada fitxa pugen o baixen l'element una posició: l'ordre és el de l'array del pla i es desa com qualsevol altre canvi.
-3. **Persones.** "+ Añadir persona": nom, email, mòbil opcional (per a l'SMS d'avís) i frase. La frase la genera sempre el sistema, sis paraules a l'atzar (llista BIP39 en castellà, 2.048 paraules → 66 bits), tipus `ebano deporte nacar cien organo vagar`; no es pot escriure a mà ("Generar otra" en dona una altra). Escriu-les en paper i dona-l'hi en persona; mai per missatge. En obrir, no importen majúscules, accents ni espais. La frase queda guardada dins del teu pla (xifrada, com la resta): "Mostrar frase" la torna a ensenyar després de demanar-te la contrasenya, durant un minut, per comprovar el paper o tornar-lo a escriure.
-4. **Terminis.** A "Cuenta → Definir entrega por inactividad", dos passos en vertical: (1) "Primero, te avisamos a ti", amb els dies fins al primer avís (8 per defecte) i què arribarà (2 correus al dia; 1 SMS al dia si hi ha mòbil); (2) "Si no respondes, entregamos el plan", amb els dies fins a l'entrega (21). L'entrega ha de ser com a mínim tres dies després del primer avís (ho diu al costat del camp). Sota, la **previsió** amb les dues dates, calculades com les calcula el servidor: el dia de la primera execució del cron (08:00 o 20:00 UTC) a partir de l'última entrada o confirmació més cada termini; mentre s'editen els dies canvia al moment i diu "pendiente de guardar" fins que es prem "Guardar plazos". Els dos terminis compten des de l'última activitat o confirmació, no un després de l'altre; entrar o pulsar "Sigo aquí" (el de qualsevol avís) els reinicia.
-5. **Entregar ara.** A cada persona, "Entregar ahora" envia l'enllaç immediatament. Serveix per provar i com a entrega voluntària. "Anular enlace" el desactiva.
-6. **Estat.** A "Personas", cada persona és una fitxa: la inicial, el nom amb «Editar», el correu i el mòbil, i al peu els elements assignats (en prémer-ho es veuen els títols) i l'estat de l'entrega amb la data. Cada persona mostra un estat concret: *Sin elementos asignados* · *Sin entregar* · *Acceso enviado* · *Acceso abierto* · *Enlace caducado* · *Enlace anulado* (mai "recibido" o "leído": obrir un accés no demostra haver-ho llegit tot). Dins de la fitxa (Editar): Mostrar frase, Entregar ahora / Enviar de nuevo (envia un enllaç nou; els anteriors continuen valent), Anular enlace (els esborra tots), Quitar persona; després d'una entrega automàtica, també quants recordatoris s'han enviat. Si hi ha alguna entrega activa, "Tu plan" ho avisa amb una franja en entrar, per si ha estat un fals positiu.
-7. **Cuenta.** A dalt, «En esta página»: un enllaç per fitxa (generats dels títols) que desplacen fins a la fitxa i hi posen el focus, sense tocar el fragment de l'URL. Tot en fitxes, en aquest ordre: el correu del compte; el mòbil per als avisos per SMS («Guardar móvil» només s'activa quan el camp canvia; buit i guardat, el mòbil s'esborra); els terminis d'entrega (punt 4); la còpia fora de Custodium (punt 10); el canvi de contrasenya; les sessions; l'activitat recent; el canvi de correu; i l'eliminació del compte. **Cambiar el correo** (una fitxa que canvia d'estat), en dos passos com l'alta: el correu nou → "Enviar código" (hi arriba un codi de sis xifres, 15 minuts, tres per hora); després el codi i la contrasenya actual → "Cambiar el correo". Es tanquen les altres sessions, l'adreça anterior rep un avís (sense enllaç de desfer) i queda registrat a Actividad. "Los avisos y la entrega dependen de este correo. Úsalo solo si lo consultas habitualmente." La nova contrasenya es proposa igual que en crear el compte (frase de sis paraules visible, o «Prefiero escribir mi contraseña»); la casella «He guardado mi nueva contraseña» és la que activa el botó. El pla es rexifra al navegador amb la nova; persones i fitxers no es toquen; les altres sessions es tanquen. "Cerrar las demás sesiones" (fitxa «Sesiones») tanca el pla a qualsevol altre dispositiu on s'hagi obert, sense tocar la sessió actual. Més endavant, aquí hi aniran dades de contacte i pagament.
-8. **Actividad reciente** (a Cuenta). El que el servidor ha registrat del compte (entrades, intents fallits contra el teu email, canvis, avisos, entregues i obertures), amb data, hora i país de la petició — mai IP ni user-agent — per detectar accessos que no reconeguis. Se'n guarden els 200 més recents; el servidor n'envia 50 i la fitxa els mostra de vuit en vuit, amb un filtre (tota l'activitat, entrades i sessions, canvis del compte, avisos i entregues) que actua sobre aquests 50.
-9. **Eliminar la cuenta** (final de Cuenta, en una fitxa en to de perill). Demana la contrasenya actual (amb «Mostrar») i la casella «Entiendo que se eliminará mi cuenta…», que és la que activa el botó; llavors esborra el pla, els fitxers (també de la còpia de seguretat), les persones i el registre; els enllaços enviats deixen de funcionar. No es pot desfer.
-10. **Una copia fuera de Custodium** (fitxa a "Cuenta", botó "Descargar copia cifrada"). Baixa un zip amb: el teu pla xifrat (`plan.json`, amb la sal del compte dins perquè l'obridor no necessiti el servidor), un paquet xifrat per persona (`paquetes/`), tots els fitxers xifrats (`archivos/`), l'obridor `abrir.html` i un `LEEME.txt`. Tot hi és xifrat: el zip es pot deixar en un USB, al núvol o al notari. Torna a baixar-la quan facis canvis importants.
+1. **Crear cuenta**, en dos pasos. (1) Email → "Enviar código": llega un correo con un código de seis cifras que caduca en 15 minutos (si el email ya tiene cuenta, llega un correo que lo dice y ningún código; la pantalla no lo distingue). (2) "Te hemos enviado un código a …": el código y la contraseña. Los campos de contraseña salen ya rellenos con una frase de seis palabras generada en el navegador, visible, con el aviso "Apúntala antes de continuar"; el enlace "prefiero escribir la mía" vacía los campos, los oculta y exige 16+ caracteres. "No me ha llegado" envía otro código (solo vale el último; tres por hora como máximo); "Cambiar el email" vuelve al paso 1. Cinco códigos equivocados y hay que pedir uno nuevo. Las claves se derivan solo en el paso 2. No hay recuperación de la contraseña: guárdala en el gestor de contraseñas.
+   - **Primeros pasos.** Bajo la intro de "Tu plan", un bloque "Primeros pasos" con seis casillas (contraseña guardada, una persona, primer elemento, móvil para los avisos, plazos revisados, copia descargada), cada una deducida del plan o de la configuración (ningún dato nuevo en el servidor; "plazos revisados" y "copia descargada" son marcas dentro del plan cifrado, la primera al pulsar "Guardar plazos" una vez). Cada paso pendiente enlaza a la acción. Desaparece cuando las seis están hechas o al cerrarlo con la X (`onboarding.dismissedAt`, no vuelve a salir). Mientras es visible no se muestra "Aún no hay nada".
+2. **Añadir elementos.** "+ Añadir elemento": qué es, personas que deben recibirlo (casillas; ninguna = solo para ti), instrucciones, archivos (hasta 50 MB). El desplegable "Empezar desde una plantilla (opcional)" rellena el título (si está vacío) y las instrucciones con un guion. Veintiuna plantillas en cuatro grupos (cuentas y accesos · dinero y patrimonio · casa y documentos · trabajo, personas y otros), en `public/templates.js` (`{ id, group, name, title, notes }`); se añaden sin tocar `app.js`. "Listo" cifra y guarda al momento. No hay botón de guardar. "Cancelar" vuelve a la pantalla anterior. En "Tu plan" cada elemento es una ficha: el título (recortado a 35 caracteres) con «Editar» al lado, las instrucciones recortadas a dos líneas («Leer más» las despliega, solo si no caben), un botón para descargar cada archivo con el tipo (PDF, MP3…) y, al pie, las personas que deben recibirlo (inicial y nombre, hasta cuatro) y la fecha del último cambio. Las dos flechas de cada ficha suben o bajan el elemento una posición: el orden es el del array del plan y se guarda como cualquier otro cambio.
+3. **Personas.** "+ Añadir persona": nombre, email, móvil opcional (para el SMS de aviso) y frase. La frase la genera siempre el sistema, seis palabras al azar (lista BIP39 en castellano, 2.048 palabras → 66 bits), del tipo `ebano deporte nacar cien organo vagar`; no se puede escribir a mano ("Generar otra" da otra). Escríbelas en papel y dáselas en persona; nunca por mensaje. Al abrir, no importan mayúsculas, acentos ni espacios. La frase queda guardada dentro de tu plan (cifrada, como el resto): "Mostrar frase" la vuelve a enseñar tras pedirte la contraseña, durante un minuto, para comprobar el papel o volver a escribirlo.
+4. **Plazos.** En "Cuenta → Definir entrega por inactividad", dos pasos en vertical: (1) "Primero, te avisamos a ti", con los días hasta el primer aviso (21 por defecto) y qué llegará (2 correos al día; 1 SMS al día si hay móvil); (2) "Si no respondes, entregamos el plan", con los días hasta la entrega (35 por defecto). La entrega debe ser como mínimo tres días después del primer aviso (lo dice junto al campo). Debajo, la **previsión** con las dos fechas, calculadas como las calcula el servidor: el día de la primera ejecución del cron (08:00 o 20:00 UTC) a partir de la última entrada o confirmación más cada plazo; mientras se editan los días cambia al momento y dice "pendiente de guardar" hasta que se pulsa "Guardar plazos". Los dos plazos cuentan desde la última actividad o confirmación, no uno después del otro; entrar o pulsar "Sigo aquí" (el de cualquier aviso) los reinicia.
+5. **Entregar ahora.** En cada persona, "Entregar ahora" envía el enlace inmediatamente. Sirve para probar y como entrega voluntaria. "Anular enlace" lo desactiva.
+6. **Estado.** En "Personas", cada persona es una ficha: la inicial, el nombre con «Editar», el correo y el móvil, y al pie los elementos asignados (al pulsarlo se ven los títulos) y el estado de la entrega con la fecha. Cada persona muestra un estado concreto: *Sin elementos asignados* · *Sin entregar* · *Acceso enviado* · *Acceso abierto* · *Enlace caducado* · *Enlace anulado* (nunca "recibido" o "leído": abrir un acceso no demuestra haberlo leído todo). Dentro de la ficha (Editar): Mostrar frase, Entregar ahora / Enviar de nuevo (envía un enlace nuevo; los anteriores siguen valiendo), Anular enlace (los borra todos), Quitar persona; tras una entrega automática, también cuántos recordatorios se han enviado. Si hay alguna entrega activa, "Tu plan" lo avisa con una franja al entrar, por si ha sido un falso positivo.
+7. **Cuenta.** Arriba, «En esta página»: un enlace por ficha (generados de los títulos) que desplazan hasta la ficha y le ponen el foco, sin tocar el fragmento de la URL. Todo en fichas, en este orden: el correo de la cuenta; el móvil para los avisos por SMS («Guardar móvil» solo se activa cuando el campo cambia; vacío y guardado, el móvil se borra); los plazos de entrega (punto 4); la copia fuera de Custodium (punto 10); el cambio de contraseña; las sesiones; la actividad reciente; el cambio de correo; y la eliminación de la cuenta. **Cambiar el correo** (una ficha que cambia de estado), en dos pasos como el alta: el correo nuevo → "Enviar código" (llega un código de seis cifras, 15 minutos, tres por hora); después el código y la contraseña actual → "Cambiar el correo". Se cierran las demás sesiones, la dirección anterior recibe un aviso (sin enlace de deshacer) y queda registrado en Actividad. "Los avisos y la entrega dependen de este correo. Úsalo solo si lo consultas habitualmente." La nueva contraseña se propone igual que al crear la cuenta (frase de seis palabras visible, o «Prefiero escribir mi contraseña»); la casilla «He guardado mi nueva contraseña» es la que activa el botón. El plan se recifra en el navegador con la nueva; personas y archivos no se tocan; las demás sesiones se cierran. "Cerrar las demás sesiones" (ficha «Sesiones») cierra el plan en cualquier otro dispositivo donde se haya abierto, sin tocar la sesión actual. Más adelante, aquí irán datos de contacto y pago.
+8. **Actividad reciente** (en Cuenta). Lo que el servidor ha registrado de la cuenta (entradas, intentos fallidos contra tu email, cambios, avisos, entregas y aperturas), con fecha, hora y país de la petición — nunca IP ni user-agent — para detectar accesos que no reconozcas. Se guardan los 200 más recientes; el servidor envía 50 y la ficha los muestra de ocho en ocho, con un filtro (toda la actividad, entradas y sesiones, cambios de la cuenta, avisos y entregas) que actúa sobre esos 50.
+9. **Eliminar la cuenta** (final de Cuenta, en una ficha en tono de peligro). Pide la contraseña actual (con «Mostrar») y la casilla «Entiendo que se eliminará mi cuenta…», que es la que activa el botón; entonces borra el plan, los archivos (también de la copia de seguridad), las personas y el registro; los enlaces enviados dejan de funcionar. No se puede deshacer.
+10. **Una copia fuera de Custodium** (ficha en "Cuenta", botón "Descargar copia cifrada"). Descarga un zip con: tu plan cifrado (`plan.json`, con la sal de la cuenta dentro para que el abridor no necesite el servidor), un paquete cifrado por persona (`paquetes/`), todos los archivos cifrados (`archivos/`), el abridor `abrir.html` y un `LEEME.txt`. Todo está cifrado: el zip puede dejarse en un USB, en la nube o en el notario. Vuelve a descargarla cuando hagas cambios importantes.
 
-### Si Custodium desapareix (o no hi ha internet)
+### Si Custodium desaparece (o no hay internet)
 
-Amb la còpia exportada n'hi ha prou. Qui la tingui:
+Con la copia exportada basta. Quien la tenga:
 
-1. Descomprimeix el zip i obre `abrir.html` amb qualsevol navegador (doble clic; no cal servidor ni connexió).
-2. Selecciona el zip (o la carpeta descomprimida), escriu el seu email i la seva frase (el titular, la seva contrasenya).
-3. L'obridor prova d'obrir el pla i cada paquet: AES-GCM rebutja els que no són seus, així que cadascú veu només el que li correspon, i l'obridor no sap de qui és què. Els fitxers es desxifren amb la clau que va dins del paquet.
+1. Descomprime el zip y abre `abrir.html` con cualquier navegador (doble clic; no hace falta servidor ni conexión).
+2. Selecciona el zip (o la carpeta descomprimida), escribe su email y su frase (el titular, su contraseña).
+3. El abridor intenta abrir el plan y cada paquete: AES-GCM rechaza los que no son suyos, así que cada cual ve solo lo que le corresponde, y el abridor no sabe de quién es qué. Los archivos se descifran con la clave que va dentro del paquete.
 
-El zip i el sobre amb la frase han d'estar en mans diferents: cap dels dos, sol, obre res.
+El zip y el sobre con la frase deben estar en manos distintas: ninguno de los dos, solo, abre nada.
 
-### Persona de confiança
+### Persona de confianza
 
-1. Rep un correu de `avisos@custodium.space` amb un enllaç.
-2. L'obre, escriu la frase que li van donar en persona, i veu els seus elements. Els fitxers es baixen i es desxifren al seu navegador.
-3. Cada enllaç dura 90 dies des del correu que el porta. Mentre no l'obri, li arriben recordatoris amb un enllaç nou (els anteriors continuen valent). Convé guardar o imprimir el que necessiti.
+1. Recibe un correo de `avisos@custodium.space` con un enlace.
+2. Lo abre, escribe la frase que le dieron en persona, y ve sus elementos. Los archivos se descargan y se descifran en su navegador.
+3. Cada enlace dura 100 días desde el correo que lo lleva. Mientras no lo abra, le llegan recordatorios con un enlace nuevo (los anteriores siguen valiendo). Conviene guardar o imprimir lo que necesite.
 
-### Coses que cal saber
+### Cosas que hay que saber
 
-- Si el titular perd la contrasenya, el pla és irrecuperable. Si una persona perd la frase, el seu paquet és irrecuperable. Cap de les dues coses la pot resoldre Custodium.
-- Recomana a cada persona una segona còpia de la frase en un sobre tancat, en un lloc diferent del paper. Custodium no en pot fer cap còpia útil: la frase només viu dins del pla xifrat del titular, i si el titular ja no hi és, ningú la pot mostrar.
-- Canviar l'email d'una persona obliga a posar-li una frase nova (la clau es deriva dels dos).
-- Un fitxer tret d'un element només s'esborra del servidor un cop el pla desat ja no l'apunta.
-- Entrar a la web reinicia el comptador de senyal de vida i esborra l'avís pendent.
-- Màxim 20 persones de confiança per titular.
-- El mòbil s'escriu sempre amb prefix internacional (+34…, o 0034…); sense prefix, es rebutja.
-- Cada pantalla té la seva adreça: `#/plan`, `#/personas`, `#/cuenta`, `#/elemento/<id>`, `#/persona/<id>` (i `#/elemento/nuevo`, `#/persona/nueva`, `#/crear-cuenta`). Es poden enllaçar des d'un manual o un correu; sense sessió porten a l'entrada i, un cop dins, a la pantalla. Enrere i endavant del navegador funcionen. Sortir d'un editor (enrere inclòs) el tanca; si hi havia canvis sense desar, abans ho pregunta.
+- Si el titular pierde la contraseña, el plan es irrecuperable. Si una persona pierde la frase, su paquete es irrecuperable. Ninguna de las dos cosas puede resolverla Custodium.
+- Recomienda a cada persona una segunda copia de la frase en un sobre cerrado, en un lugar distinto del papel. Custodium no puede hacer ninguna copia útil: la frase solo vive dentro del plan cifrado del titular, y si el titular ya no está, nadie puede mostrarla.
+- Cambiar el email de una persona obliga a ponerle una frase nueva (la clave se deriva de los dos).
+- Un archivo quitado de un elemento solo se borra del servidor una vez el plan guardado ya no lo apunta.
+- Entrar en la web reinicia el contador de señal de vida y borra el aviso pendiente.
+- Máximo 20 personas de confianza por titular.
+- El móvil se escribe siempre con prefijo internacional (+34…, o 0034…); sin prefijo, se rechaza.
+- Cada pantalla tiene su dirección: `#/plan`, `#/personas`, `#/cuenta`, `#/elemento/<id>`, `#/persona/<id>` (y `#/elemento/nuevo`, `#/persona/nueva`, `#/crear-cuenta`). Pueden enlazarse desde un manual o un correo; sin sesión llevan a la entrada y, una vez dentro, a la pantalla. Atrás y adelante del navegador funcionan. Salir de un editor (atrás incluido) lo cierra; si había cambios sin guardar, antes lo pregunta.
 
 ---
 
-## 4. Proves
+## 4. Pruebas
 
-`npm test` executa les proves locals (Node 20, `node --test`, sense dependències): compatibilitat entre `crypto.js` i l'obridor autònom, normalització de frases i telèfons, les rutes del client (`parseRoute`), i que una clau equivocada no obre res. Executa `npm test` abans de cada deploy.
+`npm test` ejecuta las pruebas locales (Node 20, `node --test`, sin dependencias): compatibilidad entre `crypto.js` y el abridor autónomo, normalización de frases y teléfonos, las rutas del cliente (`parseRoute`), que una clave equivocada no abre nada, el alta y los disparadores del cron contra una D1 simulada, y los enlaces de las páginas de visitante. Ejecuta `npm test` antes de cada deploy.
 
-### Prova bàsica (10 minuts)
+### Prueba básica (10 minutos)
 
-1. Crear compte. Afegir dos elements, un amb un PDF. Tancar la pestanya, tornar a entrar: tot hi és.
-2. Al tauler de Cloudflare, D1 → `custodium-b2c` → Console: `SELECT blob FROM vaults;` → només base64. R2 → `custodium-b2c-files`: objectes sense nom ni extensió.
-3. Entrar amb una contrasenya equivocada: "Email o contraseña incorrectos".
+1. Crear cuenta. Añadir dos elementos, uno con un PDF. Cerrar la pestaña, volver a entrar: todo está.
+2. En el panel de Cloudflare, D1 → `custodium-b2c` → Console: `SELECT blob FROM vaults;` → solo base64. R2 → `custodium-b2c-files`: objetos sin nombre ni extensión.
+3. Entrar con una contraseña equivocada: "Email o contraseña incorrectos".
 
-### Prova d'entrega (15 minuts)
+### Prueba de entrega (15 minutos)
 
-1. "Personas" → afegir una persona amb un email teu; la frase surt generada ("Generar otra" en dona una altra); apuntar-la en paper.
-2. Editar un element, assignar-lo a la persona, adjuntar un fitxer. Listo.
-3. "Entregar ahora". Arriba un correu amb l'enllaç.
-4. Obrir l'enllaç en una finestra d'incògnit. Escriure la frase: es veu l'element i es baixa el fitxer. Escriure una frase equivocada: "La frase no es correcta".
-5. A "Personas": estat "Acceso abierto · data". Dins de la fitxa, "Anular enlace" → l'enllaç deixa de funcionar i l'estat passa a "Enlace anulado".
-6. Final de "Tu plan" → "Descargar copia cifrada". Descomprimir, obrir `abrir.html`, seleccionar el zip, entrar amb el teu email i contrasenya (veus tot el pla) i després amb l'email i la frase de la persona (veus només el seu).
+1. "Personas" → añadir una persona con un email tuyo; la frase sale generada ("Generar otra" da otra); apuntarla en papel.
+2. Editar un elemento, asignarlo a la persona, adjuntar un archivo. Listo.
+3. "Entregar ahora". Llega un correo con el enlace.
+4. Abrir el enlace en una ventana de incógnito. Escribir la frase: se ve el elemento y se descarga el archivo. Escribir una frase equivocada: "La frase no es correcta".
+5. En "Personas": estado "Acceso abierto · fecha". Dentro de la ficha, "Anular enlace" → el enlace deja de funcionar y el estado pasa a "Enlace anulado".
+6. "Cuenta" → "Descargar copia cifrada". Descomprimir, abrir `abrir.html`, seleccionar el zip, entrar con tu email y contraseña (ves todo el plan) y después con el email y la frase de la persona (ves solo lo suyo).
 
-### Prova del disparador (4 dies)
+### Prueba del disparador (4 días)
 
-1. Posar "Primer aviso 1 día, Entrega 4 días" (el mínim: tres dies entre l'un i l'altra), amb una persona que tingui un element assignat. Sortir i no entrar.
-2. L'endemà a les 08:00 UTC arriba "¿sigues ahí?" (i un SMS, si hi ha mòbil); a les 20:00 UTC, un altre correu sense SMS. Així dos cops al dia, tres dies.
-3. El quart dia a les 08:00 UTC: correu a la persona amb l'enllaç, i "se ha entregado tu plan" al titular, que es repeteix a cada execució durant cinc dies. L'endemà, si la persona no ha obert, primer recordatori (enllaç nou; el primer també obre).
-4. Pulsar el botó d'un avís antic → "Confirmado" (tots els botons del període valen). Entrar → a "Tu plan" surt la franja de l'entrega; "Anular enlace" la desfà i cap enllaç obre.
-3. Tornar a posar 8 / 21.
+1. Poner "Primer aviso 1 día, Entrega 4 días" (el mínimo: tres días entre uno y otra), con una persona que tenga un elemento asignado. Salir y no entrar.
+2. Al día siguiente a las 08:00 UTC llega "¿sigues ahí?" (y un SMS, si hay móvil); a las 20:00 UTC, otro correo sin SMS. Así dos veces al día, tres días.
+3. El cuarto día a las 08:00 UTC: correo a la persona con el enlace, y "se ha entregado tu plan" al titular, que se repite en cada ejecución durante cinco días. Al día siguiente, si la persona no ha abierto, primer recordatorio (enlace nuevo; el primero también abre).
+4. Pulsar el botón de un aviso antiguo → "Confirmado" (todos los botones del periodo valen). Entrar → en "Tu plan" sale la franja de la entrega; "Anular enlace" la deshace y ningún enlace abre.
+5. Volver a poner 21 / 35.
 
-### Prova amb curl (sense navegador)
+### Prueba con curl (sin navegador)
 
 ```sh
 BASE=https://custodium.space
 HASH=$(openssl rand -base64 32)
-curl -s $BASE/api/salt?email=jo@example.com                     # {"salt":"…"}, la mateixa abans i després de l'alta
-curl -s -X POST $BASE/api/register/start -H 'content-type: application/json' -d '{"email":"jo@example.com"}'   # {"ok":true}; el codi arriba al correu
-CODE=123456   # el del correu
-curl -s -X POST $BASE/api/register -H 'content-type: application/json' -d "{\"email\":\"jo@example.com\",\"authHash\":\"$HASH\",\"code\":\"$CODE\"}"
-TOKEN=$(curl -s -X POST $BASE/api/login -H 'content-type: application/json' -d "{\"email\":\"jo@example.com\",\"authHash\":\"$HASH\"}" | sed 's/.*"token":"\([^"]*\)".*/\1/')
+curl -s $BASE/api/salt?email=yo@example.com                     # {"salt":"…"}, la misma antes y después del alta
+curl -s -X POST $BASE/api/register/start -H 'content-type: application/json' -d '{"email":"yo@example.com"}'   # {"ok":true}; el código llega al correo
+CODE=123456   # el del correo
+curl -s -X POST $BASE/api/register -H 'content-type: application/json' -d "{\"email\":\"yo@example.com\",\"authHash\":\"$HASH\",\"code\":\"$CODE\"}"
+TOKEN=$(curl -s -X POST $BASE/api/login -H 'content-type: application/json' -d "{\"email\":\"yo@example.com\",\"authHash\":\"$HASH\"}" | sed 's/.*"token":"\([^"]*\)".*/\1/')
 curl -s $BASE/api/vault -H "authorization: Bearer $TOKEN"      # {"error":"no_vault"}
 ```
 
 ---
 
-## 5. Desplegament i operació
+## 5. Despliegue y operación
 
 ### Estructura
 
 ```
 src/index.js        Worker: API + cron
-public/             Client estàtic: index.html, app.js, routes.js (rutes del fragment), crypto.js, words.js, templates.js (plantilles d'element), fflate.js (zip, MIT), style.css, fonts/,
-                    abrir.* (persona, amb servidor), aqui.* (check-in), abrir-offline.html (obridor autònom), legal.html (avís legal, privacitat, cookies, condicions), _headers,
-                    README (bilingüe, amb la verificació), LICENSE (source-available) i THIRD_PARTY.md.
-                    VERSION l'escriu el deploy (gitignored).
-scripts/            public-commit.sh: construeix el commit del mirall públic (vegeu "Desplegar un canvi")
-.github/workflows/  ci.yml (tests + deploy a staging) i deploy-production.yml (botó de producció).
-                    No es publica al mirall.
-schema.sql          Esquema D1 consolidat (l'estat actual; per crear una D1 nova)
-wrangler.toml       Bindings (D1 "DB", R2 "FILES" i "FILES_BACKUP"), domini, crons, [vars] i [env.staging]
+public/             Cliente estático: index.html, app.js, routes.js (rutas del fragmento), crypto.js, words.js, templates.js (plantillas de elemento), fflate.js (zip, MIT), style.css, fonts/,
+                    abrir.* (persona, con servidor), aqui.* (check-in), abrir-offline.html (abridor autónomo), _headers,
+                    páginas de visitante sin script: como-funciona, seguridad, codigo, preguntas y legal (.html; Workers Assets las sirve también sin extensión),
+                    README (bilingüe, con la verificación), LICENSE (source-available) y THIRD_PARTY.md.
+                    VERSION lo escribe el deploy (gitignored).
+scripts/            public-commit.sh: construye el commit del espejo público (véase "Desplegar un cambio")
+.github/workflows/  ci.yml (tests + deploy a staging) y deploy-production.yml (botón de producción).
+                    No se publica en el espejo.
+schema.sql          Esquema D1 consolidado (el estado actual; para crear una D1 nueva)
+wrangler.toml       Bindings (D1 "DB", R2 "FILES" y "FILES_BACKUP"), dominio, crons, [vars] y [env.staging]
 ```
 
-### Requisits (ja fets)
+### Requisitos (ya hechos)
 
-- Cloudflare: zona `custodium.space`; D1 `custodium-b2c`; R2 `custodium-b2c-files` i `custodium-b2c-files-backup` (WEUR); secrets `RESEND_API_KEY`, `SALT_PEPPER` (clau de l'HMAC del qual surt la sal de derivació de cada compte, §2.2: `openssl rand -base64 32`; sense ell `/api/salt` i `/api/register` responen 500 i ningú pot entrar) i, per als SMS, `SMS_USER`, `SMS_PASS`, `SMS_FROM` (passarel·la HTTP de siptraffic; si falten, no s'envien SMS i tot continua funcionant). `SALT_PEPPER` es posa amb `npx wrangler secret put SALT_PEPPER` (i `--env staging` per a staging). No canviar-lo mai a la lleugera: els comptes existents conserven la sal guardada i continuen funcionant, però la dels emails sense compte canviaria i tornaria a distingir-los dels que en tenen. Per confirmar que el valor del gestor de contrasenyes és el desplegat: `scripts/check-pepper.mjs` calcula la sal d'un email exactament com el Worker (n'extreu `deriveSalt` de `src/index.js`) i la compara amb `/api/salt` de producció (`--staging` per a staging); no imprimeix mai el pepper, i amb `-` el llegeix d'stdin per no deixar-lo a l'historial:
+- Cloudflare: zona `custodium.space`; D1 `custodium-b2c`; R2 `custodium-b2c-files` y `custodium-b2c-files-backup` (WEUR); secretos `RESEND_API_KEY`, `SALT_PEPPER` (clave del HMAC del que sale la sal de derivación de cada cuenta, §2.2: `openssl rand -base64 32`; sin él `/api/salt` y `/api/register` responden 500 y nadie puede entrar) y, para los SMS, `SMS_USER`, `SMS_PASS`, `SMS_FROM` (pasarela HTTP de siptraffic; si faltan, no se envían SMS y todo sigue funcionando). `SALT_PEPPER` se pone con `npx wrangler secret put SALT_PEPPER` (y `--env staging` para staging). No cambiarlo nunca a la ligera: las cuentas existentes conservan la sal guardada y siguen funcionando, pero la de los emails sin cuenta cambiaría y volvería a distinguirlos de los que la tienen. Para confirmar que el valor del gestor de contraseñas es el desplegado: `scripts/check-pepper.mjs` calcula la sal de un email exactamente como el Worker (extrae `deriveSalt` de `src/index.js`) y la compara con `/api/salt` de producción (`--staging` para staging); no imprime nunca el pepper, y con `-` lo lee de stdin para no dejarlo en el historial:
 
 ```sh
-echo -n "$PEPPER" | node scripts/check-pepper.mjs -              # producció
+echo -n "$PEPPER" | node scripts/check-pepper.mjs -              # producción
 echo -n "$PEPPER" | node scripts/check-pepper.mjs - --staging    # staging
 ```
-- Resend: domini `custodium.space` verificat; remitent `avisos@custodium.space`.
-- `wrangler` com a dependència local (`npm install -D wrangler`), sense instal·lació global.
+- Resend: dominio `custodium.space` verificado; remitente `avisos@custodium.space`.
+- `wrangler` como dependencia local (`npm install -D wrangler`), sin instalación global.
 
-### Entorns
+### Entornos
 
-| | Producció | Staging |
+| | Producción | Staging |
 | :--- | :--- | :--- |
-| Web | custodium.space (i www) | b2c-staging.custodium.space |
+| Web | custodium.space (y www) | b2c-staging.custodium.space |
 | Worker | custodium-b2c | custodium-b2c-staging |
 | D1 | custodium-b2c | custodium-b2c-staging |
-| R2 | custodium-b2c-files i -files-backup | custodium-b2c-staging-files i -backup |
-| Es desplega | botó **deploy-production** (Actions) | la CI, a cada push a `main` amb tests verds |
-| `/VERSION` | hash del commit del mirall públic | hash del commit de `main` desplegat |
+| R2 | custodium-b2c-files y -files-backup | custodium-b2c-staging-files y -backup |
+| Se despliega | botón **deploy-production** (Actions) | la CI, en cada push a `main` con tests verdes |
+| `/VERSION` | hash del commit del espejo público | hash del commit de `main` desplegado |
 
-Mateix codi i mateixos crons; dades i secrets separats. `ENV`, `SITE` i `MAIL_FROM` són `[vars]` per entorn a `wrangler.toml`; amb `ENV = "staging"` el client mostra la franja d'avís. Les migracions s'apliquen a cada entorn a mà (a staging: `npx wrangler d1 execute custodium-b2c-staging --remote --file=…`, idealment abans que a producció).
+Mismo código y mismos crons; datos y secretos separados. `ENV`, `SITE` y `MAIL_FROM` son `[vars]` por entorno en `wrangler.toml`; con `ENV = "staging"` el cliente muestra la franja de aviso. Las migraciones se aplican en cada entorno a mano (en staging: `npx wrangler d1 execute custodium-b2c-staging --remote --file=…`, idealmente antes que en producción).
 
-### Desplegar un canvi
+### Desplegar un cambio
 
 ```sh
-git add -A && git commit -m "què has canviat"
-git push              # la CI passa els tests i, a main, desplega staging
+git add -A && git commit -m "qué has cambiado"
+git push              # la CI pasa los tests y, en main, despliega staging
 ```
 
-Comprovar staging: `https://b2c-staging.custodium.space/VERSION` ha de retornar el hash del commit, i la web ha de funcionar (amb la franja d'avís). Producció, sempre amb el botó: GitHub → Actions → **deploy-production** → Run workflow. Mai automàtic; les migracions en queden fora i van sempre abans, a mà i amb confirmació.
+Comprobar staging: `https://b2c-staging.custodium.space/VERSION` debe devolver el hash del commit, y la web debe funcionar (con la franja de aviso). Producción, siempre con el botón: GitHub → Actions → **deploy-production** → Run workflow. Nunca automático; las migraciones quedan fuera y van siempre antes, a mano y con confirmación.
 
-El workflow de producció repeteix els tests i fa el que feia `npm run deploy` en local: `scripts/public-commit.sh` pren l'arbre del commit, en treu `CLAUDE.md` i `.github/` i l'encadena a la història del **mirall públic** [victorsala/custodium-client](https://github.com/victorsala/custodium-client) (si l'arbre no ha canviat, reutilitza el commit anterior); escriu el hash resultant a `public/VERSION` (que no es versiona: és un artefacte del deploy), fa `wrangler deploy`, comprova que `/VERSION` respon exactament aquell hash i, només llavors, publica el mirall. Qualsevol pot fer `git checkout` d'aquell hash al repo públic, comparar fitxer a fitxer el contingut de `public/` amb el que serveix `custodium.space` (instruccions a `public/README.md`) i llegir el Worker (`src/index.js`) desplegat amb aquella mateixa versió. El peu de totes les pàgines mostra la versió; `abrir-offline.html` no la mostra expressament (ha de funcionar sense servidor i la seva CSP no permet connexions).
+El workflow de producción repite los tests y hace lo que hacía `npm run deploy` en local: `scripts/public-commit.sh` toma el árbol del commit, le quita `CLAUDE.md` y `.github/` y lo encadena a la historia del **espejo público** [victorsala/custodium-client](https://github.com/victorsala/custodium-client) (si el árbol no ha cambiado, reutiliza el commit anterior); escribe el hash resultante en `public/VERSION` (que no se versiona: es un artefacto del deploy), hace `wrangler deploy`, comprueba que `/VERSION` responde exactamente ese hash y, solo entonces, publica el espejo. Cualquiera puede hacer `git checkout` de ese hash en el repo público, comparar archivo a archivo el contenido de `public/` con lo que sirve `custodium.space` (instrucciones en `public/README.md`) y leer el Worker (`src/index.js`) desplegado con esa misma versión. El pie de la portada, de `abrir.html` y de `aqui.html` muestra la versión; las páginas de visitante no tienen script y no la muestran, y `abrir-offline.html` no la muestra expresamente (debe funcionar sin servidor y su CSP no permite conexiones).
 
-**Deploy local d'emergència** (si GitHub Actions no hi és): sincronitzar el mirall i fer-ho a mà —
+**Deploy local de emergencia** (si GitHub Actions no está): sincronizar el espejo y hacerlo a mano —
 
 ```sh
 git fetch origin-public main && git branch -f public-mirror FETCH_HEAD
-npm run deploy        # mirall + public/VERSION + wrangler deploy
+npm run deploy        # espejo + public/VERSION + wrangler deploy
 git push origin-public public-mirror:main
 ```
 
-### Token de Cloudflare i secrets de GitHub (un sol cop)
+### Token de Cloudflare y secretos de GitHub (una sola vez)
 
-Els workflows despleguen amb un token d'API de Cloudflare de permisos mínims. Crear-lo a dash.cloudflare.com → My Profile → API Tokens → Create Token → Custom token:
+Los workflows despliegan con un token de API de Cloudflare de permisos mínimos. Crearlo en dash.cloudflare.com → My Profile → API Tokens → Create Token → Custom token:
 
 - Account · **Workers Scripts** · Edit
 - Account · **D1** · Edit
 - Account · **Workers R2 Storage** · Edit
 - Zone · **Workers Routes** · Edit
-- Account Resources: només aquest compte. Zone Resources: només `custodium.space`.
+- Account Resources: solo esta cuenta. Zone Resources: solo `custodium.space`.
 
-I a GitHub, custodium-b2c → Settings → Secrets and variables → Actions:
+Y en GitHub, custodium-b2c → Settings → Secrets and variables → Actions:
 
-- `CLOUDFLARE_API_TOKEN` — el token acabat de crear.
-- `CLOUDFLARE_ACCOUNT_ID` — l'id del compte (a la barra lateral del tauler; no és secret, però així no viu al repo).
-- `MIRROR_PUSH_TOKEN` — fine-grained PAT (github.com → Settings → Developer settings → Fine-grained tokens) amb accés només a `victorsala/custodium-client` i permís **Contents: Read and write**: és el que fa servir el workflow de producció per publicar el mirall.
+- `CLOUDFLARE_API_TOKEN` — el token recién creado.
+- `CLOUDFLARE_ACCOUNT_ID` — el id de la cuenta (en la barra lateral del panel; no es secreto, pero así no vive en el repo).
+- `MIRROR_PUSH_TOKEN` — fine-grained PAT (github.com → Settings → Developer settings → Fine-grained tokens) con acceso solo a `victorsala/custodium-client` y permiso **Contents: Read and write**: es el que usa el workflow de producción para publicar el espejo.
 
-### Secrets de staging (un sol cop)
+### Secretos de staging (una sola vez)
 
-En ordre — primer el correu i el pepper, imprescindibles; els SMS opcionals (els tres o cap):
+En orden — primero el correo y el pepper, imprescindibles; los SMS opcionales (los tres o ninguno):
 
 ```sh
 npx wrangler secret put RESEND_API_KEY --env staging
@@ -327,79 +331,79 @@ npx wrangler secret put SMS_PASS --env staging
 npx wrangler secret put SMS_FROM --env staging
 ```
 
-### Branca main (sense protecció, de moment)
+### Rama main (sin protección, de momento)
 
-Les branques protegides no existeixen en repos privats del pla Free de GitHub. De moment `main` no n'exigeix cap: la garantia real és la CI — staging no es desplega sense tests verds, i producció només surt amb el botó. Quan hi hagi un segon col·laborador, activar la protecció (amb GitHub Pro, o fent públic el repo) amb l'status check `test` obligatori, `enforce_admins: true` i flux de PR.
+Las ramas protegidas no existen en repos privados del plan Free de GitHub. De momento `main` no exige ninguna: la garantía real es la CI — staging no se despliega sin tests verdes, y producción solo sale con el botón. Cuando haya un segundo colaborador, activar la protección (con GitHub Pro, o haciendo público el repo) con el status check `test` obligatorio, `enforce_admins: true` y flujo de PR.
 
-### Pausar les entregues automàtiques
+### Pausar las entregas automáticas
 
-Interruptor d'emergència: amb la fila `pause_releases` de la taula `system` a `'1'`, el cron continua enviant avisos d'inactivitat però no entrega cap pla, i ho deixa al log (`entregues en pausa`, visible amb `npx wrangler tail`). El cron la llegeix a cada execució: no cal cap deploy, ni per activar-la ni per desactivar-la — expressament, perquè serveixi també quan no es pot desplegar. Les entregues manuals ("Entregar ahora") no es pausen.
+Interruptor de emergencia: con la fila `pause_releases` de la tabla `system` a `'1'`, el cron sigue enviando avisos de inactividad pero no entrega ningún plan, y lo deja en el log (`entregues en pausa`, visible con `npx wrangler tail`). El cron la lee en cada ejecución: no hace falta ningún deploy, ni para activarla ni para desactivarla — expresamente, para que sirva también cuando no se puede desplegar. Las entregas manuales ("Entregar ahora") no se pausan.
 
-Dues maneres d'activar-la:
+Dos maneras de activarla:
 
 ```sh
 npx wrangler d1 execute custodium-b2c --remote --command "UPDATE system SET value='1' WHERE key='pause_releases'"
 ```
 
-o al tauler de Cloudflare: D1 → `custodium-b2c` → Console, amb el mateix `UPDATE`. Per desactivar-la, el mateix amb `value='0'`.
+o en el panel de Cloudflare: D1 → `custodium-b2c` → Console, con el mismo `UPDATE`. Para desactivarla, lo mismo con `value='0'`.
 
-### Canvis d'esquema
+### Cambios de esquema
 
-Escriure un fitxer de migració (p. ex. `migration-YYYYMMDD.sql` amb els `ALTER`/`CREATE`), aplicar-lo **abans** del deploy que el necessiti, i incorporar el canvi a `schema.sql` perquè continuï descrivint l'estat actual:
+Escribir un archivo de migración (p. ej. `migration-YYYYMMDD.sql` con los `ALTER`/`CREATE`), aplicarlo **antes** del deploy que lo necesite, e incorporar el cambio a `schema.sql` para que siga describiendo el estado actual:
 
 ```sh
 npx wrangler d1 execute custodium-b2c --remote --file=migration-YYYYMMDD.sql
 ```
 
-Si `--file` falla amb `fetch failed` (passa per l'endpoint d'importació, que des d'algunes xarxes no respon), el mateix SQL sense comentaris i en una sola línia va per `--command "…"`: D1 executa les sentències en un sol batch, transaccional. Sempre amb la sortida sencera i comprovant després que les taules i columnes hi són.
+Si `--file` falla con `fetch failed` (pasa por el endpoint de importación, que desde algunas redes no responde), el mismo SQL sin comentarios y en una sola línea va por `--command "…"`: D1 ejecuta las sentencias en un solo batch, transaccional. Siempre con la salida entera y comprobando después que las tablas y columnas están.
 
-Les migracions ja aplicades es poden esborrar del repo un cop consolidades; `git log` en conserva l'historial.
+Las migraciones ya aplicadas pueden borrarse del repo una vez consolidadas; `git log` conserva su historial.
 
-### Rate limiting (tauler de Cloudflare, un sol cop)
+### Rate limiting (panel de Cloudflare, una sola vez)
 
 Zona `custodium.space` → Security → WAF → Rate limiting rules → Create rule:
 
-- Expressió: `(http.host eq "custodium.space" and http.request.uri.path in {"/api/salt" "/api/register/start" "/api/email/start" "/api/login" "/api/register" "/api/password" "/api/email"})`
-- `/api/register/start` hi ha de ser: envia un correu a qualsevol adreça sense autenticar. El límit de tres codis per email i hora és del Worker; el del WAF, per IP, és el que atura un enviament massiu a adreces diferents.
-- `/api/salt` hi ha de ser: respon a qualsevol email sense autenticar i, tot i que la sal falsa no delata res, és la primera petició de cada intent d'entrada i no ha de poder-se martellejar.
-- Característica: IP. Límit: el més estricte que permeti el pla (al pla gratuït, p. ex. 5 peticions per 10 segons). Acció: Block.
+- Expresión: `(http.host eq "custodium.space" and http.request.uri.path in {"/api/salt" "/api/register/start" "/api/email/start" "/api/login" "/api/register" "/api/password" "/api/email"})`
+- `/api/register/start` debe estar: envía un correo a cualquier dirección sin autenticar. El límite de tres códigos por email y hora es del Worker; el del WAF, por IP, es el que detiene un envío masivo a direcciones distintas.
+- `/api/salt` debe estar: responde a cualquier email sin autenticar y, aunque la sal falsa no delata nada, es la primera petición de cada intento de entrada y no debe poder martillearse.
+- Característica: IP. Límite: el más estricto que permita el plan (en el plan gratuito, p. ej. 5 peticiones por 10 segundos). Acción: Block.
 
-### Còpia dels fitxers i restauració
+### Copia de los archivos y restauración
 
-Cada diumenge a les 03:00 UTC, un cron copia a `custodium-b2c-files-backup` els objectes de `custodium-b2c-files` que hi falten (mateixa clau `userId/fileId`). Del backup no s'esborra mai res, ni que l'original hagi desaparegut — amb una única excepció: l'esborrat del compte (`DELETE /api/account`) elimina els fitxers del titular dels dos buckets. El log del cron (`npx wrangler tail`) mostra el recompte de copiats.
+Cada domingo a las 03:00 UTC, un cron copia a `custodium-b2c-files-backup` los objetos de `custodium-b2c-files` que faltan allí (misma clave `userId/fileId`). Del backup no se borra nunca nada, ni aunque el original haya desaparecido — con una única excepción: el borrado de la cuenta (`DELETE /api/account`) elimina los archivos del titular de los dos buckets. El log del cron (`npx wrangler tail`) muestra el recuento de copiados.
 
-**Restaurar un fitxer:** copiar la clau `userId/fileId` del backup al principal:
+**Restaurar un archivo:** copiar la clave `userId/fileId` del backup al principal:
 
 ```sh
-npx wrangler r2 object get custodium-b2c-files-backup/USERID/FILEID --file restaurat.bin --remote
-npx wrangler r2 object put custodium-b2c-files/USERID/FILEID --file restaurat.bin --remote
+npx wrangler r2 object get custodium-b2c-files-backup/USERID/FILEID --file restaurado.bin --remote
+npx wrangler r2 object put custodium-b2c-files/USERID/FILEID --file restaurado.bin --remote
 ```
 
-### Diagnòstic
+### Diagnóstico
 
-- Consola del navegador (F12) per al client.
-- `npx wrangler tail` per veure els errors del Worker en directe.
-- `Authentication error [code: 10000]` a wrangler = token OAuth caducat: `npx wrangler login`.
-- `npm: command not found` = un `apt autoremove` pot endur-se el nodejs de nodesource. Solució: `sudo apt install nodejs && sudo apt-mark manual nodejs`.
+- Consola del navegador (F12) para el cliente.
+- `npx wrangler tail` para ver los errores del Worker en directo.
+- `Authentication error [code: 10000]` en wrangler = token OAuth caducado: `npx wrangler login`.
+- `npm: command not found` = un `apt autoremove` puede llevarse el nodejs de nodesource. Solución: `sudo apt install nodejs && sudo apt-mark manual nodejs`.
 
-### Buidar-ho tot
+### Vaciarlo todo
 
 ```sh
 npx wrangler d1 execute custodium-b2c --remote --command "DELETE FROM sessions; DELETE FROM events; DELETE FROM recipients; DELETE FROM files; DELETE FROM vaults; DELETE FROM users; DELETE FROM pending_signups;"
 ```
 
-R2: tauler → bucket → Objects → seleccionar tot → Delete.
+R2: panel → bucket → Objects → seleccionar todo → Delete.
 
 ---
 
-## 6. Límits coneguts de la beta
+## 6. Límites conocidos de la beta
 
-- Una sola contrasenya per titular, sense segon factor.
-- Rate limiting via regla al WAF de Cloudflare (`/api/salt`, `/api/register/start`, `/api/email/start`, `/api/login`, `/api/register`, `/api/password`, `/api/email`); vegeu §5.
-- Els paquets es refan sencers a cada desat (bé per a pocs elements, no per a milers).
-- Els fitxers es pugen i s'exporten sencers en memòria (50 MB per fitxer és el límit pràctic en mòbil; l'exportació d'1 GB necessita un ordinador).
-- Sense clau de recuperació ni per al titular ni per a les persones: decisió de disseny, no un oblit. L'exportació és la còpia de seguretat del titular.
-- El servidor conserva metadades personals (correus, mòbils, país, activitat, relacions titular–persones). Xifrar el contingut no elimina la responsabilitat sobre aquestes dades.
-- Cap auditoria externa de la criptografia. Els paràmetres són estàndard (PBKDF2 600k, HKDF, AES-256-GCM, WebCrypto natiu), però el codi no l'ha revisat ningú de fora.
-- "Avís entregat" vol dir acceptat per Resend, no lliurat a la bústia. Un correu que l'API rebutja no compta i es reintenta; un rebot posterior (bústia plena, adreça morta) no es detecta: els avisos compten igualment i l'entrega es fa quan n'hi ha dos. Sense webhooks de Resend (`delivered`, `bounced`) l'única defensa és l'SMS, si hi ha mòbil.
-- Si després de desar el pla un paquet no es puja (error de xarxa o del servidor), el pla queda desat però aquell paquet queda desactualitzat fins al desat següent: només un avís a la pantalla en aquell moment, sense reintent ni estat visible a Personas.
+- Una sola contraseña por titular, sin segundo factor.
+- Rate limiting vía regla en el WAF de Cloudflare (`/api/salt`, `/api/register/start`, `/api/email/start`, `/api/login`, `/api/register`, `/api/password`, `/api/email`); véase §5.
+- Los paquetes se rehacen enteros en cada guardado (bien para pocos elementos, no para miles).
+- Los archivos se suben y se exportan enteros en memoria (50 MB por archivo es el límite práctico en móvil; la exportación de 1 GB necesita un ordenador).
+- Sin clave de recuperación ni para el titular ni para las personas: decisión de diseño, no un olvido. La exportación es la copia de seguridad del titular.
+- El servidor conserva metadatos personales (correos, móviles, país, actividad, relaciones titular–personas). Cifrar el contenido no elimina la responsabilidad sobre esos datos.
+- Ninguna auditoría externa de la criptografía. Los parámetros son estándar (PBKDF2 600k, HKDF, AES-256-GCM, WebCrypto nativo), pero el código no lo ha revisado nadie de fuera.
+- "Aviso entregado" significa aceptado por Resend, no entregado en el buzón. Un correo que la API rechaza no cuenta y se reintenta; un rebote posterior (buzón lleno, dirección muerta) no se detecta: los avisos cuentan igualmente y la entrega se hace cuando hay dos. Sin webhooks de Resend (`delivered`, `bounced`) la única defensa es el SMS, si hay móvil.
+- Si tras guardar el plan un paquete no se sube (error de red o del servidor), el plan queda guardado pero ese paquete queda desactualizado hasta el guardado siguiente: solo un aviso en la pantalla en ese momento, sin reintento ni estado visible en Personas.

@@ -48,7 +48,9 @@
 
 const CRON_TRIGGERS = "0 8,20 * * *";     // wrangler.toml: el mateix als dos entorns
 const TOKEN_TTL_S = 24 * 3600;            // sessió: 24 h, renovada a cada petició autenticada
-const RELEASE_TTL_S = 90 * 24 * 3600;     // enllaç d'obertura: 90 dies des de cada correu que el porta
+const RELEASE_TTL_S = 100 * 24 * 3600;    // enllaç d'obertura: 100 dies des de cada correu que el porta
+const DEFAULT_WARN_DAYS = 21;             // terminis d'un compte nou (Cuenta els pot canviar). Es fixen aquí,
+const DEFAULT_RELEASE_DAYS = 35;          // no a la DEFAULT de l'esquema: la taula viva conserva la que tenia en crear-se
 const MIN_WARNINGS_BEFORE_RELEASE = 2;    // avisos entregats abans d'una entrega automàtica
 const MIN_RELEASE_GAP_DAYS = 3;           // entrega com a mínim tres dies després del primer avís: sis avisos i tres SMS abans
 const OWNER_SMS_GAP_S = 20 * 3600;        // SMS al titular: com a màxim un al dia (el cron passa cada 12 h)
@@ -280,8 +282,8 @@ async function register(request, env) {
   try {
     await env.DB.batch([
       env.DB
-        .prepare("INSERT INTO users (id, email, auth_salt, auth_hash, kdf_salt, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)")
-        .bind(crypto.randomUUID(), email, b64.encode(salt), b64.encode(hash), kdfSalt, ts, ts),
+        .prepare("INSERT INTO users (id, email, auth_salt, auth_hash, kdf_salt, created_at, last_seen, warn_days, release_days) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(crypto.randomUUID(), email, b64.encode(salt), b64.encode(hash), kdfSalt, ts, ts, DEFAULT_WARN_DAYS, DEFAULT_RELEASE_DAYS),
       env.DB.prepare("DELETE FROM pending_signups WHERE email = ?").bind(email),
     ]);
   } catch (err) {

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Custodium · código verificable</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row">
+      <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>Custodium <small>beta</small></a>
+      <nav class="top-nav visitor-nav" aria-label="Sobre Custodium">
+        <a class="ghost" href="/como-funciona">Cómo funciona</a>
+        <a class="ghost" href="/seguridad">Seguridad</a>
+        <a class="ghost" href="/codigo" aria-current="page">Código</a>
+        <a class="ghost" href="/preguntas">Preguntas</a>
+        <a class="ghost" href="/">Entrar</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap doc">
+    <h1>Código verificable</h1>
+    <p class="intro">El código que ejecuta tu navegador cuando usas Custodium es público. Y puedes comprobar que lo que sirve custodium.space es exactamente ese código, fichero a fichero.</p>
+
+    <nav class="page-nav" aria-label="En esta página">
+      <p class="eyebrow">En esta página</p>
+      <ul>
+        <li><a href="#donde">Dónde está</a></li>
+        <li><a href="#comprobar">Cómo comprobar lo que sirve esta web</a></li>
+        <li><a href="#servidor">Lo que no se puede comprobar desde fuera</a></li>
+        <li><a href="#terceros">Sin scripts de terceros</a></li>
+        <li><a href="#licencia">Licencia</a></li>
+        <li><a href="#fallos">Si encuentras un fallo</a></li>
+      </ul>
+    </nav>
+
+    <section id="donde" class="doc-block">
+      <h2>Dónde está</h2>
+      <p>En <a href="https://github.com/victorsala/custodium-client" rel="noopener">github.com/victorsala/custodium-client</a>. Contiene el cliente completo, que es lo que corre en tu navegador (el cifrado, las pantallas, el abridor sin conexión), y también el programa del servidor, con su configuración, el esquema de la base de datos y las pruebas automáticas. Sin frameworks y sin compilación: lo que lees es lo que se ejecuta.</p>
+    </section>
+
+    <section id="comprobar" class="doc-block">
+      <h2>Cómo comprobar lo que sirve esta web</h2>
+      <p>Al pie de la página de entrada aparece la versión desplegada; también está en <a href="/VERSION">custodium.space/VERSION</a>. Es el identificador de un commit del repositorio. Con estos comandos descargas cada fichero tal como lo recibe tu navegador y lo comparas con el publicado en ese commit:</p>
+<pre><code>git clone https://github.com/victorsala/custodium-client &amp;&amp; cd custodium-client
+git checkout $(curl -s https://custodium.space/VERSION)
+for f in index.html app.js routes.js crypto.js words.js templates.js abrir.html abrir.js aqui.html aqui.js abrir-offline.html fflate.js style.css; do
+  diff &lt;(curl -sL "https://custodium.space/$f") "public/$f" &amp;&amp; echo "OK $f"
+done</code></pre>
+      <p>Si algún fichero difiere, el comando lo muestra. Cualquiera puede hacerlo, en cualquier momento, sin pedirnos permiso.</p>
+    </section>
+
+    <section id="servidor" class="doc-block">
+      <h2>Lo que no se puede comprobar desde fuera</h2>
+      <p>Que el servidor ejecute exactamente el programa publicado. Ningún servicio remoto puede demostrarlo. Por eso el diseño no exige confiar en él: todo lo sensible se cifra en el navegador, con código que sí puedes verificar, antes de enviarse. El programa del servidor publicado muestra lo que hace y, sobre todo, lo que no puede hacer: solo maneja datos cifrados, pruebas de acceso con sal y fechas de aviso y entrega.</p>
+    </section>
+
+    <section id="terceros" class="doc-block">
+      <h2>Sin scripts de terceros</h2>
+      <p>La página no carga código de otros dominios: ni analítica, ni fuentes externas, ni etiquetas de publicidad. Una política de seguridad de contenido lo impide aunque alguien lo intentara. Los cuatro componentes ajenos (dos fuentes tipográficas, una biblioteca para crear archivos zip y la lista de palabras de las frases) están en <a href="/THIRD_PARTY.md">THIRD_PARTY.md</a> con su licencia.</p>
+    </section>
+
+    <section id="licencia" class="doc-block">
+      <h2>Licencia</h2>
+      <p>El código es visible y auditable: cualquiera puede leerlo, descargarlo y ejecutarlo en local para verificar el servicio, y usar el abridor incluido en su copia para abrir su propio plan. No es software libre: no permite redistribuirlo, modificarlo ni montar un servicio con él. El texto completo está en <a href="/LICENSE">LICENSE</a>.</p>
+    </section>
+
+    <section id="fallos" class="doc-block">
+      <h2>Si encuentras un fallo</h2>
+      <p>Escríbenos a <a href="mailto:hola@custodium.space">hola@custodium.space</a>. Preferimos saberlo por ti antes que por nadie. Todavía no hay una auditoría externa; si la hacemos, publicaremos aquí el informe.</p>
+      <div class="doc-cta">
+        <a class="btn" href="/#/crear-cuenta">Crear una cuenta</a>
+        <a class="btn-link" href="/seguridad">Cómo está protegido tu plan</a>
+        <p class="hint">Gratis durante la beta. No pedimos tarjeta.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p>Guardamos tu plan cifrado, nunca las claves.</p>
+    <p class="foot-legal">boredVictor SL · <a href="/legal#aviso-legal">Aviso legal</a> · <a href="/legal#privacidad">Privacidad</a> · <a href="/legal#cookies">Cookies</a> · <a href="/legal#condiciones">Condiciones</a></p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Custodium · cómo funciona</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row">
+      <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>Custodium <small>beta</small></a>
+      <nav class="top-nav visitor-nav" aria-label="Sobre Custodium">
+        <a class="ghost" href="/como-funciona" aria-current="page">Cómo funciona</a>
+        <a class="ghost" href="/seguridad">Seguridad</a>
+        <a class="ghost" href="/codigo">Código</a>
+        <a class="ghost" href="/preguntas">Preguntas</a>
+        <a class="ghost" href="/">Entrar</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap doc">
+    <h1>Cómo funciona</h1>
+    <p class="intro">Un plan es una lista de cosas que alguien debería saber si un día no puedes actuar: cuentas, documentos, instrucciones. Decides quién recibe cada una y cuándo: si dejas de entrar, primero te avisamos a ti durante dos semanas. Solo si no respondes, cada persona recibe su parte.</p>
+
+    <nav class="page-nav" aria-label="En esta página">
+      <p class="eyebrow">En esta página</p>
+      <ul>
+        <li><a href="#plan">Tu plan</a></li>
+        <li><a href="#personas">Personas de confianza</a></li>
+        <li><a href="#plazos">Cuándo se envía el plan</a></li>
+        <li><a href="#entrega">Qué recibe cada persona</a></li>
+        <li><a href="#copia">Una copia fuera de Custodium</a></li>
+        <li><a href="#probar">Probarlo</a></li>
+      </ul>
+    </nav>
+
+    <section id="plan" class="doc-block">
+      <h2>Tu plan</h2>
+      <p>Creas la cuenta con tu correo y una contraseña. Te proponemos una frase de seis palabras: más fuerte y más fácil de recordar que una contraseña inventada. Puedes escribir la tuya. No hay recuperación: si la pierdes, el plan se pierde con ella. Guárdala en tu gestor de contraseñas antes de seguir.</p>
+      <p>Añades elementos. Cada elemento es una cosa: una cuenta, un documento, una instrucción. Tiene un título, un texto libre con lo que haga falta saber y, si quieres, archivos adjuntos de hasta 50 MB cada uno. Hay plantillas para empezar, en cuatro grupos: cuentas y accesos, dinero y patrimonio, casa y documentos, trabajo y personas.</p>
+      <figure class="fig">
+        <svg viewBox="0 0 480 176" role="img" aria-labelledby="fig-cifrado">
+          <title id="fig-cifrado">Tu plan, legible en tu navegador; en Custodium, un bloque cifrado</title>
+          <rect class="card" x="16" y="20" width="184" height="116" rx="12"/>
+          <rect class="mark" x="32" y="36" width="8" height="8" transform="rotate(45 36 40)"/>
+          <text class="t-strong" x="48" y="45">Tu plan</text>
+          <text x="32" y="75">Cuenta del banco</text>
+          <text x="32" y="97">Documentos familiares</text>
+          <text x="32" y="119">Correo y redes</text>
+          <text class="t-cap" x="108" y="165" text-anchor="middle">En tu navegador</text>
+          <path class="ln" d="M208 78 H268"/>
+          <path class="ln" d="M261 72 L268 78 L261 84"/>
+          <rect class="mark" x="234" y="52" width="10" height="10" transform="rotate(45 239 57)"/>
+          <text class="t-cap t-teal" x="238" y="105" text-anchor="middle">se cifra</text>
+          <rect class="card" x="280" y="20" width="184" height="116" rx="12"/>
+          <rect class="mark" x="296" y="36" width="8" height="8" transform="rotate(45 300 40)"/>
+          <text class="t-strong" x="312" y="45">Custodium</text>
+          <path class="cipher" d="M296 71 H420"/>
+          <path class="cipher" d="M296 93 H440"/>
+          <path class="cipher" d="M296 115 H396"/>
+          <text class="t-cap" x="372" y="165" text-anchor="middle">En Custodium</text>
+        </svg>
+        <figcaption>Lo único que llega a Custodium es el bloque de la derecha.</figcaption>
+      </figure>
+      <p>Todo se cifra en tu navegador antes de enviarse. Custodium guarda el plan cifrado y nunca ve el contenido, ni los nombres de tus archivos, ni los nombres de tus personas. <a href="/seguridad">Cómo se consigue</a>.</p>
+    </section>
+
+    <section id="personas" class="doc-block">
+      <h2>Personas de confianza</h2>
+      <p>Añades a cada persona con su nombre, su correo y, si quieres, su móvil. No hace falta que tenga cuenta ni que instale nada.</p>
+      <p>Custodium genera para ella una frase de seis palabras. Escríbela en papel y dásela en persona; no la envíes por mensaje ni por correo. Esa frase es lo único que abre su parte. Custodium no la ve: queda guardada dentro de tu plan, cifrada como todo lo demás, para que puedas volver a mostrársela.</p>
+      <figure class="fig">
+        <svg viewBox="0 0 480 200" role="img" aria-labelledby="fig-asignar">
+          <title id="fig-asignar">Tres elementos del plan asignados a tres personas: cada una recibe solo lo suyo</title>
+          <path class="ln ln-link" d="M214 40 C 290 40, 300 40, 374 40"/>
+          <path class="ln ln-link" d="M214 100 C 290 100, 300 100, 374 100"/>
+          <path class="ln ln-link" d="M214 160 C 290 160, 300 100, 374 100"/>
+          <path class="ln ln-link" d="M214 160 C 290 160, 300 160, 374 160"/>
+          <rect class="card" x="16" y="18" width="192" height="44" rx="10"/>
+          <text class="t-kind" x="30" y="35">CUENTAS</text>
+          <text class="t-strong" x="30" y="52">Correo y redes</text>
+          <circle class="mark" cx="208" cy="40" r="4"/>
+          <rect class="card" x="16" y="78" width="192" height="44" rx="10"/>
+          <text class="t-kind" x="30" y="95">DOCUMENTOS</text>
+          <text class="t-strong" x="30" y="112">Documentos familiares</text>
+          <circle class="mark" cx="208" cy="100" r="4"/>
+          <rect class="card" x="16" y="138" width="192" height="44" rx="10"/>
+          <text class="t-kind" x="30" y="155">FINANZAS</text>
+          <text class="t-strong" x="30" y="172">Cuenta bancaria</text>
+          <circle class="mark" cx="208" cy="160" r="4"/>
+          <circle class="avatar" cx="392" cy="40" r="18"/>
+          <text class="avatar-text" x="392" y="45">L</text>
+          <text class="t-strong" x="418" y="38">Luis</text>
+          <text class="t-cap" x="418" y="54">Hermano</text>
+          <circle class="avatar" cx="392" cy="100" r="18"/>
+          <text class="avatar-text" x="392" y="105">M</text>
+          <text class="t-strong" x="418" y="98">Marta</text>
+          <text class="t-cap" x="418" y="114">Pareja</text>
+          <circle class="avatar" cx="392" cy="160" r="18"/>
+          <text class="avatar-text" x="392" y="165">J</text>
+          <text class="t-strong" x="418" y="158">Jose</text>
+          <text class="t-cap" x="418" y="174">Asesor</text>
+        </svg>
+        <figcaption>Luis recibirá un elemento; Marta, dos; Jose, uno. Nadie ve el resto.</figcaption>
+      </figure>
+      <p>Asignas cada elemento a una o varias personas. Cada una recibirá solo los elementos que le hayas asignado. Hasta 20 personas; puedes cambiarlas, quitarlas o darles una frase nueva cuando quieras.</p>
+    </section>
+
+    <section id="plazos" class="doc-block">
+      <h2>Cuándo se envía el plan a tus personas</h2>
+      <p>Nadie decide por ti. Tú eliges una fecha, contada en días desde la última vez que entraste: cuándo empezamos a avisarte y cuándo se entrega el plan. Cada vez que entras, o pulsas «Sigo aquí» en un aviso, la cuenta vuelve a empezar y la fecha se aleja. En «Cuenta» ves las dos fechas exactas, calculadas igual que las calcula el servidor.</p>
+      <figure class="fig ruler" aria-label="Línea de tiempo con los plazos por defecto: día 0, última entrada; del día 21 al 35, avisos; día 35, entrega">
+        <div class="ruler-track" aria-hidden="true">
+          <span class="ruler-band"></span>
+          <span class="ruler-mark d0"><b>Día 0</b><small>Última entrada</small><i></i></span>
+          <span class="ruler-mark d21"><b>Día 21</b><small>Empiezan los avisos</small><i></i></span>
+          <span class="ruler-mark d35"><b>Día 35</b><small>Entrega</small><i></i></span>
+        </div>
+        <figcaption><span class="ruler-swatch" aria-hidden="true"></span>Del día 21 al 35 recibes dos correos y un SMS al día con el botón «Sigo aquí». Entrar, o pulsar el botón, vuelve al día 0.</figcaption>
+      </figure>
+      <ol class="timeline">
+        <li><span class="when">Día 0</span><p>Tu última entrada o confirmación. Desde aquí se cuenta todo.</p></li>
+        <li><span class="when">Día 21</span><p>Empiezan los avisos. Te escribimos dos veces al día por correo y, si has dado tu móvil, una vez al día por SMS. Cada correo lleva el botón «Sigo aquí».</p></li>
+        <li><span class="when">Del 21 al 35</span><p>Dos semanas de margen. Un toque en «Sigo aquí», o entrar, detiene los avisos y vuelve al día 0. Si no respondes a ninguno, llega la entrega.</p></li>
+        <li><span class="when">Día 35</span><p>Entrega. Cada persona recibe por correo el enlace a su parte, y un SMS si tiene móvil. Solo ocurre si te hemos avisado al menos dos veces. A ti te lo decimos durante cinco días, por si ha sido un error.</p></li>
+        <li><span class="when">Después</span><p>Quien no abra su enlace recibe recordatorios durante cinco meses. Cada enlace dura 100 días desde el correo que lo trae. Si vuelves a entrar, los recordatorios se detienen; los enlaces ya enviados siguen abriendo hasta que los anules desde «Personas».</p></li>
+      </ol>
+      <p>Estos son los plazos por defecto, 21 y 35 días. Puedes cambiarlos en «Cuenta»; la única regla es que la entrega sea como mínimo tres días después del primer aviso. Si no hay personas con elementos asignados, no se envía nada.</p>
+      <p>Nada se da por hecho sin comprobarlo: un aviso solo cuenta cuando nuestro proveedor de correo lo ha aceptado. Si un envío falla, se repite en la siguiente ronda y no cuenta para la entrega.</p>
+    </section>
+
+    <section id="entrega" class="doc-block">
+      <h2>Qué recibe cada persona</h2>
+      <p>Un correo de avisos@custodium.space con un enlace. El correo no contiene nada de tu plan. Al abrirlo, escribe su frase y ve sus elementos; los archivos se descifran en su navegador.</p>
+      <figure class="fig">
+        <svg viewBox="0 0 500 202" role="img" aria-labelledby="fig-caminos">
+          <title id="fig-caminos">El enlace llega por correo y la frase en papel; solo juntos abren la parte de esa persona</title>
+          <path class="ln ln-link" d="M124 50 C 190 50, 220 92, 280 92"/>
+          <path class="ln ln-link" d="M116 136 C 190 136, 220 92, 280 92"/>
+          <rect class="card" x="28" y="30" width="92" height="42" rx="6"/>
+          <path class="ln ln-soft" d="M28 36 L74 62 L120 36"/>
+          <text class="t-cap" x="74" y="92" text-anchor="middle">Correo con el enlace</text>
+          <path class="card" d="M42 108 H98 L112 122 V164 H42 Z"/>
+          <path class="ln ln-soft" d="M98 108 V122 H112"/>
+          <path class="ln ln-brass" d="M52 130 H68 M74 130 H92 M52 141 H64 M70 141 H96 M52 152 H72 M78 152 H90"/>
+          <text class="t-cap" x="77" y="182" text-anchor="middle">Frase en papel,</text>
+          <text class="t-cap" x="77" y="197" text-anchor="middle">dada en persona</text>
+          <circle class="avatar" cx="298" cy="92" r="18"/>
+          <text class="avatar-text" x="298" y="97">M</text>
+          <path class="ln" d="M322 92 H346"/>
+          <path class="ln" d="M340 86 L346 92 L340 98"/>
+          <rect class="card" x="352" y="44" width="136" height="96" rx="10"/>
+          <text class="t-strong" x="366" y="66">Su parte</text>
+          <text x="366" y="88">Documentos</text>
+          <text x="366" y="106">Cuenta bancaria</text>
+          <text x="366" y="124">Mensaje personal</text>
+        </svg>
+        <figcaption>Sin una de las dos cosas, la parte no se abre.</figcaption>
+      </figure>
+      <p>Sin la frase, el enlace no sirve. Sin el enlace, la frase tampoco. Por eso el papel y el correo deben ir por caminos distintos.</p>
+      <p>Si una persona pierde el papel, puedes volver a mostrarle la frase desde tu plan mientras tú estés. Si tú ya no estás, nadie puede. Conviene que guarde una segunda copia en un sobre cerrado, en otro lugar.</p>
+    </section>
+
+    <section id="copia" class="doc-block">
+      <h2>Una copia fuera de Custodium</h2>
+      <p>Desde «Cuenta» puedes descargar una copia cifrada de todo: tu plan, el paquete de cada persona, los archivos y un abridor que funciona en cualquier navegador, sin servidor ni conexión. Si Custodium dejara de existir, con esa copia y las frases de cada persona la entrega se puede hacer a mano.</p>
+      <figure class="fig">
+        <svg viewBox="0 0 480 150" role="img" aria-labelledby="fig-copia">
+          <title id="fig-copia">La copia cifrada contiene el plan, los paquetes, los archivos y un abridor, y puede guardarse en un USB, en la nube o con el notario</title>
+          <path class="card" d="M24 30 H92 L104 42 H224 V130 H24 Z"/>
+          <text class="t-strong" x="40" y="64">Copia cifrada</text>
+          <text x="40" y="86">plan · paquetes · archivos</text>
+          <text x="40" y="106">abrir.html, sin conexión</text>
+          <path class="ln ln-link" d="M224 80 C 260 80, 270 44, 306 44"/>
+          <path class="ln ln-link" d="M224 80 H306"/>
+          <path class="ln ln-link" d="M224 80 C 260 80, 270 116, 306 116"/>
+          <rect class="card" x="314" y="34" width="34" height="20" rx="4"/>
+          <rect class="card" x="348" y="38" width="12" height="12" rx="2"/>
+          <text class="t-cap" x="372" y="49">Un USB</text>
+          <path class="card" d="M330 92 H354 A9 9 0 0 0 356 74 A12 12 0 0 0 333 70 A8 8 0 0 0 322 79 A7 7 0 0 0 330 92 Z"/>
+          <text class="t-cap" x="372" y="85">La nube</text>
+          <rect class="card" x="320" y="102" width="28" height="34" rx="3"/>
+          <circle class="brass" cx="341" cy="129" r="5"/>
+          <text class="t-cap" x="372" y="121">El notario</text>
+        </svg>
+        <figcaption>Todo va cifrado: la copia se puede dejar en cualquier sitio.</figcaption>
+      </figure>
+      <p>Vuelve a descargarla cuando hagas cambios importantes.</p>
+    </section>
+
+    <section id="probar" class="doc-block">
+      <h2>Probarlo</h2>
+      <p>Añade una persona con otro correo tuyo y pulsa «Entregar ahora». Recibirás el mismo correo que recibiría ella y podrás abrir su parte con la frase. Luego, «Anular enlace» lo desactiva. No hace falta esperar a ningún plazo para ver cómo funciona.</p>
+      <div class="doc-cta">
+        <a class="btn" href="/#/crear-cuenta">Crear una cuenta</a>
+        <a class="btn-link" href="/">Ya tengo cuenta</a>
+        <p class="hint">Gratis durante la beta. No pedimos tarjeta.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p>Guardamos tu plan cifrado, nunca las claves.</p>
+    <p class="foot-legal">boredVictor SL · <a href="/legal#aviso-legal">Aviso legal</a> · <a href="/legal#privacidad">Privacidad</a> · <a href="/legal#cookies">Cookies</a> · <a href="/legal#condiciones">Condiciones</a></p>
+  </footer>
+</body>
+</html>

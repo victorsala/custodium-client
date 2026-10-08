@@ -1681,17 +1681,101 @@ form.acct-card { display: block; }
 /* Pàgina legal (legal.html) i enllaços del peu */
 a.brand { text-decoration: none; color: inherit; }
 .foot-legal { margin-top: 6px; }
-.legal { max-width: 720px; padding-bottom: 24px; }
-.legal .page-nav { margin: 24px 0 8px; }
-.legal-block { margin-top: 36px; }
-.legal-block h2 { margin-bottom: 12px; }
-.legal-block h3 { margin: 22px 0 6px; }
-.legal-block p, .legal-block li { line-height: 1.55; }
-.legal-block p + p { margin-top: 10px; }
-.legal-block ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 8px; }
-.legal-block a { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
+.doc { max-width: 720px; padding-bottom: 24px; }
+.doc .page-nav { margin: 24px 0 8px; }
+.doc .intro strong { color: var(--ink); font-weight: 600; }
+.doc-block { margin-top: 36px; }
+.doc-block h2 { margin-bottom: 12px; }
+.doc-block h3 { margin: 22px 0 6px; }
+.doc-block p, .doc-block li { line-height: 1.55; }
+.doc-block p + p, .doc-block ul + p, .doc-block ol + p, .doc-block pre + p { margin-top: 10px; }
+.doc-block ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 8px; }
+.doc-block a { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
+.doc-block pre {
+  margin: 12px 0 0; padding: 14px 16px; overflow-x: auto;
+  background: rgba(0,0,0,.04); border: 1px solid var(--hairline); border-radius: 10px;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.doc-block code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .95em; }
 .legal-facts { margin: 12px 0; display: grid; gap: 6px; }
 .legal-facts div { display: grid; grid-template-columns: 150px 1fr; gap: 8px; }
 .legal-facts dt { color: var(--slate); }
 .legal-facts dd { margin: 0; }
 @media (max-width: 480px) { .legal-facts div { grid-template-columns: 1fr; gap: 0; } }
+
+/* Navegació de visitant: a la portada mentre no hi ha sessió (#top-nav amagat) i a les
+   pàgines d'informació (como-funciona, seguridad, codigo, preguntas, legal). */
+a.ghost {
+  display: inline-flex; align-items: center;
+  min-height: 38px; padding: 8px 16px;
+  border-radius: 10px; border: 1px solid rgba(247,244,238,.3);
+  color: var(--ivory); font-weight: 500; text-decoration: none; white-space: nowrap;
+}
+a.ghost:hover { background: rgba(255,255,255,.06); }
+a.ghost[aria-current="page"] { background: rgba(247,244,238,.1); border-color: transparent; }
+.visitor-nav { flex-wrap: wrap; }
+#top-nav:not([hidden]) ~ .visitor-nav { display: none; }
+@media (max-width: 480px) {
+  a.ghost { padding: 6px 12px; min-height: 34px; font-size: 14px; }
+  .visitor-nav { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding-bottom: 4px; scrollbar-width: thin; }
+}
+
+/* Portada: preu i enllaços a les pàgines d'informació */
+.pitch-price { color: var(--slate); font-size: 14px; }
+.more-links { margin-top: 20px; color: var(--slate); font-size: 14px; }
+.more-links a { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Pàgines d'informació: línia de temps i crida final */
+/* La línia de temps reutilitza .timeline de la previsió de «Cuenta» (punt i connector). */
+.doc .timeline { margin-top: 14px; }
+.timeline .when { font-weight: 600; color: var(--ink); }
+.doc-cta { margin-top: 44px; padding-top: 24px; border-top: 1px solid var(--hairline); display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.doc-cta .hint { width: 100%; }
+a.btn {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 12px 22px;
+  border-radius: 10px; background: var(--teal); color: var(--ivory); font-weight: 600; text-decoration: none;
+}
+a.btn:hover { background: var(--teal-dark); }
+a.btn-link { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Figures de «Cómo funciona»: SVG en línia, traç fi, un sol accent teal i el llautó amb comptagotes.
+   Els colors van per classe (la CSP no permet style= en línia). */
+.fig { margin: 20px 0 8px; }
+.fig svg { display: block; width: 100%; max-width: 520px; height: auto; }
+.fig figcaption { margin-top: 8px; font-size: 13px; color: var(--slate); line-height: 1.5; }
+.fig text { font: 13px var(--body); fill: var(--slate); }
+.fig .t-strong { font-size: 14px; font-weight: 600; fill: var(--ink); }
+.fig .t-kind { font-size: 10.5px; font-weight: 500; letter-spacing: .04em; }
+.fig .t-cap { font-size: 13px; }
+.fig .t-teal { fill: var(--teal); }
+.fig .card { fill: var(--surface); stroke: var(--slate); stroke-width: 1.2; stroke-linejoin: round; }
+.fig .ln { fill: none; stroke: var(--teal); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.fig .ln-soft { stroke: var(--slate); stroke-width: 1.2; }
+.fig .ln-link { stroke-width: 1.4; opacity: .55; }
+.fig .ln-brass { stroke: var(--brass); stroke-width: 2.4; }
+.fig .mark { fill: var(--teal); }
+.fig .brass { fill: var(--brass); }
+.fig .cipher { fill: none; stroke: #D9D3C7; stroke-width: 8; stroke-dasharray: 9 5; }
+.fig .avatar { fill: var(--teal); }
+.fig .avatar-text { font-size: 13px; font-weight: 600; fill: var(--ivory); text-anchor: middle; }
+.fig .frame { fill: none; stroke: var(--slate); stroke-width: 1.2; stroke-dasharray: 4 4; opacity: .7; }
+.fig .hair { fill: none; stroke: var(--hairline); stroke-width: 1; }
+.fig .t-num { font-family: var(--display); font-size: 16px; fill: var(--ink); }
+
+/* Regle dels terminis per defecte: 0 · 21 · 35, amb la franja d'avisos entre els dos últims. */
+.ruler { margin: 22px 0 6px; }
+.ruler-track { position: relative; height: 84px; margin: 0 6px; }
+.ruler-track::before { content: ""; position: absolute; left: 0; right: 0; top: 62px; height: 2px; background: var(--slate); opacity: .45; }
+.ruler-band { position: absolute; left: 60%; right: 0; top: 52px; height: 22px; border-radius: 4px; background: rgba(28,93,84,.14); }
+.ruler-mark { position: absolute; top: 0; display: grid; gap: 1px; }
+.ruler-mark b { font-family: var(--display); font-weight: 500; font-size: 18px; line-height: 1.1; color: var(--ink); white-space: nowrap; }
+.ruler-mark small { font-size: 12px; color: var(--slate); white-space: nowrap; }
+.ruler-mark i { position: absolute; top: 56px; width: 14px; height: 14px; box-sizing: border-box; border-radius: 50%; background: var(--teal); border: 3px solid var(--ivory); }
+.ruler-mark.d0 { left: 0; }
+.ruler-mark.d0 i { left: -7px; }
+.ruler-mark.d21 { left: 60%; transform: translateX(-50%); text-align: center; justify-items: center; }
+.ruler-mark.d21 i { left: 50%; margin-left: -7px; }
+.ruler-mark.d35 { left: 100%; transform: translateX(-100%); text-align: right; justify-items: end; }
+.ruler-mark.d35 i { right: -7px; }
+.ruler figcaption { display: flex; gap: 8px; align-items: baseline; }
+.ruler-swatch { flex: none; width: 14px; height: 10px; border-radius: 3px; background: rgba(28,93,84,.14); border: 1px solid rgba(28,93,84,.35); transform: translateY(1px); }

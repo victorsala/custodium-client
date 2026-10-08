@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Custodium · seguridad</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row">
+      <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>Custodium <small>beta</small></a>
+      <nav class="top-nav visitor-nav" aria-label="Sobre Custodium">
+        <a class="ghost" href="/como-funciona">Cómo funciona</a>
+        <a class="ghost" href="/seguridad" aria-current="page">Seguridad</a>
+        <a class="ghost" href="/codigo">Código</a>
+        <a class="ghost" href="/preguntas">Preguntas</a>
+        <a class="ghost" href="/">Entrar</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap doc">
+    <h1>Seguridad</h1>
+    <p class="intro"><strong>La seguridad está en las matemáticas, no en nuestra buena fe.</strong><br>Custodium es tan seguro como los algoritmos de cifrado que usa, y no más: no prometemos otra cosa. Tampoco hace falta. <strong>Nadie puede robar lo que no tenemos</strong>, y lo que tenemos de tu plan es un bloque cifrado que, <strong>sin tu contraseña, no significa nada</strong>.</p>
+
+    <nav class="page-nav" aria-label="En esta página">
+      <p class="eyebrow">En esta página</p>
+      <ul>
+        <li><a href="#principio">Tan seguros como las matemáticas</a></li>
+        <li><a href="#servidor">Qué hay en el servidor</a></li>
+        <li><a href="#brecha">Si alguien entrara en los servidores</a></li>
+        <li><a href="#fuerza">Cuánto cuesta adivinar una contraseña</a></li>
+        <li><a href="#contrasena">Si pierdes la contraseña</a></li>
+        <li><a href="#personas">Cómo abre su parte una persona</a></li>
+        <li><a href="#correos">Correos y SMS</a></li>
+        <li><a href="#desaparece">Si Custodium desaparece</a></li>
+        <li><a href="#limites">Lo que sí puede fallar</a></li>
+        <li><a href="#tecnica">Detalles técnicos</a></li>
+      </ul>
+    </nav>
+
+    <section id="principio" class="doc-block">
+      <h2>Tan seguros como las matemáticas</h2>
+      <p>Tu plan se cifra en tu navegador con AES-256-GCM, un estándar público, revisado abiertamente desde 2001 y que no ha sido roto. La clave sale de tu contraseña y no viaja nunca. Custodium recibe el resultado: un bloque de bytes que, sin esa clave, no se distingue del ruido. No podemos leerlo nosotros, ni un empleado, ni quien nos obligue, ni quien entre en nuestros servidores. No es que no queramos: es que no tenemos con qué.</p>
+      <p>De tu contraseña, tu navegador deriva dos cosas distintas: la clave de cifrado, que se queda en el navegador, y una prueba de acceso, que es lo único que viaja para entrar. De la prueba no se puede obtener la clave: la operación va en un solo sentido.</p>
+      <figure class="fig">
+        <svg viewBox="0 0 500 222" role="img" aria-labelledby="fig-claves">
+          <title id="fig-claves">De tu contraseña salen dos cosas: la clave de cifrado, que se queda en tu navegador, y la prueba de acceso, que es lo único que llega a Custodium</title>
+          <rect class="frame" x="14" y="14" width="300" height="196" rx="14"/>
+          <text class="t-cap" x="30" y="36">Tu navegador</text>
+          <rect class="card" x="24" y="48" width="184" height="32" rx="8"/>
+          <text class="t-strong" x="116" y="69" text-anchor="middle">Tu contraseña</text>
+          <path class="ln" d="M116 80 V96"/>
+          <path class="ln" d="M110 90 L116 96 L122 90"/>
+          <rect class="card" x="24" y="98" width="184" height="34" rx="8"/>
+          <text class="t-cap" x="116" y="119" text-anchor="middle">600.000 vueltas de PBKDF2</text>
+          <path class="ln" d="M116 132 V140 M92 140 H230 M92 140 V156 M230 140 V156"/>
+          <path class="ln" d="M86 150 L92 156 L98 150 M224 150 L230 156 L236 150"/>
+          <rect class="card" x="28" y="158" width="128" height="30" rx="8"/>
+          <text class="t-strong t-teal" x="92" y="177" text-anchor="middle">Clave de cifrado</text>
+          <text class="t-cap" x="92" y="204" text-anchor="middle">no sale de aquí</text>
+          <rect class="card" x="166" y="158" width="128" height="30" rx="8"/>
+          <text class="t-strong" x="230" y="177" text-anchor="middle">Prueba de acceso</text>
+          <path class="ln" d="M294 173 H334"/>
+          <path class="ln" d="M328 167 L334 173 L328 179"/>
+          <rect class="card" x="336" y="146" width="152" height="54" rx="10"/>
+          <rect class="mark" x="348" y="159" width="8" height="8" transform="rotate(45 352 163)"/>
+          <text class="t-strong" x="364" y="167">Custodium</text>
+          <text class="t-cap" x="348" y="187">la prueba, con sal</text>
+        </svg>
+        <figcaption>Lo único que viaja es la prueba. De la prueba no se puede obtener la clave.</figcaption>
+      </figure>
+      <p>No es una promesa comercial, es una propiedad del diseño. Y el código que lo hace es público: <a href="/codigo">puedes comprobarlo</a>.</p>
+    </section>
+
+    <section id="servidor" class="doc-block">
+      <h2>Qué hay en el servidor</h2>
+      <p>Que no pueda leer el plan no quiere decir que no tenga nada. Esto es lo que guarda:</p>
+      <figure class="fig">
+        <svg viewBox="0 0 500 190" role="img" aria-labelledby="fig-servidor">
+          <title id="fig-servidor">Lo que hay en el servidor: el plan cifrado, ilegible sin tu contraseña; la prueba de acceso, que no sirve para descifrar; y tu correo y tu móvil, los únicos datos legibles</title>
+          <rect class="card" x="16" y="16" width="468" height="158" rx="12"/>
+          <rect class="mark" x="30" y="32" width="8" height="8" transform="rotate(45 34 36)"/>
+          <text class="t-strong" x="46" y="41">En Custodium</text>
+          <path class="hair" d="M16 56 H484"/>
+          <text class="t-strong" x="32" y="80">Tu plan</text>
+          <path class="cipher" d="M160 76 H216 M226 76 H262 M272 76 H296"/>
+          <text class="t-cap" x="310" y="80">ilegible sin tu contraseña</text>
+          <path class="hair" d="M16 96 H484"/>
+          <text class="t-strong" x="32" y="120">Prueba de acceso</text>
+          <text class="t-cap" x="160" y="120">SHA-256 con sal</text>
+          <text class="t-cap" x="310" y="120">no sirve para descifrar</text>
+          <path class="hair" d="M16 136 H484"/>
+          <text class="t-strong" x="32" y="160">Correo y móvil</text>
+          <text class="t-cap" x="160" y="160">ana@… · +34 6…</text>
+          <circle class="brass" cx="302" cy="156" r="3.5"/>
+          <text class="t-cap" x="310" y="160">legibles: datos personales</text>
+        </svg>
+        <figcaption>Solo la última fila se puede leer. Es la que cuidamos como datos personales.</figcaption>
+      </figure>
+      <p>Con más detalle, el servidor guarda en claro:</p>
+      <ul>
+        <li>Tu correo y, si lo has dado, tu móvil.</li>
+        <li>Cuándo entraste por última vez y los plazos que has elegido.</li>
+        <li>El correo y el móvil de cada persona de confianza, y si se le ha enviado y ha abierto su enlace.</li>
+        <li>El tamaño de cada archivo, no su nombre ni su tipo.</li>
+        <li>Un registro de la actividad de tu cuenta, con el país desde el que se hizo cada acción. Nunca la dirección IP ni el navegador.</li>
+      </ul>
+      <p>No sabe qué hay en el plan, cómo se llaman tus personas ni qué archivos has subido. Todo se borra al eliminar la cuenta. El detalle está en la <a href="/legal#privacidad">política de privacidad</a>.</p>
+    </section>
+
+    <section id="brecha" class="doc-block">
+      <h2>Si alguien entrara en los servidores</h2>
+      <p>Se llevaría lo de la figura anterior: bloques cifrados, pruebas de acceso con sal y la lista de correos y móviles. Con eso no puede leer ningún plan ni la parte de ninguna persona: para eso hacen falta tu contraseña o su frase, y ninguna de las dos está en el servidor. Lo único que podría intentar es adivinar contraseñas una a una, y ahí entran las matemáticas.</p>
+      <p>Sí sabría quién usa Custodium y con quién. Por eso guardamos lo mínimo y lo borramos con la cuenta. Si ocurriera, te avisaríamos al correo de tu cuenta.</p>
+    </section>
+
+    <section id="fuerza" class="doc-block">
+      <h2>Cuánto cuesta adivinar una contraseña</h2>
+      <p>Como la clave no está guardada en ningún sitio, la única vía es probar contraseñas. Cada intento obliga a repetir 600.000 veces una operación (PBKDF2), a propósito, para que probar sea lento. Y la frase de seis palabras que te proponemos al crear la cuenta se elige al azar de una lista de 2.048:</p>
+      <figure class="fig">
+        <svg viewBox="0 0 500 140" role="img" aria-labelledby="fig-fuerza">
+          <title id="fig-fuerza">Seis palabras al azar de una lista de 2.048 dan 2.048 elevado a seis, unos 7 por 10 elevado a 19 frases posibles; cada intento cuesta 600.000 vueltas de PBKDF2</title>
+          <rect class="card" x="16" y="24" width="70" height="30" rx="8"/>
+          <text class="t-strong" x="51" y="44" text-anchor="middle">ebano</text>
+          <rect class="card" x="94" y="24" width="70" height="30" rx="8"/>
+          <text class="t-strong" x="129" y="44" text-anchor="middle">deporte</text>
+          <rect class="card" x="172" y="24" width="70" height="30" rx="8"/>
+          <text class="t-strong" x="207" y="44" text-anchor="middle">nacar</text>
+          <rect class="card" x="250" y="24" width="70" height="30" rx="8"/>
+          <text class="t-strong" x="285" y="44" text-anchor="middle">cien</text>
+          <rect class="card" x="328" y="24" width="70" height="30" rx="8"/>
+          <text class="t-strong" x="363" y="44" text-anchor="middle">organo</text>
+          <rect class="card" x="406" y="24" width="70" height="30" rx="8"/>
+          <text class="t-strong" x="441" y="44" text-anchor="middle">vagar</text>
+          <text class="t-cap" x="246" y="76" text-anchor="middle">Seis palabras al azar, de una lista de 2.048</text>
+          <text class="t-num" x="246" y="106" text-anchor="middle">2.048 × 2.048 × 2.048 × 2.048 × 2.048 × 2.048 = 7 × 10<tspan dy="-7" font-size="11">19</tspan><tspan dy="7"> frases</tspan></text>
+          <text class="t-cap" x="246" y="130" text-anchor="middle">Cada intento: 600.000 vueltas de PBKDF2</text>
+        </svg>
+        <figcaption>Probar todas las frases, a mil millones de intentos por segundo, llevaría más de 2.000 años.</figcaption>
+      </figure>
+      <p>Por eso te proponemos la frase en lugar de una contraseña inventada. Si prefieres escribir la tuya, que sea larga y solo para Custodium: una que ya uses en otro sitio vale lo que valga ese otro sitio.</p>
+    </section>
+
+    <section id="contrasena" class="doc-block">
+      <h2>Si pierdes la contraseña</h2>
+      <p>Nadie puede recuperarla, tampoco nosotros: no la tenemos, y sin ella el plan es un bloque cifrado. No es un descuido, es la consecuencia de que Custodium no pueda leerlo. Por eso al crear la cuenta te proponemos una frase de seis palabras y te pedimos que la guardes antes de seguir. Lo mismo vale para la frase de cada persona.</p>
+      <p>Si cambias la contraseña, el plan se vuelve a cifrar en tu navegador con la nueva y se cierran las sesiones abiertas en otros dispositivos.</p>
+    </section>
+
+    <section id="personas" class="doc-block">
+      <h2>Cómo abre su parte una persona de confianza</h2>
+      <p>Con dos cosas que llegan por caminos distintos: un enlace, por correo, y una frase de seis palabras que le diste tú en papel. El enlace descarga su paquete cifrado; la frase lo descifra en su navegador. El servidor sabe que el enlace se ha abierto, no si la frase ha funcionado. Un enlace dura 100 días y puedes anularlo cuando quieras desde «Personas».</p>
+      <p>La frase de cada persona se guarda dentro de tu plan, cifrada como todo lo demás, para que puedas volver a mostrársela. Custodium no la ve en ningún momento.</p>
+    </section>
+
+    <section id="correos" class="doc-block">
+      <h2>Correos y SMS</h2>
+      <p>Nuestros correos nunca contienen contenido de tu plan: solo enlaces a custodium.space y, al crear la cuenta o cambiar el correo, un código de seis cifras. Los SMS no llevan enlaces. Nunca te pediremos la contraseña ni la frase de nadie. Un correo que lo haga no es nuestro.</p>
+      <p>El botón «Sigo aquí» de los avisos es un botón, no un enlace: los sistemas que abren enlaces automáticamente (antivirus, escáneres de correo) no cuentan como señal tuya.</p>
+    </section>
+
+    <section id="desaparece" class="doc-block">
+      <h2>Si Custodium desaparece</h2>
+      <p>Custodium debe ser prescindible. Desde «Cuenta» descargas una copia cifrada con todo y un abridor que funciona en cualquier navegador, sin servidor ni conexión. Cada persona, con su frase, abre solo su parte; tú, con tu contraseña, todo. Si la empresa o el dominio dejaran de existir, la entrega se puede hacer a mano con esa copia.</p>
+    </section>
+
+    <section id="limites" class="doc-block">
+      <h2>Lo que sí puede fallar</h2>
+      <p>Preferimos decirlo antes de que lo descubras:</p>
+      <ul>
+        <li><strong>Tu contraseña es el límite.</strong> Todo lo anterior vale si es larga y solo tuya. Por eso proponemos la frase de seis palabras.</li>
+        <li><strong>Tu dispositivo.</strong> El cifrado protege lo que sale de él. Si tu ordenador o tu móvil están comprometidos, quien los controle ve lo mismo que tú.</li>
+        <li><strong>Una sola contraseña, sin segundo factor.</strong> Lo compensa que la contraseña sea larga y que los intentos de entrada estén limitados.</li>
+        <li><strong>Ninguna auditoría externa de la criptografía.</strong> Los algoritmos y parámetros son los estándar (más abajo) y el código es público, pero nadie de fuera lo ha revisado todavía.</li>
+        <li><strong>«Aviso enviado» significa aceptado por nuestro proveedor de correo,</strong> no leído por ti. Un correo que acabe en la carpeta de spam o en un buzón lleno cuenta igual. Por eso recomendamos dar el móvil: el SMS es un canal independiente.</li>
+        <li><strong>El servidor guarda metadatos personales</strong> (correos, móviles, país, actividad). Cifrar el contenido no nos libra de cuidar esos datos; lo que hacemos con ellos está en la <a href="/legal#privacidad">política de privacidad</a>.</li>
+      </ul>
+    </section>
+
+    <section id="tecnica" class="doc-block">
+      <h2>Detalles técnicos</h2>
+      <p>Para quien quiera comprobarlo o comparar:</p>
+      <ul>
+        <li><strong>Derivación de claves:</strong> PBKDF2-SHA256, 600.000 iteraciones, con una sal distinta por cuenta. De ahí, con HKDF, salen por separado la clave de cifrado y la prueba de acceso.</li>
+        <li><strong>Cifrado:</strong> AES-256-GCM con la implementación nativa del navegador (WebCrypto). Sin bibliotecas criptográficas propias.</li>
+        <li><strong>Frase de cada persona:</strong> seis palabras al azar de una lista de 2.048 (66 bits), que se normaliza (sin mayúsculas ni acentos) y pasa por PBKDF2 con su correo como sal.</li>
+        <li><strong>Archivos:</strong> cada archivo se cifra con una clave aleatoria propia de 32 bytes, que viaja dentro de tu plan y del paquete de quien deba recibirlo.</li>
+        <li><strong>Prueba de acceso:</strong> el servidor guarda su SHA-256 con una sal aleatoria. Ni con la base de datos a la vista se obtiene la contraseña sin forzarla a través de las 600.000 iteraciones.</li>
+        <li><strong>Transporte y página:</strong> HTTPS siempre; política de seguridad de contenido estricta (solo código servido por custodium.space, ningún script de terceros); sin cookies; la sesión vive en memoria y desaparece al cerrar la pestaña.</li>
+        <li><strong>Infraestructura:</strong> Cloudflare Workers. Los archivos cifrados se almacenan en centros de datos de la Unión Europea.</li>
+      </ul>
+      <div class="doc-cta">
+        <a class="btn" href="/#/crear-cuenta">Crear una cuenta</a>
+        <a class="btn-link" href="/codigo">Ver el código</a>
+        <p class="hint">Gratis durante la beta. No pedimos tarjeta.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p>Guardamos tu plan cifrado, nunca las claves.</p>
+    <p class="foot-legal">boredVictor SL · <a href="/legal#aviso-legal">Aviso legal</a> · <a href="/legal#privacidad">Privacidad</a> · <a href="/legal#cookies">Cookies</a> · <a href="/legal#condiciones">Condiciones</a></p>
+  </footer>
+</body>
+</html>

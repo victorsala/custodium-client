@@ -2,7 +2,7 @@
 
 *(español más abajo)*
 
-This repository is the public mirror of [custodium.space](https://custodium.space), a digital succession plan: the complete client (`public/`) **and** the Cloudflare Worker that serves it (`src/index.js`, configured in `wrangler.toml`). No build step, no bundler, no frameworks. All encryption happens in the browser (PBKDF2 + AES-GCM, see `public/crypto.js`); the server only ever stores ciphertext and never receives passwords, passphrases or content in the clear. The full manual (in Catalan) is in the root [README.md](../README.md).
+This repository is the public mirror of [custodium.space](https://custodium.space), a digital succession plan: the complete client (`public/`) **and** the Cloudflare Worker that serves it (`src/index.js`, configured in `wrangler.toml`). No build step, no bundler, no frameworks. All encryption happens in the browser (PBKDF2 + AES-GCM, see `public/crypto.js`); the server only ever stores ciphertext and never receives passwords, passphrases or content in the clear. The full manual (in Spanish) is in the root [README.md](../README.md).
 
 **Verify what the site serves.** The footer of every page shows the deployed version, also available at [/VERSION](https://custodium.space/VERSION) — it is a commit hash of this repository. To check that the site serves exactly the client code at that commit:
 
@@ -20,7 +20,7 @@ done
 
 # Custodium — cliente y servidor
 
-Este repositorio es el espejo público de [custodium.space](https://custodium.space), un plan de sucesión digital: el cliente completo (`public/`) **y** el Worker de Cloudflare que lo sirve (`src/index.js`, configurado en `wrangler.toml`). Sin build, sin bundler, sin frameworks. Todo el cifrado ocurre en el navegador (PBKDF2 + AES-GCM, ver `public/crypto.js`); el servidor solo guarda texto cifrado y nunca recibe contraseñas, frases ni contenido en claro. El manual completo (en catalán) está en el [README.md](../README.md) de la raíz.
+Este repositorio es el espejo público de [custodium.space](https://custodium.space), un plan de sucesión digital: el cliente completo (`public/`) **y** el Worker de Cloudflare que lo sirve (`src/index.js`, configurado en `wrangler.toml`). Sin build, sin bundler, sin frameworks. Todo el cifrado ocurre en el navegador (PBKDF2 + AES-GCM, ver `public/crypto.js`); el servidor solo guarda texto cifrado y nunca recibe contraseñas, frases ni contenido en claro. El manual completo (en castellano) está en el [README.md](../README.md) de la raíz.
 
 **Verificar lo que sirve la web.** El pie de cada página muestra la versión desplegada, también disponible en [/VERSION](https://custodium.space/VERSION) — es un hash de commit de este repositorio. Para comprobar que la web sirve exactamente el código de cliente de ese commit, usa los comandos de arriba: descarga cada fichero y compáralo con su copia en `public/`.
 

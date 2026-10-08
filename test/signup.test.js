@@ -42,10 +42,10 @@ function fakeD1(db) {
       if (row) row.attempts += 1;
       return null;
     }
-    if (/^INSERT INTO users \(id, email, auth_salt, auth_hash, kdf_salt, created_at, last_seen\) VALUES/.test(sql)) {
-      const [id, email, auth_salt, auth_hash, kdf_salt, created_at, last_seen] = args;
+    if (/^INSERT INTO users \(id, email, auth_salt, auth_hash, kdf_salt, created_at, last_seen, warn_days, release_days\) VALUES/.test(sql)) {
+      const [id, email, auth_salt, auth_hash, kdf_salt, created_at, last_seen, warn_days, release_days] = args;
       if (db.users.has(email)) throw new Error("D1_ERROR: UNIQUE constraint failed: users.email");
-      db.users.set(email, { id, email, auth_salt, auth_hash, kdf_salt, created_at, last_seen });
+      db.users.set(email, { id, email, auth_salt, auth_hash, kdf_salt, created_at, last_seen, warn_days, release_days });
       return null;
     }
     if (/^DELETE FROM pending_signups WHERE email = \?$/.test(sql)) { db.pending.delete(args[0]); return null; }
@@ -127,6 +127,7 @@ test("alta: codi correcte → es crea el compte amb la seva kdf_salt i s'esborra
   assert.equal(r.status, 201);
   assert.equal(db.users.size, 1);
   assert.equal(db.users.get(email).kdf_salt, saltBefore.salt, "la sal del compte és la que /api/salt ja donava");
+  assert.deepEqual([db.users.get(email).warn_days, db.users.get(email).release_days], [21, 35], "terminis per defecte d'un compte nou");
   assert.equal(db.pending.has(email), false);
 });
 

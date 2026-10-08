@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
   created_at          INTEGER NOT NULL,
   last_seen           INTEGER,                -- última activitat o confirmació (epoch s)
   warned_at           INTEGER,                -- últim avís d'inactivitat enviat
-  warn_days           INTEGER NOT NULL DEFAULT 8,
-  release_days        INTEGER NOT NULL DEFAULT 21, -- >= warn_days + 3
+  warn_days           INTEGER NOT NULL DEFAULT 21, -- el Worker els fixa explícitament a l'alta (DEFAULT_WARN_DAYS /
+  release_days        INTEGER NOT NULL DEFAULT 35, -- DEFAULT_RELEASE_DAYS a src/index.js); >= warn_days + 3
   -- (checkin_token_hash i checkin_expires_at, aquí, es van treure amb migration-20260920b: ara checkin_tokens)
   -- Afegides amb ALTER TABLE, en aquest ordre:
   phone               TEXT,                       -- mòbil per a l'SMS d'avís, opcional, format +34…
