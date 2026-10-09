@@ -65,6 +65,21 @@ test("stats: passat el límit de campanyes del dia, una de nova cau a «otra»; 
   assert.equal(inserts()[0].args[3], "coneguda");
 });
 
+test("stats: les pantalles de l'alta són pàgines del beacon, i app.js les anuncia a body.dataset.statsScreen", async () => {
+  for (const p of ["/crear-cuenta", "/crear-cuenta/codigo"]) {
+    const r = await post({ kind: "view", path: p, source: "anuncio" });
+    assert.equal(r.status, 204, p);
+  }
+  assert.equal(inserts().length, 2);
+  const { readFileSync } = await import("node:fs");
+  const app = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(app, /document\.body\.dataset\.statsScreen = name/, "showScreen publica la pantalla");
+  assert.doesNotMatch(app, /document\.body\.dataset\.screen\b/, "mai data-screen al body: el selector [data-screen] de showScreen l'amagaria");
+  assert.match(app, /step === 2 \? "register-code" : "register"/, "showRegisterStep publica el pas");
+  const stats = readFileSync(new URL("../public/stats.js", import.meta.url), "utf8");
+  assert.match(stats, /"register-code": "\/crear-cuenta\/codigo"/, "stats.js tradueix el pas 2 a la seva pàgina");
+});
+
 test("stats: el cos pot arribar com a text pla (sendBeacon) i la portada compta com a /", async () => {
   const r = await post(JSON.stringify({ kind: "view", path: "/", source: "directo" }), { headers: { "content-type": "text/plain;charset=UTF-8" } });
   assert.equal(r.status, 204);

@@ -169,6 +169,8 @@ async function resendCode() {
 function showRegisterStep(step) {
   $("#register-start-form").hidden = step !== 1;
   $("#register-form").hidden = step !== 2;
+  // Per al comptador (stats.js): el pas 2 és una "pàgina" pròpia. Només si l'alta és la pantalla visible.
+  if (/^register/.test(document.body.dataset.statsScreen ?? "")) document.body.dataset.statsScreen = step === 2 ? "register-code" : "register";
   $(step === 1 ? "#register-email" : "#register-code").focus();
 }
 
@@ -1719,6 +1721,7 @@ function renderPersonTools() {
 
 function showScreen(name) {
   for (const s of $$("[data-screen]")) s.hidden = s.dataset.screen !== name;
+  document.body.dataset.statsScreen = name; // stats.js compta les pantalles d'entrada com a pàgines; dins de l'app, res. (No "data-screen": el selector de dalt l'atraparia.)
   const inside = !["login", "register"].includes(name);
   $("#top-nav").hidden = !inside;
   document.body.classList.toggle("is-entry", !inside);

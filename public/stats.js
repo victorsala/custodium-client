@@ -2,9 +2,12 @@
 // vista en carregar i, en sortir, els segons que la pàgina ha estat visible. Tot al mateix
 // origen (POST /api/stats), on es suma per dia, pàgina, origen, campanya i país: sense
 // cookies, sense localStorage, sense cap identificador, cap fila per visitant. A la portada
-// el temps compta només mentre és portada: dins de l'app no es compta res. README §2.3.
+// cada pantalla d'entrada compta com una pàgina («/» el login, «/crear-cuenta» el pas 1 de
+// l'alta, «/crear-cuenta/codigo» el pas 2, segons body.dataset.statsScreen, que posa app.js);
+// dins de l'app no es compta res. README §2.3.
 (() => {
   const PAGES = ["/", "/como-funciona", "/seguridad", "/codigo", "/preguntas", "/legal"];
+  const SCREENS = { login: "/", register: "/crear-cuenta", "register-code": "/crear-cuenta/codigo" };
   const path = location.pathname.replace(/\/index\.html$/, "/").replace(/\.html$/, "");
   const q = new URLSearchParams(location.search);
 
@@ -24,10 +27,11 @@
 
   if (!PAGES.includes(path) || typeof navigator.sendBeacon !== "function") return;
 
-  // La campanya passa als enllaços interns de la pàgina (?c=…) perquè les pàgines
-  // següents comptin amb ella dins de la mateixa visita. Res queda al navegador.
+  // La campanya passa a tots els enllaços interns de la pàgina (?c=…): navegació, marca,
+  // «más detalle», crides a l'acció i peu legal, perquè les pàgines següents comptin amb
+  // ella dins de la mateixa visita. Res queda al navegador.
   if (campaign) {
-    for (const a of document.querySelectorAll(".visitor-nav a, .more-links a, .doc-cta a")) {
+    for (const a of document.querySelectorAll("a.brand, .visitor-nav a, .more-links a, .doc-cta a, .foot-legal a")) {
       try {
         const u = new URL(a.getAttribute("href"), location.origin);
         if (u.origin !== location.origin || u.searchParams.has("c")) continue;
@@ -37,27 +41,38 @@
     }
   }
 
-  const send = (data) => navigator.sendBeacon("/api/stats", JSON.stringify({ path, source, campaign, ...data }));
-  send({ kind: "view" });
+  const send = (page, data) => navigator.sendBeacon("/api/stats", JSON.stringify({ path: page, source, campaign, ...data }));
 
-  // Temps visible: s'atura quan la pestanya passa a segon pla i s'envia un sol cop, en
-  // sortir (pagehide), en amagar-se (al mòbil pagehide no sempre arriba) o, a la portada,
-  // en entrar a l'app (body deixa de ser is-entry).
-  let since = document.visibilityState === "visible" ? performance.now() : null;
-  let total = 0;
-  let sent = false;
-  const pause = () => { if (since !== null) { total += performance.now() - since; since = null; } };
-  const resume = () => { if (!sent && since === null && document.visibilityState === "visible") since = performance.now(); };
+  // Una "pàgina" en curs: la seva vista ja enviada, i el temps visible que acumula fins que
+  // s'envia un sol cop (en sortir, en amagar-se la pestanya o en canviar de pantalla).
+  let current = null; // { page, since, total, sent }
+  const pause = () => { if (current && current.since !== null) { current.total += performance.now() - current.since; current.since = null; } };
+  const resume = () => { if (current && !current.sent && current.since === null && document.visibilityState === "visible") current.since = performance.now(); };
   const report = () => {
-    if (sent) return;
+    if (!current || current.sent) return;
     pause();
-    const seconds = Math.min(Math.round(total / 1000), 1800);
-    if (seconds >= 1) { sent = true; send({ kind: "time", seconds }); }
+    const seconds = Math.min(Math.round(current.total / 1000), 1800);
+    if (seconds >= 1) { current.sent = true; send(current.page, { kind: "time", seconds }); }
   };
+  const start = (page) => {
+    report();
+    current = { page, since: document.visibilityState === "visible" ? performance.now() : null, total: 0, sent: false };
+    send(page, { kind: "view" });
+  };
+  const stop = () => { report(); current = null; };
+
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") resume(); else report(); });
   addEventListener("pagehide", report);
-  if (path === "/") {
-    new MutationObserver(() => { if (document.body.classList.contains("is-entry")) resume(); else report(); })
-      .observe(document.body, { attributes: true, attributeFilter: ["class"] });
-  }
+
+  if (path !== "/") { start(path); return; }
+
+  // Portada: la pantalla la diu app.js a body.dataset.statsScreen. Les d'entrada compten com a
+  // pàgines; qualsevol altra (dins de l'app) atura el comptador.
+  const sync = () => {
+    const page = SCREENS[document.body.dataset.statsScreen];
+    if (!page) { if (current) stop(); return; }
+    if (!current || current.page !== page) start(page);
+  };
+  sync();
+  new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ["data-stats-screen"] });
 })();

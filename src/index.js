@@ -55,7 +55,7 @@ const MIN_WARNINGS_BEFORE_RELEASE = 2;    // avisos entregats abans d'una entreg
 const MIN_RELEASE_GAP_DAYS = 3;           // entrega com a mínim tres dies després del primer avís: sis avisos i tres SMS abans
 // Comptador de visites (public/stats.js → POST /api/stats): agregat per dia, pàgina, origen i
 // país; cap fila per visitant. Pàgines i orígens tancats perquè la taula tingui mida acotada.
-const STATS_PAGES = new Set(["/", "/como-funciona", "/seguridad", "/codigo", "/preguntas", "/legal"]);
+const STATS_PAGES = new Set(["/", "/crear-cuenta", "/crear-cuenta/codigo", "/como-funciona", "/seguridad", "/codigo", "/preguntas", "/legal"]);
 const STATS_SOURCES = new Set(["anuncio", "buscador", "interno", "directo", "otro"]);
 const STATS_STEPS = new Set(["/alta/codigo", "/alta"]); // passos de l'alta: els suma el servidor, mai el beacon
 const STATS_MAX_SECONDS = 1800;           // segons visibles per càrrega, com a màxim

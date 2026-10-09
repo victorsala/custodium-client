@@ -4,7 +4,7 @@
 -- visitant, cap identificador: només sumes.
 CREATE TABLE IF NOT EXISTS stats (
   day      TEXT NOT NULL,                  -- YYYY-MM-DD (UTC)
-  path     TEXT NOT NULL,                  -- "/", "/como-funciona", "/seguridad", "/codigo", "/preguntas", "/legal", "/alta/codigo", "/alta"
+  path     TEXT NOT NULL,                  -- "/" (login), "/crear-cuenta", "/crear-cuenta/codigo", "/como-funciona", "/seguridad", "/codigo", "/preguntas", "/legal"; passos: "/alta/codigo", "/alta"
   source   TEXT NOT NULL,                  -- anuncio | buscador | interno | directo | otro
   campaign TEXT NOT NULL DEFAULT '',       -- utm_campaign normalitzat ([a-z0-9_-]{1,32}), '' si no n'hi ha, "otra" passat el límit diari
   country  TEXT NOT NULL,                  -- request.cf.country, o ZZ
