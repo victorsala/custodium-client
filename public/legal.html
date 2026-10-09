@@ -64,6 +64,7 @@
         <li><strong>De cada persona de confianza:</strong> el nombre que le das dentro del plan va cifrado; en claro guardamos su correo electrónico, su móvil si lo indicas, y el estado de la entrega (si se le ha enviado el enlace, si lo ha abierto). Estos datos los aportas tú al crear tu plan; es tu responsabilidad informar a esas personas de que has incluido su contacto en Custodium.</li>
         <li><strong>Durante el alta:</strong> el correo, un código de verificación (guardado como hash) y el número de intentos, durante como máximo una hora.</li>
         <li><strong>De los archivos:</strong> solo un identificador y el tamaño cifrado. Ni el nombre ni el tipo de archivo llegan al servidor.</li>
+        <li><strong>De las visitas a las páginas públicas:</strong> recuentos por día, página, tipo de origen, campaña del anuncio y país, y los segundos de lectura sumados; también cuántas altas se inician y completan por origen y campaña. No identifican a nadie ni quedan asociados a ninguna cuenta.</li>
       </ul>
 
       <h3>Para qué y con qué base legal</h3>
@@ -72,6 +73,7 @@
         <li><strong>Avisar a tus personas de confianza</strong> cuando toca entregar: interés legítimo tuyo y de ellas en que el plan llegue a quien corresponde (art. 6.1.f RGPD).</li>
         <li><strong>Seguridad y registro de actividad</strong> (detectar accesos indebidos, limitar intentos de entrada): interés legítimo en proteger el servicio y tu cuenta (art. 6.1.f RGPD).</li>
         <li><strong>Atender tus consultas y el ejercicio de tus derechos:</strong> obligación legal y ejecución del contrato.</li>
+        <li><strong>Saber qué páginas se leen</strong> (recuentos agregados, sin cookies ni identificadores): interés legítimo en mejorar la información del servicio (art. 6.1.f RGPD).</li>
       </ul>
       <p>No usamos tus datos para publicidad, no elaboramos perfiles y no los cedemos a terceros, salvo a los proveedores que se indican a continuación, que actúan por cuenta nuestra.</p>
 
@@ -106,8 +108,9 @@
     <section id="cookies" class="doc-block">
       <h2>Cookies</h2>
       <p><strong>Custodium no usa cookies.</strong> Ni propias ni de terceros, ni de análisis ni de publicidad. Tampoco guardamos nada en el almacenamiento local de tu navegador.</p>
+      <p>Sí contamos las visitas a las páginas públicas: cuántas veces se abre cada página, desde qué tipo de origen (un anuncio, un buscador, un enlace directo), con qué etiqueta de campaña si viene de un anuncio, desde qué país y cuánto tiempo permanece visible. Lo hace un pequeño script propio que envía esos datos a nuestro propio servidor, donde se suman por día y página. No hay identificadores ni perfiles: no podemos saber qué páginas ha visto una misma persona, ni volver a reconocerla.</p>
       <p>Al entrar, tu navegador recibe un identificador de sesión que se conserva solo en memoria, mientras la pestaña esté abierta, y se envía con cada petición para saber que eres tú. Al cerrar la pestaña o pulsar «Salir», desaparece. No sirve para seguirte entre sitios ni para medir nada.</p>
-      <p>Si llegas a Custodium desde un anuncio, el enlace puede traer parámetros que identifican la campaña. No los leemos, no los guardamos y no los enviamos a nadie.</p>
+      <p>Si llegas a Custodium desde un anuncio, el enlace puede traer una etiqueta de campaña. La usamos para sumar, por campaña, visitas, tiempo de lectura y altas iniciadas y completadas. La etiqueta identifica el anuncio, no a ti: no queda asociada a tu cuenta ni a ningún identificador, y no se envía a nadie.</p>
     </section>
 
     <section id="condiciones" class="doc-block">
@@ -129,5 +132,6 @@
     <p>boredVictor SL · NIF B22765838 · Calle Cruz 2, 22583 Arén (Huesca) · <a href="mailto:hola@custodium.space">hola@custodium.space</a></p>
     <p class="foot-legal"><a href="/legal#aviso-legal">Aviso legal</a> · <a href="/legal#privacidad">Privacidad</a> · <a href="/legal#cookies">Cookies</a> · <a href="/legal#condiciones">Condiciones</a> · <a href="/">Volver a Custodium</a></p>
   </footer>
+  <script src="/stats.js" defer></script>
 </body>
 </html>

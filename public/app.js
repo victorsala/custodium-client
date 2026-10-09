@@ -28,6 +28,13 @@ const IDLE_LOCK_MS = 15 * 60 * 1000;
 const MAX_FILE_BYTES = 50_000_000;
 const MAX_RECIPIENTS = 20;           // el servidor imposa el mateix límit
 
+// Origen i campanya de la visita (els posa stats.js, README §2.3): l'alta els adjunta perquè el
+// servidor sumi "altas" per origen i campanya. No es guarden al compte.
+const visit = () => {
+  const v = window.custodiumVisit;
+  return v ? { source: v.source, campaign: v.campaign } : {};
+};
+
 // Rutes fixes (public/routes.js); les d'un element o persona concrets porten l'id.
 const PLAN = { name: "plan" };
 const PEOPLE = { name: "people" };
@@ -136,7 +143,7 @@ async function startRegister(event) {
 // Demana un codi per a l'email. Retorna true si el servidor l'ha acceptat; el
 // límit (tres per hora) val igual per a un email amb compte que sense.
 async function requestCode(email, msg) {
-  const r = await api("/api/register/start", { method: "POST", body: { email }, auth: false });
+  const r = await api("/api/register/start", { method: "POST", body: { email, ...visit() }, auth: false });
   if (r.status === 429) { msg("Ya hemos enviado varios códigos a este correo en la última hora. Revisa la carpeta de spam o vuelve a intentarlo más tarde."); return false; }
   if (r.status !== 200) { msg("No se ha podido enviar el código. Vuelve a intentarlo."); return false; }
   return true;
@@ -183,7 +190,7 @@ async function submitRegister(event) {
     // La sal és la que el servidor ja dóna per a aquest email; l'alta la fixa al compte.
     const salt = await fetchSalt(email);
     const { encKey, authHash } = await deriveKeys(salt, password);
-    const reg = await api("/api/register", { method: "POST", body: { email, authHash, code }, auth: false });
+    const reg = await api("/api/register", { method: "POST", body: { email, authHash, code, ...visit() }, auth: false });
     if (reg.status === 400 && reg.data?.error === "invalid_code") return msg("El código no es correcto.");
     if (reg.status === 400 && reg.data?.error === "code_expired") return msg("El código ha caducado. Pide uno nuevo con «No me ha llegado».");
     if (reg.status === 400 && reg.data?.error === "too_many_attempts") return msg("Demasiados intentos con este código. Pide uno nuevo con «No me ha llegado».");

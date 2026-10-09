@@ -80,7 +80,7 @@
       <p>Con estos comandos descargas cada fichero tal como lo recibe tu navegador y lo comparas con el publicado en ese commit:</p>
 <pre><code>git clone https://github.com/victorsala/custodium-client &amp;&amp; cd custodium-client
 git checkout $(curl -s https://custodium.space/VERSION)
-for f in index.html app.js routes.js crypto.js words.js templates.js abrir.html abrir.js aqui.html aqui.js abrir-offline.html fflate.js style.css; do
+for f in index.html app.js routes.js crypto.js words.js templates.js portada.js stats.js abrir.html abrir.js aqui.html aqui.js abrir-offline.html fflate.js style.css como-funciona.html seguridad.html codigo.html preguntas.html legal.html; do
   diff &lt;(curl -sL "https://custodium.space/$f") "public/$f" &amp;&amp; echo "OK $f"
 done</code></pre>
       <p>Si algún fichero difiere, el comando lo muestra. Cualquiera puede hacerlo, en cualquier momento, sin pedirnos permiso.</p>
@@ -121,10 +121,10 @@ done</code></pre>
 
     <section id="terceros" class="doc-block">
       <h2>Sin scripts de terceros</h2>
-      <p>La página no carga código de otros dominios: ni analítica, ni fuentes externas, ni etiquetas de publicidad. Una política de seguridad de contenido lo impide aunque alguien lo intentara. Los cuatro componentes ajenos (dos fuentes tipográficas, una biblioteca para crear archivos zip y la lista de palabras de las frases) están en <a href="/THIRD_PARTY.md">THIRD_PARTY.md</a> con su licencia.</p>
+      <p>La página no carga código de otros dominios: ni analítica de terceros, ni fuentes externas, ni etiquetas de publicidad. Una política de seguridad de contenido lo impide aunque alguien lo intentara. Las visitas las contamos nosotros (<code>stats.js</code>): una vista por página y los segundos de lectura, sumados en nuestro propio servidor por día, página, origen, campaña del anuncio y país, sin cookies ni identificadores. Los cuatro componentes ajenos (dos fuentes tipográficas, una biblioteca para crear archivos zip y la lista de palabras de las frases) están en <a href="/THIRD_PARTY.md">THIRD_PARTY.md</a> con su licencia.</p>
       <figure class="fig">
         <svg viewBox="0 0 500 150" role="img" aria-labelledby="fig-terceros">
-          <title id="fig-terceros">La página solo carga código de custodium.space; las conexiones a analítica, fuentes externas y publicidad están bloqueadas</title>
+          <title id="fig-terceros">La página solo carga código de custodium.space; las conexiones a analítica externa, fuentes externas y publicidad están bloqueadas</title>
           <rect class="card" x="16" y="30" width="176" height="90" rx="12"/>
           <text class="t-strong" x="32" y="54">custodium.space</text>
           <text class="t-cap" x="32" y="76">scripts, estilos y fuentes</text>
@@ -137,7 +137,7 @@ done</code></pre>
           <path class="ln ln-danger" d="M304 68 L318 82 M318 68 L304 82"/>
           <path class="ln ln-danger" d="M304 105 L318 119 M318 105 L304 119"/>
           <rect class="card" x="330" y="24" width="150" height="28" rx="8"/>
-          <text class="t-cap" x="405" y="43" text-anchor="middle">analítica</text>
+          <text class="t-cap" x="405" y="43" text-anchor="middle">analítica externa</text>
           <rect class="card" x="330" y="61" width="150" height="28" rx="8"/>
           <text class="t-cap" x="405" y="80" text-anchor="middle">fuentes externas</text>
           <rect class="card" x="330" y="98" width="150" height="28" rx="8"/>
@@ -167,5 +167,6 @@ done</code></pre>
     <p>Guardamos tu plan cifrado, nunca las claves.</p>
     <p class="foot-legal">boredVictor SL · <a href="/legal#aviso-legal">Aviso legal</a> · <a href="/legal#privacidad">Privacidad</a> · <a href="/legal#cookies">Cookies</a> · <a href="/legal#condiciones">Condiciones</a></p>
   </footer>
+  <script src="/stats.js" defer></script>
 </body>
 </html>

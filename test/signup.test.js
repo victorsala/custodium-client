@@ -29,6 +29,8 @@ function fakeD1(db) {
       return null;
     }
     if (/^INSERT INTO events /.test(sql)) { db.events.push({ user_id: args[0], kind: args[1], detail: args[2] }); return null; }
+    if (/^SELECT \(SELECT COUNT\(\*\) FROM \(SELECT DISTINCT campaign FROM stats /.test(sql)) return { n: 0, known: 0 };
+    if (/^INSERT INTO stats \(day, path, source, campaign, country, views, seconds, reads\) VALUES/.test(sql)) { (db.stats ??= []).push({ path: args[1], source: args[2], campaign: args[3], views: args[5] }); return null; }
     if (/^DELETE FROM events /.test(sql)) return null;
     if (/^SELECT sends, created_at FROM pending_signups WHERE email = \?$/.test(sql)) return db.pending.get(args[0]) ?? null;
     if (/^SELECT code_hash, attempts, expires_at FROM pending_signups WHERE email = \?$/.test(sql)) return db.pending.get(args[0]) ?? null;
@@ -129,6 +131,17 @@ test("alta: codi correcte → es crea el compte amb la seva kdf_salt i s'esborra
   assert.equal(db.users.get(email).kdf_salt, saltBefore.salt, "la sal del compte és la que /api/salt ja donava");
   assert.deepEqual([db.users.get(email).warn_days, db.users.get(email).release_days], [21, 35], "terminis per defecte d'un compte nou");
   assert.equal(db.pending.has(email), false);
+  assert.deepEqual(db.stats, [{ path: "/alta/codigo", source: "otro", campaign: "", views: 1 }, { path: "/alta", source: "otro", campaign: "", views: 1 }], "els dos passos de l'alta sumen a stats, sense origen ni campanya si el client no en porta");
+});
+
+test("alta: origen i campanya del client sumen als passos, normalitzats, i no toquen la fila de l'usuari", async () => {
+  const email = "ads@example.com";
+  let r = await post("/api/register/start", { email, source: "anuncio", campaign: "Ads Octubre 2026!" });
+  assert.equal(r.status, 200);
+  r = await post("/api/register", { email, authHash: AUTH_HASH, code: lastCode(), source: "anuncio", campaign: "Ads Octubre 2026!" });
+  assert.equal(r.status, 201);
+  assert.deepEqual(db.stats.map((s) => [s.path, s.source, s.campaign]), [["/alta/codigo", "anuncio", "adsoctubre2026"], ["/alta", "anuncio", "adsoctubre2026"]]);
+  assert.deepEqual(Object.keys(db.users.get(email)).filter((k) => /source|campaign/.test(k)), [], "cap rastre de l'origen al compte");
 });
 
 test("alta: codi incorrecte → invalid_code, compta l'intent, i el bo encara entra", async () => {

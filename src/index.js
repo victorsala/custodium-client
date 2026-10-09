@@ -53,6 +53,13 @@ const DEFAULT_WARN_DAYS = 21;             // terminis d'un compte nou (Cuenta el
 const DEFAULT_RELEASE_DAYS = 35;          // no a la DEFAULT de l'esquema: la taula viva conserva la que tenia en crear-se
 const MIN_WARNINGS_BEFORE_RELEASE = 2;    // avisos entregats abans d'una entrega automàtica
 const MIN_RELEASE_GAP_DAYS = 3;           // entrega com a mínim tres dies després del primer avís: sis avisos i tres SMS abans
+// Comptador de visites (public/stats.js → POST /api/stats): agregat per dia, pàgina, origen i
+// país; cap fila per visitant. Pàgines i orígens tancats perquè la taula tingui mida acotada.
+const STATS_PAGES = new Set(["/", "/como-funciona", "/seguridad", "/codigo", "/preguntas", "/legal"]);
+const STATS_SOURCES = new Set(["anuncio", "buscador", "interno", "directo", "otro"]);
+const STATS_STEPS = new Set(["/alta/codigo", "/alta"]); // passos de l'alta: els suma el servidor, mai el beacon
+const STATS_MAX_SECONDS = 1800;           // segons visibles per càrrega, com a màxim
+const STATS_MAX_CAMPAIGNS_PER_DAY = 20;   // etiquetes de campanya noves per dia; la resta cau a "otra"
 const OWNER_SMS_GAP_S = 20 * 3600;        // SMS al titular: com a màxim un al dia (el cron passa cada 12 h)
 const RELEASED_NOTICE_DAYS = 5;           // dies d'avisos "s'ha entregat" al titular després d'una entrega automàtica
 const REMINDER_DAYS = [1, 2, 4, 7, 10, 15, 21, 26, 33, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 150]; // recordatoris a la persona: dies després de l'entrega
@@ -103,6 +110,7 @@ export default {
       if (pathname === "/api/settings" && method === "PUT") return await putSettings(request, env);
       if (pathname === "/api/recipients" && method === "GET") return await listRecipients(request, env);
       if (pathname === "/api/checkin"  && method === "POST") return await checkin(request, env);
+      if (pathname === "/api/stats"    && method === "POST") return await recordStats(request, env);
 
       if (pathname === "/api/files/reconcile" && method === "POST") return await reconcileFiles(request, env);
 
@@ -156,8 +164,11 @@ export default {
 // resposta ni el límit de codis diuen si el compte existeix. Res es desa fins
 // que Resend ha acceptat el correu. Cobert per la regla del WAF (README §5).
 async function startSignup(request, env) {
-  const email = parseEmail((await readJson(request))?.email);
-  return issueCode(env, email, "signup");
+  const body = await readJson(request);
+  const email = parseEmail(body?.email);
+  const res = await issueCode(env, email, "signup");
+  await bumpStep(request, env, "/alta/codigo", body);
+  return res;
 }
 
 // Primer pas del canvi de correu: el mateix codi, però al correu nou i amb
@@ -290,6 +301,7 @@ async function register(request, env) {
     if (isUniqueViolation(err)) throw new HttpError(400, "invalid_code");
     throw err;
   }
+  await bumpStep(request, env, "/alta", body);
   return json({ ok: true }, 201);
 }
 
@@ -1326,6 +1338,62 @@ class HttpError extends Error {
     this.code = code;
     this.extra = extra;
   }
+}
+
+// Visites de les pàgines de visitant (public/stats.js). Només suma: vista (views + 1) o temps
+// (seconds + s, reads + 1) a la fila (dia UTC, pàgina, origen, campanya, país). Rebutja
+// peticions d'altres llocs (Sec-Fetch-Site) i qualsevol valor fora dels conjunts; la campanya,
+// text lliure de l'anunci, es normalitza i té un límit de noves per dia: ni l'abús pot fer
+// créixer la taula. Els passos de l'alta (STATS_STEPS) no s'accepten per aquí.
+async function recordStats(request, env) {
+  const site = request.headers.get("sec-fetch-site");
+  if (site && site !== "same-origin") throw new HttpError(403, "forbidden");
+  const body = await readJson(request);
+  const kind = body?.kind, path = body?.path, source = body?.source;
+  if ((kind !== "view" && kind !== "time") || !STATS_PAGES.has(path) || !STATS_SOURCES.has(source)) throw new HttpError(400, "bad_stats");
+  let views = 0, seconds = 0, reads = 0;
+  if (kind === "view") views = 1;
+  else {
+    const s = body?.seconds;
+    if (!Number.isInteger(s) || s < 1 || s > STATS_MAX_SECONDS) throw new HttpError(400, "bad_stats");
+    seconds = s; reads = 1;
+  }
+  await bumpStats(request, env, path, source, normalizeCampaign(body?.campaign), { views, seconds, reads });
+  return new Response(null, { status: 204 });
+}
+
+// Pas de l'alta ("/alta/codigo" en demanar el codi, "/alta" en crear el compte), amb l'origen i
+// la campanya que el client adjunta (window.custodiumVisit). Només un recompte: res queda al
+// compte. Un error aquí no ha de trencar mai l'alta.
+async function bumpStep(request, env, step, body) {
+  const campaign = normalizeCampaign(body?.campaign);
+  const source = STATS_SOURCES.has(body?.source) ? body.source : campaign ? "anuncio" : "otro";
+  try {
+    await bumpStats(request, env, step, source, campaign, { views: 1 });
+  } catch (err) {
+    console.warn("stats:", err?.message ?? err);
+  }
+}
+
+function normalizeCampaign(v) {
+  return typeof v === "string" ? v.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 32) : "";
+}
+
+async function bumpStats(request, env, path, source, campaign, { views = 0, seconds = 0, reads = 0 }) {
+  const cc = request.cf?.country;
+  const country = typeof cc === "string" && /^[A-Z]{2}$/.test(cc) ? cc : "ZZ";
+  const day = new Date(now() * 1000).toISOString().slice(0, 10);
+  if (campaign) {
+    const r = await env.DB
+      .prepare("SELECT (SELECT COUNT(*) FROM (SELECT DISTINCT campaign FROM stats WHERE day = ? AND campaign != '')) AS n, EXISTS(SELECT 1 FROM stats WHERE day = ? AND campaign = ?) AS known")
+      .bind(day, day, campaign)
+      .first();
+    if (!r?.known && (r?.n ?? 0) >= STATS_MAX_CAMPAIGNS_PER_DAY) campaign = "otra";
+  }
+  await env.DB
+    .prepare("INSERT INTO stats (day, path, source, campaign, country, views, seconds, reads) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(day, path, source, campaign, country) DO UPDATE SET views = views + excluded.views, seconds = seconds + excluded.seconds, reads = reads + excluded.reads")
+    .bind(day, path, source, campaign, country, views, seconds, reads)
+    .run();
 }
 
 function json(data, status = 200) {

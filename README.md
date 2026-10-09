@@ -56,10 +56,13 @@ El servidor guarda `SHA-256(sal aleatoria || authHash)` (una segunda sal, `auth_
 | D1 `files` | id y tamaño de cada archivo | sí (solo tamaño) |
 | D1 `events` | registro de actividad: tipo de acción, email de la persona si procede, país de la petición (nunca IP ni user-agent), fecha | sí (datos personales) |
 | R2 | los bytes cifrados de cada archivo, bajo `userId/fileId` | no |
+| D1 `stats` | visitas de las páginas de visitante y pasos del alta: por día, página, origen (anuncio · buscador · interno · directo · otro), campaña y país, vistas, lecturas y segundos sumados | sí (agregado: no identifica a nadie) |
 
 Ni el nombre ni el tipo de los archivos llegan al servidor: viven dentro del plan.
 
 Que el servidor no pueda leer el contenido no significa que no tenga nada: correos, móviles, país de conexión, fechas de actividad y las relaciones entre titular y personas de confianza son datos personales, y los de una persona de confianza lo son de alguien que no ha abierto ninguna cuenta. Se guardan porque sin ellos no se puede avisar ni entregar, no por ningún otro motivo; se borran con la cuenta (`DELETE /api/account`, backup incluido). `public/legal.html` (aviso legal, política de privacidad, cookies y condiciones de la beta; enlazada en el pie de todas las páginas) describe cuáles son, para qué, quién accede a ellos y la retención. No hay ninguna cookie ni nada en el almacenamiento del navegador: la sesión vive en memoria.
+
+**Visitas.** Se cuentan en propio, sin terceros: `public/stats.js` (solo en la portada y las páginas de visitante) envía por `sendBeacon` una vista al cargar y, al salir, los segundos que la página ha estado visible (1.800 como máximo), con el origen en cinco valores fijos (`anuncio` si la URL trae `utm_campaign`, `utm_source` o `gclid`; `buscador`; `interno`; `directo`; `otro`) y la **campaña**: `utm_campaign` normalizado (`[a-z0-9_-]`, 32 caracteres), que identifica el anuncio y no a la persona. Dentro de la misma visita la campaña pasa a los enlaces internos como `?c=…` (navegación, «más detalle», llamadas a la acción) para que las páginas siguientes cuenten con ella; no queda nada en el navegador, así que una visita posterior o desde otro dispositivo no se cruza con nada. `stats.js` deja `window.custodiumVisit = { source, campaign }` y `app.js` lo adjunta a `/api/register/start` y `/api/register`: el servidor suma los pasos `/alta/codigo` y `/alta` por origen y campaña, **sin guardar nada en la cuenta** (`bumpStep`; un fallo ahí nunca rompe el alta). `POST /api/stats` solo suma en `stats` por día UTC, página, origen, campaña y país (`request.cf.country`): no hay filas por visitante ni identificadores; páginas y orígenes son conjuntos cerrados, los pasos del alta no se aceptan por el beacon, y las campañas nuevas tienen un tope de 20 por día (las demás caen en `otra`), así que la tabla tiene tamaño acotado aunque alguien la martillee (además rechaza `Sec-Fetch-Site` distinto de `same-origin`, y la regla del WAF también la cubre). En la portada el tiempo cuenta solo mientras es portada (`body.is-entry`): dentro de la app no se cuenta nada, y en `abrir.html` y `aqui.html` tampoco. `npm run stats` (`scripts/stats.sh`) saca los últimos 14 días por día y página, los totales por origen y país, y por campaña: vistas de portada, otras páginas, segundos medios, códigos pedidos, altas y % de altas sobre la portada (`npm run stats -- 30`, `npm run stats -- --staging`).
 
 ### 2.4 Formato del plan (en claro, dentro del navegador)
 
@@ -106,8 +109,8 @@ En cada guardado, para cada persona, el navegador construye `{ items: [ { title,
 
 ```
 GET    /api/salt?email=             —                             { salt }   sal de la cuenta; indistinguible si el email no existe
-POST   /api/register/start          { email }                     { ok } | 429 too_many_codes   envía el código (§3); 3 por email y hora
-POST   /api/register                { email, authHash, code }     201 | 400 invalid_code | code_expired | too_many_attempts
+POST   /api/register/start          { email, source?, campaign? }  { ok } | 429 too_many_codes   envía el código (§3); 3 por email y hora; suma /alta/codigo (§2.3)
+POST   /api/register                { email, authHash, code, source?, campaign? }  201 | 400 invalid_code | code_expired | too_many_attempts   suma /alta (§2.3)
 POST   /api/login                   { email, authHash }           { token, expiresAt } | 401
 DELETE /api/session                 Bearer                        { ok }
 DELETE /api/sessions                Bearer                        { ok }   cierra las demás sesiones
@@ -130,6 +133,7 @@ DELETE /api/recipients/:id          Bearer                        { ok }
 POST   /api/recipients/:id/release  Bearer                        { ok }   envía el enlace ahora
 POST   /api/recipients/:id/revoke   Bearer                        { ok }   anula el enlace
 POST   /api/checkin                 { token }                     { ok }   botón del correo de aviso
+POST   /api/stats                   { kind: view|time, path, source, campaign?, seconds? }  204 | 400 bad_stats | 403   contador agregado de visitas (§2.3); sin sesión
 GET    /api/release/:token          —                             { from, email, package } | 404
 GET    /api/release/:token/files/:id  —                           bytes | 404
 GET    /api/env                     —                             { env }   "production" | "staging"
@@ -151,7 +155,7 @@ Sin frameworks ni dependencias. Todo el estado vive en memoria: cerrar la pesta�
 
 Archivos huérfanos: si se cierra la pestaña a media edición, un archivo subido puede quedar en el servidor sin que ningún plan lo apunte. Al abrir el plan, el cliente envía la lista de ids vivos y la versión del plan (`POST /api/files/reconcile`); el servidor solo borra los de ese usuario que no estén en ella y tengan más de 7 días si esa versión sigue siendo la actual. Con un `409 version_conflict` no borra nada.
 
-**Páginas de visitante.** Mientras no hay sesión, la cabecera muestra una navegación (`.visitor-nav`, oculta por CSS cuando `#top-nav` es visible) hacia cuatro páginas estáticas, sin script, pensadas para quien llega desde un anuncio: `como-funciona` (el plan, las personas, la línea de tiempo de los avisos y la entrega con los valores por defecto, la copia, cómo probarlo), `seguridad` (qué puede y qué no puede leer el servidor, qué pasaría con una brecha, contraseña perdida, correos y SMS, límites conocidos y parámetros criptográficos), `codigo` (el espejo público, las órdenes de verificación, qué no se puede verificar, licencia, cómo avisar de un error) y `preguntas` (precio y beta, qué es y qué no, avisos, personas, límites, quién hay detrás). `legal` lleva el aviso legal, la política de privacidad, las cookies (no hay) y las condiciones de la beta. Todas comparten cabecera, pie y la llamada final «Crear una cuenta» (`/#/crear-cuenta`). Los hechos que explican (plazos, límites, qué guarda el servidor) salen de este README: si cambia el comportamiento, hay que revisarlas. `test/pages.test.js` comprueba que ningún enlace interno quede roto y que todas lleven la navegación y el pie legal.
+**Páginas de visitante.** Mientras no hay sesión, la cabecera muestra una navegación (`.visitor-nav`, oculta por CSS cuando `#top-nav` es visible) hacia cuatro páginas estáticas, sin script, pensadas para quien llega desde un anuncio: `como-funciona` (el plan, las personas, la línea de tiempo de los avisos y la entrega con los valores por defecto, la copia, cómo probarlo), `seguridad` (qué puede y qué no puede leer el servidor, qué pasaría con una brecha, contraseña perdida, correos y SMS, límites conocidos y parámetros criptográficos), `codigo` (el espejo público, las órdenes de verificación, qué no se puede verificar, licencia, cómo avisar de un error) y `preguntas` (precio y beta, qué es y qué no, avisos, personas, límites, quién hay detrás). `legal` lleva el aviso legal, la política de privacidad, las cookies (no hay) y las condiciones de la beta. Todas comparten cabecera, pie, la llamada final «Crear una cuenta» (`/#/crear-cuenta`) y el contador de visitas `stats.js` (§2.3). Los hechos que explican (plazos, límites, qué guarda el servidor) salen de este README: si cambia el comportamiento, hay que revisarlas. `test/pages.test.js` comprueba que ningún enlace interno quede roto y que todas lleven la navegación y el pie legal.
 
 ---
 
@@ -202,7 +206,7 @@ El zip y el sobre con la frase deben estar en manos distintas: ninguno de los do
 
 ## 4. Pruebas
 
-`npm test` ejecuta las pruebas locales (Node 20, `node --test`, sin dependencias): compatibilidad entre `crypto.js` y el abridor autónomo, normalización de frases y teléfonos, las rutas del cliente (`parseRoute`), que una clave equivocada no abre nada, el alta y los disparadores del cron contra una D1 simulada, y los enlaces de las páginas de visitante. Ejecuta `npm test` antes de cada deploy.
+`npm test` ejecuta las pruebas locales (Node 20, `node --test`, sin dependencias): compatibilidad entre `crypto.js` y el abridor autónomo, normalización de frases y teléfonos, las rutas del cliente (`parseRoute`), que una clave equivocada no abre nada, el alta, el contador de visitas y los disparadores del cron contra una D1 simulada, y los enlaces de las páginas de visitante. Ejecuta `npm test` antes de cada deploy.
 
 ### Prueba básica (10 minutos)
 
@@ -248,12 +252,12 @@ curl -s $BASE/api/vault -H "authorization: Bearer $TOKEN"      # {"error":"no_va
 
 ```
 src/index.js        Worker: API + cron
-public/             Cliente estático: index.html, app.js, routes.js (rutas del fragmento), crypto.js, words.js, templates.js (plantillas de elemento), fflate.js (zip, MIT), style.css, fonts/,
+public/             Cliente estático: index.html, app.js, routes.js (rutas del fragmento), crypto.js, words.js, templates.js (plantillas de elemento), portada.js, stats.js (contador de visitas), fflate.js (zip, MIT), style.css, fonts/,
                     abrir.* (persona, con servidor), aqui.* (check-in), abrir-offline.html (abridor autónomo), _headers,
                     páginas de visitante sin script: como-funciona, seguridad, codigo, preguntas y legal (.html; Workers Assets las sirve también sin extensión),
                     README (bilingüe, con la verificación), LICENSE (source-available) y THIRD_PARTY.md.
                     VERSION lo escribe el deploy (gitignored).
-scripts/            public-commit.sh: construye el commit del espejo público (véase "Desplegar un cambio")
+scripts/            public-commit.sh: construye el commit del espejo público (véase "Desplegar un cambio"); stats.sh: visitas (`npm run stats`); check-pepper.mjs (§5)
 .github/workflows/  ci.yml (tests + deploy a staging) y deploy-production.yml (botón de producción).
                     No se publica en el espejo.
 schema.sql          Esquema D1 consolidado (el estado actual; para crear una D1 nueva)
@@ -355,7 +359,7 @@ Escribir un archivo de migración (p. ej. `migration-YYYYMMDD.sql` con los `ALTE
 npx wrangler d1 execute custodium-b2c --remote --file=migration-YYYYMMDD.sql
 ```
 
-Si `--file` falla con `fetch failed` (pasa por el endpoint de importación, que desde algunas redes no responde), el mismo SQL sin comentarios y en una sola línea va por `--command "…"`: D1 ejecuta las sentencias en un solo batch, transaccional. Siempre con la salida entera y comprobando después que las tablas y columnas están.
+Si `--file` falla con `fetch failed` o con `Authentication error [code: 10000]` (pasa por el endpoint de importación, que desde algunas redes no responde y que el token OAuth de `wrangler login` no puede usar), el mismo SQL sin comentarios y en una sola línea va por `--command "…"`: D1 ejecuta las sentencias en un solo batch, transaccional. Siempre con la salida entera y comprobando después que las tablas y columnas están.
 
 Las migraciones ya aplicadas pueden borrarse del repo una vez consolidadas; `git log` conserva su historial.
 
@@ -363,7 +367,7 @@ Las migraciones ya aplicadas pueden borrarse del repo una vez consolidadas; `git
 
 Zona `custodium.space` → Security → WAF → Rate limiting rules → Create rule:
 
-- Expresión: `(http.host eq "custodium.space" and http.request.uri.path in {"/api/salt" "/api/register/start" "/api/email/start" "/api/login" "/api/register" "/api/password" "/api/email"})`
+- Expresión: `(http.host eq "custodium.space" and http.request.uri.path in {"/api/salt" "/api/register/start" "/api/email/start" "/api/login" "/api/register" "/api/password" "/api/email" "/api/stats"})`
 - `/api/register/start` debe estar: envía un correo a cualquier dirección sin autenticar. El límite de tres códigos por email y hora es del Worker; el del WAF, por IP, es el que detiene un envío masivo a direcciones distintas.
 - `/api/salt` debe estar: responde a cualquier email sin autenticar y, aunque la sal falsa no delata nada, es la primera petición de cada intento de entrada y no debe poder martillearse.
 - Característica: IP. Límite: el más estricto que permita el plan (en el plan gratuito, p. ej. 5 peticiones por 10 segundos). Acción: Block.
@@ -399,7 +403,7 @@ R2: panel → bucket → Objects → seleccionar todo → Delete.
 ## 6. Límites conocidos de la beta
 
 - Una sola contraseña por titular, sin segundo factor.
-- Rate limiting vía regla en el WAF de Cloudflare (`/api/salt`, `/api/register/start`, `/api/email/start`, `/api/login`, `/api/register`, `/api/password`, `/api/email`); véase §5.
+- Rate limiting vía regla en el WAF de Cloudflare (`/api/salt`, `/api/register/start`, `/api/email/start`, `/api/login`, `/api/register`, `/api/password`, `/api/email`, `/api/stats`); véase §5.
 - Los paquetes se rehacen enteros en cada guardado (bien para pocos elementos, no para miles).
 - Los archivos se suben y se exportan enteros en memoria (50 MB por archivo es el límite práctico en móvil; la exportación de 1 GB necesita un ordenador).
 - Sin clave de recuperación ni para el titular ni para las personas: decisión de diseño, no un olvido. La exportación es la copia de seguridad del titular.
