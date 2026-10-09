@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Custodium · formato abierto de la copia</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row">
+      <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>Custodium <small>beta</small></a>
+      <nav class="top-nav visitor-nav" aria-label="Sobre Custodium">
+        <a class="ghost" href="/como-funciona">Cómo funciona</a>
+        <a class="ghost" href="/seguridad">Seguridad</a>
+        <a class="ghost" href="/codigo">Código</a>
+        <a class="ghost" href="/preguntas">Preguntas</a>
+        <a class="ghost" href="/">Entrar</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap doc">
+    <h1>Formato abierto de la copia</h1>
+    <p class="intro"><strong>Esto no hace falta, y lo hacemos igual.</strong> La copia cifrada que descargas desde «Cuenta» ya lleva dentro el programa para abrirla: funciona en cualquier navegador, sin servidor ni conexión, y seguirá funcionando aunque Custodium no exista. Documentar el formato no es necesario para eso. Lo hacemos porque queremos que tu copia no dependa de nosotros ni de nuestro programa, que cualquiera pueda comprobarlo y que, si algún día alguien tiene que abrir una copia de Custodium sin Custodium, lo tenga fácil. Esta página describe el formato por completo y lo publicamos como bien público, de dominio público, sin condiciones.</p>
+
+    <nav class="page-nav" aria-label="En esta página">
+      <p class="eyebrow">En esta página</p>
+      <ul>
+        <li><a href="#licencia">Licencia</a></li>
+        <li><a href="#contenido">Contenido del zip</a></li>
+        <li><a href="#primitivas">Primitivas</a></li>
+        <li><a href="#claves">Claves</a></li>
+        <li><a href="#blobs">Objetos cifrados</a></li>
+        <li><a href="#plan">plan.json</a></li>
+        <li><a href="#paquetes">paquetes/</a></li>
+        <li><a href="#archivos">archivos/</a></li>
+        <li><a href="#abridor">Cómo abre un lector</a></li>
+        <li><a href="#versiones">Versiones</a></li>
+        <li><a href="#vectores">Vectores de prueba</a></li>
+      </ul>
+    </nav>
+
+    <section id="licencia" class="doc-block">
+      <h2>Licencia</h2>
+      <p>Esta especificación está dedicada al dominio público (<a href="https://creativecommons.org/publicdomain/zero/1.0/deed.es" rel="noopener">CC0 1.0</a>): puedes implementarla, copiarla y adaptarla sin pedir permiso ni citar a nadie. El abridor autónomo que va dentro de cada copia, <code>abrir.html</code> (<a href="/abrir-offline.html">abrir-offline.html</a> en el repositorio), se publica bajo licencia MIT: puedes reutilizarlo y modificarlo. El resto del código de Custodium conserva su <a href="/LICENSE">licencia</a>, visible y auditable.</p>
+      <p>Versión de esta especificación: 1, octubre de 2026. Se corresponde con el formato de plan <code>v: 2</code> y de objeto cifrado <code>v: 1</code>.</p>
+    </section>
+
+    <section id="contenido" class="doc-block">
+      <h2>Contenido del zip</h2>
+      <p>La copia es un archivo zip estándar (sin compresión, aunque un lector debe aceptar cualquier zip válido) con esta estructura:</p>
+<pre><code>plan.json          el plan del titular, cifrado con su clave, más la sal de su cuenta
+paquetes/&lt;id&gt;.json  un objeto cifrado por persona de confianza, con su clave; &lt;id&gt; es el de la persona en el plan
+archivos/&lt;id&gt;      cada archivo adjunto, cifrado con su propia clave; &lt;id&gt; es el del archivo en el plan
+abrir.html         el abridor autónomo (funciona desde el disco, sin servidor ni red)
+LEEME.txt          instrucciones en texto plano</code></pre>
+      <p>Ningún nombre de archivo ni dato personal aparece fuera de los objetos cifrados: los identificadores son UUID opacos generados en el navegador.</p>
+    </section>
+
+    <section id="primitivas" class="doc-block">
+      <h2>Primitivas</h2>
+      <ul>
+        <li><strong>PBKDF2-HMAC-SHA-256</strong>, 600.000 iteraciones, salida de 256 bits. La contraseña o la frase se codifican en UTF-8.</li>
+        <li><strong>HKDF-SHA-256</strong> con sal vacía (cero bytes) y la cadena <code>info</code> que se indica en cada caso, salida de 256 bits.</li>
+        <li><strong>AES-256-GCM</strong> con IV de 12 bytes aleatorio por cada cifrado, etiqueta de autenticación de 128 bits y sin datos adicionales autenticados. La etiqueta va al final del texto cifrado, como en WebCrypto.</li>
+        <li><strong>Base64</strong> estándar (alfabeto <code>A-Z a-z 0-9 + /</code>, con relleno <code>=</code>). <strong>JSON</strong> en UTF-8. <strong>UUID</strong> en minúsculas con guiones.</li>
+      </ul>
+    </section>
+
+    <section id="claves" class="doc-block">
+      <h2>Claves</h2>
+      <h3>Del titular</h3>
+<pre><code>masterKey = PBKDF2-SHA256(contraseña, salt = sal de la cuenta, 600.000 iteraciones)   → 32 bytes
+encKey    = HKDF-SHA256(masterKey, salt = vacía, info = "custodium-enc")              → clave AES-256-GCM del plan
+authHash  = HKDF-SHA256(masterKey, salt = vacía, info = "custodium-auth")             → 32 bytes, solo para entrar en el servicio</code></pre>
+      <p>La <strong>sal de la cuenta</strong> son 16 bytes que asigna el servicio al crear la cuenta y que la copia lleva dentro de <code>plan.json</code> (campo <code>salt</code>, en base64). No es secreta, pero sin ella no se puede derivar nada. Un lector de copias no necesita <code>authHash</code>.</p>
+      <h3>De una persona de confianza</h3>
+<pre><code>frase'      = normalizar(frase)
+clavePersona = PBKDF2-SHA256(frase', salt = UTF-8(email en minúsculas, sin espacios alrededor), 600.000 iteraciones)   → clave AES-256-GCM</code></pre>
+      <p><strong>Normalizar</strong> la frase: descomponer en Unicode NFD, eliminar los diacríticos (U+0300 a U+036F), pasar a minúsculas, recortar los espacios de los extremos y reducir cada secuencia de espacios en blanco a un solo espacio. Así <code>Ébano  deporte</code> y <code>ebano deporte</code> dan la misma clave. Custodium genera las frases con seis palabras al azar de la lista BIP39 en castellano (2.048 palabras), pero el formato acepta cualquier texto.</p>
+      <p>El titular guarda la misma clave, en base64, dentro de su plan (<code>recipients[].key</code>) junto con la frase, para poder volver a cifrar los paquetes y volver a mostrársela a la persona. Un lector puede usar esa clave directamente si abre el plan del titular, o derivarla de la frase si abre como persona.</p>
+      <h3>De cada archivo</h3>
+      <p>32 bytes aleatorios por archivo. Viajan en base64 en <code>files[].key</code>, dentro del plan del titular y dentro del paquete de cada persona que deba recibir ese archivo.</p>
+    </section>
+
+    <section id="blobs" class="doc-block">
+      <h2>Objetos cifrados</h2>
+      <p>Todo objeto JSON cifrado (el plan y cada paquete) tiene esta forma:</p>
+<pre><code>{ "v": 1, "iv": "&lt;12 bytes en base64&gt;", "ct": "&lt;texto cifrado + etiqueta GCM, en base64&gt;" }</code></pre>
+      <p>El texto en claro es el JSON del objeto, serializado y codificado en UTF-8. Un lector debe rechazar un <code>v</code> que no conozca.</p>
+    </section>
+
+    <section id="plan" class="doc-block">
+      <h2>plan.json</h2>
+      <p>Es un objeto cifrado con <code>encKey</code>, más el campo <code>salt</code> en claro:</p>
+<pre><code>{ "v": 1, "iv": "…", "ct": "…", "salt": "&lt;16 bytes en base64&gt;" }</code></pre>
+      <p>Descifrado, el plan (formato <code>v: 2</code>) es:</p>
+<pre><code>{
+  "v": 2,
+  "recipients": [
+    { "id": "&lt;uuid&gt;", "name": "Marta", "email": "marta@…", "phone": "+34…" | null,
+      "key": "&lt;32 bytes en base64: clave de la persona&gt;", "phrase": "seis palabras", "createdAt": &lt;ms desde época&gt; }
+  ],
+  "items": [
+    { "id": "&lt;uuid&gt;", "title": "Cuenta en el banco", "recipientIds": [ "&lt;uuid de persona&gt;", … ],
+      "notes": "texto libre",
+      "files": [ { "id": "&lt;uuid&gt;", "name": "extracto.pdf", "size": 12345, "key": "&lt;32 bytes en base64&gt;" } ],
+      "updatedAt": &lt;ms desde época&gt; }
+  ],
+  "onboarding": { "exportedAt": 0, "plazosReviewed": 0, "dismissedAt": 0 }
+}</code></pre>
+      <p><code>onboarding</code> es opcional y solo tiene sentido para la aplicación de Custodium; un lector puede ignorarlo. <code>size</code> es el tamaño del archivo en claro, en bytes. Un elemento sin <code>recipientIds</code> es solo para el titular.</p>
+    </section>
+
+    <section id="paquetes" class="doc-block">
+      <h2>paquetes/</h2>
+      <p>Un archivo <code>paquetes/&lt;id de la persona&gt;.json</code> por cada persona de confianza: un objeto cifrado con su clave. Descifrado:</p>
+<pre><code>{
+  "v": 1,
+  "generatedAt": &lt;ms desde época&gt;,
+  "items": [
+    { "title": "Cuenta en el banco", "notes": "texto libre",
+      "files": [ { "id": "&lt;uuid&gt;", "name": "extracto.pdf", "size": 12345, "key": "&lt;32 bytes en base64&gt;" } ] }
+  ]
+}</code></pre>
+      <p>Contiene solo los elementos asignados a esa persona, sin identificadores de elemento ni referencia a otras personas. El nombre del archivo del paquete no debe usarse para decidir a quién pertenece: un lector prueba a descifrar y AES-GCM rechaza los que no son suyos.</p>
+    </section>
+
+    <section id="archivos" class="doc-block">
+      <h2>archivos/</h2>
+      <p>Cada adjunto es <code>archivos/&lt;id del archivo&gt;</code>, con los bytes:</p>
+<pre><code>IV (12 bytes) || texto cifrado || etiqueta GCM (16 bytes)</code></pre>
+      <p>cifrados con AES-256-GCM y la clave del archivo (<code>files[].key</code>). Un archivo cifrado mide 28 bytes más que el original. Su nombre y su tipo solo existen dentro del plan y de los paquetes.</p>
+    </section>
+
+    <section id="abridor" class="doc-block">
+      <h2>Cómo abre un lector</h2>
+      <ol>
+        <li>Pide un email y un secreto (contraseña o frase). No necesita red.</li>
+        <li>Si hay <code>plan.json</code>: deriva <code>encKey</code> con la contraseña y el <code>salt</code> del propio archivo e intenta descifrarlo. Si funciona, quien abre es el titular y ve el plan entero.</li>
+        <li>Si no: deriva la clave de persona con el email y la frase e intenta descifrar cada <code>paquetes/*.json</code>. El que descifra es el suyo; AES-GCM garantiza que ningún otro se abre con esa clave. Si ninguno se abre, el email o la frase no son correctos.</li>
+        <li>Para cada archivo del contenido abierto, busca <code>archivos/&lt;id&gt;</code> y lo descifra con la clave <code>key</code> que acompaña al archivo en el plan o en el paquete.</li>
+      </ol>
+      <p>El abridor que va dentro de cada copia hace exactamente esto, en un solo archivo HTML sin dependencias de red, y su código es legible.</p>
+    </section>
+
+    <section id="versiones" class="doc-block">
+      <h2>Versiones</h2>
+      <p>Los números de versión son independientes: <code>v: 1</code> en los objetos cifrados y <code>v: 2</code> en el plan en claro. Cualquier cambio incompatible los incrementará y esta página lo documentará manteniendo las versiones anteriores. Las constantes que fijan el formato (iteraciones de PBKDF2, versión del objeto cifrado, derivación de claves) no cambian dentro de una versión: hacerlo invalidaría las copias existentes.</p>
+    </section>
+
+    <section id="vectores" class="doc-block">
+      <h2>Vectores de prueba</h2>
+      <p>Calculados con el mismo código que usa Custodium. Los IV son fijos solo para que el resultado sea reproducible; en una copia real son aleatorios.</p>
+      <h3>Clave de una persona</h3>
+<pre><code>email  = " Ana@Example.com "            → sal: UTF-8("ana@example.com")
+frase  = "Ébano  deporte NÁCAR cien órgano vagar "
+frase' = "ebano deporte nacar cien organo vagar"
+clave  = c2ef098f474227b71c485ba104e5dc3d1649e17454f831577df86800bc22e4c3   (hex)
+       = wu8Jj0dCJ7ccSFuhBOXcPRZJ4XRU+DFXffhoALwi5MM=                       (base64)</code></pre>
+      <h3>Claves del titular</h3>
+<pre><code>salt       = AAECAwQFBgcICQoLDA0ODw==   (los bytes 00 01 02 … 0f)
+contraseña = "correct horse battery staple"
+masterKey  = ef177144eec9420cbc1093d2a8b344a92bc506d0d4ec9c028dd19f8324d8c1e6
+encKey     = d400f0cc6f00428e80e54d34d6a65c9120937a6c26d335a6dd0dcd54b5689272
+authHash   = VVsgjMPwPgBLohc2zkE9SqvPfHzAa4DRAel2WbUPFps=</code></pre>
+      <h3>Objeto cifrado con esa encKey</h3>
+<pre><code>texto en claro = {"v":2,"recipients":[],"items":[]}
+iv             = AAAAAAAAAAAAAAAA   (12 bytes a cero)
+ct             = Ok6XAaSGX71g1HDqNgltq/o66Dm9130hCv7/g1l6eZMbEB4BSXJr46Wh7h85ulPQZPI=</code></pre>
+      <h3>Archivo</h3>
+<pre><code>clave del archivo = QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=   (32 bytes 0x42)
+contenido         = "hola\n" (5 bytes)
+bytes cifrados    = 000000000000000000000000 9cdd939856548fd90e4be3396717f1383bea6b8d49   (iv || ct || etiqueta, hex)</code></pre>
+      <p>Si tu implementación reproduce estos cuatro resultados, abrirá cualquier copia de Custodium. Si encuentras una discrepancia entre esta página y el código, escríbenos a <a href="mailto:hola@custodium.space">hola@custodium.space</a>: el código manda, y corregiremos la página.</p>
+      <div class="doc-cta">
+        <a class="btn" href="/#/crear-cuenta">Crear una cuenta</a>
+        <a class="btn-link" href="/codigo">Ver el código</a>
+        <p class="hint">Gratis durante la beta. No pedimos tarjeta.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p>Guardamos tu plan cifrado, nunca las claves.</p>
+    <p class="foot-legal">boredVictor SL · <a href="/legal#aviso-legal">Aviso legal</a> · <a href="/legal#privacidad">Privacidad</a> · <a href="/legal#cookies">Cookies</a> · <a href="/legal#condiciones">Condiciones</a></p>
+  </footer>
+  <script src="/stats.js" defer></script>
+</body>
+</html>

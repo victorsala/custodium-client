@@ -13,6 +13,33 @@ Permission is granted, free of charge, to:
   3. Use the file "abrir-offline.html" as distributed inside a Custodium
      export, to open your own encrypted copy.
 
+Open format and standalone opener
+---------------------------------
+
+The format of the exported copy (plan.json, paquetes/, archivos/ and the
+key derivation they rely on), as specified at https://custodium.space/formato
+(public/formato.html in this repository), is dedicated to the public domain
+under CC0 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/).
+Anyone may implement it, read it and write it, in any software, for any
+purpose, without permission or attribution.
+
+The standalone opener public/abrir-offline.html (distributed as abrir.html
+inside every copy) is licensed under the MIT License:
+
+  Copyright (c) 2026 Víctor Sala
+
+  Permission is hereby granted, free of charge, to any person obtaining a
+  copy of this file, to deal in it without restriction, including without
+  limitation the rights to use, copy, modify, merge, publish, distribute,
+  sublicense, and/or sell copies, and to permit persons to whom it is
+  furnished to do so, subject to the following conditions: the above
+  copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the file. THE FILE IS PROVIDED "AS IS",
+  WITHOUT WARRANTY OF ANY KIND.
+
+Everything else
+---------------
+
 No other rights are granted. In particular, you may not redistribute,
 modify, sublicense, sell, or operate a service based on this code without
 prior written permission from the copyright holder.

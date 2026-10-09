@@ -6,7 +6,7 @@
 // l'alta, «/crear-cuenta/codigo» el pas 2, segons body.dataset.statsScreen, que posa app.js);
 // dins de l'app no es compta res. README §2.3.
 (() => {
-  const PAGES = ["/", "/como-funciona", "/seguridad", "/codigo", "/preguntas", "/legal"];
+  const PAGES = ["/", "/como-funciona", "/seguridad", "/codigo", "/preguntas", "/legal", "/formato"];
   const SCREENS = { login: "/", register: "/crear-cuenta", "register-code": "/crear-cuenta/codigo" };
   const path = location.pathname.replace(/\/index\.html$/, "/").replace(/\.html$/, "");
   const q = new URLSearchParams(location.search);

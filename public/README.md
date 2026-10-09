@@ -14,6 +14,8 @@ for f in index.html app.js routes.js crypto.js words.js templates.js portada.js 
 done
 ```
 
+**Open format.** The exported copy follows a public-domain (CC0) format specified at [custodium.space/formato](https://custodium.space/formato) (`public/formato.html`), with test vectors; the standalone opener `abrir-offline.html` is MIT. Anyone can write a program that opens a Custodium copy.
+
 **About the server.** `src/index.js` is the Worker deployed together with that same version. Reading it shows what the server does — and what it cannot do: it only ever handles ciphertext, hashed credentials and delivery schedules. Unlike the client, no external check can prove that a remote server runs exactly the published code; that is precisely why the design never requires trusting it. Everything sensitive is encrypted in the browser before it is sent, and *that* code you can verify byte by byte with the commands above.
 
 ---

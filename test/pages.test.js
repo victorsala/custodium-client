@@ -11,7 +11,7 @@ const pages = readdirSync(PUBLIC).filter((f) => f.endsWith(".html"));
 const html = Object.fromEntries(pages.map((f) => [f, readFileSync(join(PUBLIC, f), "utf8")]));
 
 // Pàgines que es veuen sense sessió i han de portar la navegació de visitant.
-const VISITOR = ["index.html", "como-funciona.html", "seguridad.html", "codigo.html", "preguntas.html", "legal.html"];
+const VISITOR = ["index.html", "como-funciona.html", "seguridad.html", "codigo.html", "preguntas.html", "legal.html", "formato.html"];
 const NAV = ["/como-funciona", "/seguridad", "/codigo", "/preguntas"];
 const FOOT = ["/legal#aviso-legal", "/legal#privacidad", "/legal#cookies", "/legal#condiciones"];
 const GENERATED = new Set(["/VERSION"]); // l'escriu el deploy
@@ -55,7 +55,7 @@ test("pàgines de visitant: navegació superior sencera i peu legal", () => {
     assert.ok(!src.includes("beta privada"), `${name}: encara diu "beta privada"`);
   }
   // La pàgina actual queda marcada, i només ella.
-  for (const name of VISITOR.filter((n) => n !== "index.html" && n !== "legal.html")) {
+  for (const name of VISITOR.filter((n) => n !== "index.html" && n !== "legal.html" && n !== "formato.html")) {
     const marks = [...html[name].matchAll(/href="(\/[a-z-]+)" aria-current="page"/g)].map((m) => m[1]);
     assert.deepEqual(marks, [`/${name.replace(".html", "")}`], `${name}: aria-current`);
   }
