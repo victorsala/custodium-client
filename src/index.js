@@ -58,6 +58,7 @@ const MIN_RELEASE_GAP_DAYS = 3;           // entrega com a mínim tres dies desp
 const STATS_PAGES = new Set(["/", "/crear-cuenta", "/crear-cuenta/codigo", "/como-funciona", "/seguridad", "/codigo", "/preguntas", "/legal"]);
 const STATS_SOURCES = new Set(["anuncio", "buscador", "interno", "directo", "otro"]);
 const STATS_STEPS = new Set(["/alta/codigo", "/alta"]); // passos de l'alta: els suma el servidor, mai el beacon
+const STATS_CLICKS = new Set(["/llamada"]);            // clics que compta el beacon (enllaç per reservar 15 minuts): només vistes, mai temps
 const STATS_MAX_SECONDS = 1800;           // segons visibles per càrrega, com a màxim
 const STATS_MAX_CAMPAIGNS_PER_DAY = 20;   // etiquetes de campanya noves per dia; la resta cau a "otra"
 const OWNER_SMS_GAP_S = 20 * 3600;        // SMS al titular: com a màxim un al dia (el cron passa cada 12 h)
@@ -1350,7 +1351,8 @@ async function recordStats(request, env) {
   if (site && site !== "same-origin") throw new HttpError(403, "forbidden");
   const body = await readJson(request);
   const kind = body?.kind, path = body?.path, source = body?.source;
-  if ((kind !== "view" && kind !== "time") || !STATS_PAGES.has(path) || !STATS_SOURCES.has(source)) throw new HttpError(400, "bad_stats");
+  const page = STATS_PAGES.has(path) || (kind === "view" && STATS_CLICKS.has(path));
+  if ((kind !== "view" && kind !== "time") || !page || !STATS_SOURCES.has(source)) throw new HttpError(400, "bad_stats");
   let views = 0, seconds = 0, reads = 0;
   if (kind === "view") views = 1;
   else {

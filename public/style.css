@@ -870,7 +870,10 @@ body.is-entry main { padding: 40px 0 56px; }
 body:not(.is-entry) .pitch,
 body:not(.is-entry) .pillars { display: none; }
 
-.entry { display: grid; gap: 40px; align-items: start; }
+.entry { display: grid; gap: 40px; align-items: start; grid-template-areas: "card" "pitch" "notes"; }
+.entry-card { grid-area: card; }
+.pitch { grid-area: pitch; }
+.entry-notes { grid-area: notes; }
 
 .entry-card {
   padding: 32px 24px 28px;
@@ -944,7 +947,7 @@ body:not(.is-entry) .pillars { display: none; }
 @media (min-width: 720px) { .pillars { grid-template-columns: 1fr 1fr; } }
 
 @media (min-width: 900px) {
-  .entry { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; }
+  .entry { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px 64px; grid-template-areas: "card pitch" "notes pitch"; }
   .entry-card { padding: 40px 36px 36px; }
   .pitch { padding-top: 6px; }
   .pillars { grid-template-columns: repeat(4, 1fr); margin-top: 56px; }
@@ -1722,6 +1725,15 @@ a.ghost[aria-current="page"] { background: rgba(247,244,238,.1); border-color: t
 
 /* Portada: preu i enllaços a les pàgines d'informació */
 .pitch-price { color: var(--slate); font-size: 14px; }
+/* Crida a reservar 15 minuts: una targeta tenyida, llegible de lluny però sense cridar. */
+.pitch-call {
+  margin-top: 4px; padding: 16px 18px; border-radius: 12px;
+  background: rgba(28,93,84,.08); border: 1px solid rgba(28,93,84,.22);
+  color: var(--ink); font-size: 17px; line-height: 1.5;
+}
+.pitch-call a { color: var(--teal); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+/* Sota la targeta d'entrada: l'avís del que no és Custodium i els pilars en una sola columna. */
+.entry-notes .notice { margin: 0; }
 .more-links { margin-top: 20px; color: var(--slate); font-size: 14px; }
 .more-links a { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
 

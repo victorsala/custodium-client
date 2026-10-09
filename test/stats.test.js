@@ -80,6 +80,18 @@ test("stats: les pantalles de l'alta són pàgines del beacon, i app.js les anun
   assert.match(stats, /"register-code": "\/crear-cuenta\/codigo"/, "stats.js tradueix el pas 2 a la seva pàgina");
 });
 
+test("stats: el clic a l'enllaç de la trucada compta com a vista de /llamada, però no admet temps", async () => {
+  const r = await post({ kind: "view", path: "/llamada", source: "anuncio", campaign: "ads" });
+  assert.equal(r.status, 204);
+  assert.deepEqual(inserts()[0].args.slice(1, 4), ["/llamada", "anuncio", "ads"]);
+  const t = await post({ kind: "time", path: "/llamada", source: "anuncio", seconds: 5 });
+  assert.equal(t.status, 400);
+  const { readFileSync } = await import("node:fs");
+  for (const f of ["index.html", "seguridad.html", "preguntas.html"]) {
+    assert.ok(readFileSync(new URL(`../public/${f}`, import.meta.url), "utf8").includes('href="https://cal.com/custodium/'), `${f} enllaça la reserva`);
+  }
+});
+
 test("stats: el cos pot arribar com a text pla (sendBeacon) i la portada compta com a /", async () => {
   const r = await post(JSON.stringify({ kind: "view", path: "/", source: "directo" }), { headers: { "content-type": "text/plain;charset=UTF-8" } });
   assert.equal(r.status, 204);

@@ -43,6 +43,13 @@
 
   const send = (page, data) => navigator.sendBeacon("/api/stats", JSON.stringify({ path: page, source, campaign, ...data }));
 
+  // Clic a l'enllaç per reservar 15 minuts (cal.com): un pas més de l'embut, "/llamada". Només el
+  // clic; la reserva en si la sap Cal.com, no nosaltres.
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest?.('a[href^="https://cal.com/"]');
+    if (a) send("/llamada", { kind: "view" });
+  });
+
   // Una "pàgina" en curs: la seva vista ja enviada, i el temps visible que acumula fins que
   // s'envia un sol cop (en sortir, en amagar-se la pestanya o en canviar de pantalla).
   let current = null; // { page, since, total, sent }
