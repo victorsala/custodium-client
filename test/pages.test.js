@@ -61,6 +61,16 @@ test("pàgines de visitant: navegació superior sencera i peu legal", () => {
   }
 });
 
+test("pàgines públiques: indexables i amb descripció; les de persones de confiança, noindex", () => {
+  for (const name of VISITOR) {
+    assert.ok(!/name="robots"/.test(html[name]), `${name}: no ha de portar robots noindex`);
+    assert.ok(/<meta name="description" content="[^"]{40,}">/.test(html[name]), `${name}: sense meta description`);
+  }
+  for (const name of ["abrir.html", "aqui.html"]) assert.ok(/content="noindex, nofollow"/.test(html[name]), `${name}: ha de portar noindex`);
+  const robots = readFileSync(join(PUBLIC, "robots.txt"), "utf8");
+  for (const p of ["/abrir.html", "/aqui.html", "/api/"]) assert.ok(robots.includes(`Disallow: ${p}`), `robots.txt no exclou ${p}`);
+});
+
 test("pàgines de persona (abrir, aqui) i obridor: peu legal, sense navegació de visitant", () => {
   for (const name of ["abrir.html", "aqui.html"]) {
     assert.ok(html[name].includes('class="foot-legal"'), `${name}: sense peu legal`);

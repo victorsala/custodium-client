@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /abrir.html
+Disallow: /aqui.html
+Disallow: /abrir-offline.html
+Disallow: /api/

@@ -6,6 +6,10 @@
 // l'alta, «/crear-cuenta/codigo» el pas 2, segons body.dataset.statsScreen, que posa app.js);
 // dins de l'app no es compta res. README §2.3.
 (() => {
+  // Staging no s'ha d'indexar; el codi és el mateix als dos entorns, així que el noindex va per host.
+  if (/^b2c-staging\./.test(location.hostname)) {
+    const m = document.createElement("meta"); m.name = "robots"; m.content = "noindex, nofollow"; document.head.appendChild(m);
+  }
   const PAGES = ["/", "/como-funciona", "/seguridad", "/codigo", "/preguntas", "/legal", "/formato"];
   const SCREENS = { login: "/", register: "/crear-cuenta", "register-code": "/crear-cuenta/codigo" };
   const path = location.pathname.replace(/\/index\.html$/, "/").replace(/\.html$/, "");
