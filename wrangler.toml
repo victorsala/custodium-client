@@ -11,6 +11,7 @@ routes = [
 # Frontend estàtic. Es serveix des del mateix origen: zero CORS.
 [assets]
 directory = "./public"
+binding = "ASSETS"   # el Worker serveix public/stats-panel.html a /stats darrere de l'autenticació
 
 # Variables per entorn (no secrets). ENV encén la franja d'avís del client a
 # staging; SITE i MAIL_FROM fan que els correus de cada entorn apuntin a ell mateix.
@@ -58,6 +59,7 @@ routes = [
 
 [env.staging.assets]
 directory = "./public"
+binding = "ASSETS"
 
 [env.staging.vars]
 ENV = "staging"

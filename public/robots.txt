@@ -4,3 +4,5 @@ Disallow: /abrir.html
 Disallow: /aqui.html
 Disallow: /abrir-offline.html
 Disallow: /api/
+Disallow: /stats
+Disallow: /stats-panel

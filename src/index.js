@@ -90,9 +90,11 @@ export default {
     const { pathname } = new URL(request.url);
     const method = request.method;
 
-    if (!pathname.startsWith("/api/")) return new Response("Not found", { status: 404 });
+    if (!pathname.startsWith("/api/") && pathname !== "/stats") return new Response("Not found", { status: 404 });
 
     try {
+      if (pathname === "/stats"            && method === "GET") return await statsPanel(request, env);
+      if (pathname === "/api/admin/stats"  && method === "GET") return await adminStats(request, env);
       if (pathname === "/api/env"      && method === "GET") return json({ env: env.ENV || "production" });
       if (pathname === "/api/salt"     && method === "GET") return await getSalt(request, env);
       if (pathname === "/api/register/start" && method === "POST") return await startSignup(request, env);
@@ -1396,6 +1398,81 @@ async function bumpStats(request, env, path, source, campaign, { views = 0, seco
     .prepare("INSERT INTO stats (day, path, source, campaign, country, views, seconds, reads) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(day, path, source, campaign, country) DO UPDATE SET views = views + excluded.views, seconds = seconds + excluded.seconds, reads = reads + excluded.reads")
     .bind(day, path, source, campaign, country, views, seconds, reads)
     .run();
+}
+
+// ---- Panell d'estadístiques (/stats i /api/admin/stats): usuari i contrasenya (HTTP Basic) ----
+// El secret STATS_AUTH_SHA256 és el SHA-256 en hex d'"usuario:contraseña" (printf | sha256sum).
+// Sense cookies ni sessions: el navegador reenvia les credencials mentre la pestanya és oberta.
+// Sense el secret, les dues rutes no existeixen (404).
+const STATS_CSP = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+
+async function statsAuth(request, env) {
+  const expected = String(env.STATS_AUTH_SHA256 || "").trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(expected)) throw new HttpError(404, "not_found");
+  const m = /^Basic\s+([A-Za-z0-9+/=]+)$/i.exec(request.headers.get("authorization") || "");
+  let ok = false;
+  const raw = m ? b64.decode(m[1]) : null;
+  if (raw && raw.length) {
+    const digest = hex(new Uint8Array(await crypto.subtle.digest("SHA-256", raw)));
+    ok = constantTimeEqual(digest, expected);
+  }
+  if (ok) return null;
+  return new Response("Acceso restringido.", {
+    status: 401,
+    headers: { "www-authenticate": 'Basic realm="Custodium estadisticas", charset="UTF-8"', "cache-control": "no-store", "content-type": "text/plain; charset=utf-8" },
+  });
+}
+
+function hex(bytes) {
+  let s = "";
+  for (const b of bytes) s += b.toString(16).padStart(2, "0");
+  return s;
+}
+
+function constantTimeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+
+// La pàgina del panell és un fitxer estàtic sense dades (public/stats-panel.html); es serveix
+// des d'aquí, darrere de l'autenticació, perquè el quadre d'usuari i contrasenya surti en obrir /stats.
+async function statsPanel(request, env) {
+  const denied = await statsAuth(request, env);
+  if (denied) return denied;
+  const asset = await env.ASSETS.fetch(new URL("/stats-panel", request.url).toString());
+  if (!asset.ok) throw new HttpError(500, "panel_missing");
+  return new Response(asset.body, {
+    status: 200,
+    headers: {
+      "content-type": "text/html; charset=utf-8", "content-security-policy": STATS_CSP, "cache-control": "no-store",
+      "x-robots-tag": "noindex, nofollow", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer", "x-frame-options": "DENY",
+    },
+  });
+}
+
+// Files agregades de stats del període (per defecte, 30 dies), opcionalment d'una campanya,
+// més la llista de campanyes conegudes. Les sumes i els talls els fa el panell.
+async function adminStats(request, env) {
+  const denied = await statsAuth(request, env);
+  if (denied) return denied;
+  const q = new URL(request.url).searchParams;
+  const DAY = /^\d{4}-\d{2}-\d{2}$/;
+  const to = q.get("fins") || new Date(now() * 1000).toISOString().slice(0, 10);
+  const from = q.get("desde") || new Date((now() - 29 * 86400) * 1000).toISOString().slice(0, 10);
+  if (!DAY.test(from) || !DAY.test(to) || from > to) throw new HttpError(400, "bad_range");
+  const campaign = normalizeCampaign(q.get("campaign"));
+  const sql = `SELECT day, path, source, campaign, country, views, seconds, reads FROM stats WHERE day >= ? AND day <= ?${campaign ? " AND campaign = ?" : ""} ORDER BY day`;
+  const args = campaign ? [from, to, campaign] : [from, to];
+  const [rows, camps] = await Promise.all([
+    env.DB.prepare(sql).bind(...args).all(),
+    env.DB.prepare("SELECT DISTINCT campaign FROM stats WHERE campaign != '' ORDER BY campaign").all(),
+  ]);
+  return new Response(JSON.stringify({ from, to, campaign, rows: rows.results, campaigns: camps.results.map((r) => r.campaign) }), {
+    status: 200,
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+  });
 }
 
 function json(data, status = 200) {

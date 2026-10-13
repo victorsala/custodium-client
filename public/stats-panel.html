@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Custodium · estadísticas</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Panell d'estadístiques. El Worker el serveix a /stats després de demanar usuari i contrasenya
+       (HTTP Basic, README §2.8); les dades vénen de /api/admin/stats, protegit igual. Aquest fitxer
+       sol no conté cap dada. Sense stats.js: les visites al panell no es compten. -->
+  <header class="top">
+    <div class="wrap top-row">
+      <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>Custodium <small>estadísticas</small></a>
+      <span class="dash-env" id="dash-env"></span>
+    </div>
+  </header>
+
+  <main class="dash">
+    <form class="dash-filters" id="filters">
+      <label><span>Periodo</span>
+        <select id="periodo">
+          <option value="7">Últimos 7 días</option>
+          <option value="14">Últimos 14 días</option>
+          <option value="30" selected>Últimos 30 días</option>
+          <option value="90">Últimos 90 días</option>
+          <option value="custom">Fechas concretas</option>
+        </select>
+      </label>
+      <label class="dash-date" hidden><span>Desde</span><input id="desde" type="date"></label>
+      <label class="dash-date" hidden><span>Hasta</span><input id="hasta" type="date"></label>
+      <label><span>Campaña</span><select id="campana"><option value="">Todas</option></select></label>
+      <button type="submit">Aplicar</button>
+      <button type="button" id="csv" class="link">Descargar CSV de esta vista</button>
+    </form>
+    <p id="dash-msg" class="hint" aria-live="polite"></p>
+
+    <nav class="dash-tabs" aria-label="Vistas">
+      <button type="button" class="tab is-current" data-tab="resumen">Resumen</button>
+      <button type="button" class="tab" data-tab="dia">Por día</button>
+      <button type="button" class="tab" data-tab="pagina">Por página</button>
+      <button type="button" class="tab" data-tab="campana">Campañas</button>
+      <button type="button" class="tab" data-tab="origen">Origen y país</button>
+    </nav>
+
+    <section data-tab="resumen">
+      <ul class="kpis" id="kpis"></ul>
+      <figure class="bars">
+        <figcaption>Páginas vistas por día</figcaption>
+        <svg id="bars" viewBox="0 0 600 160" role="img" aria-label="Páginas vistas por día"></svg>
+      </figure>
+      <p class="hint">Páginas vistas: cargas de la portada y de las páginas de información. Lecturas: cargas que estuvieron visibles al menos un segundo. Segundos medios: sobre las lecturas. Los pasos (código enviado, cuenta creada, llamada pedida) los suma el servidor o un clic y no cuentan como páginas.</p>
+    </section>
+    <section data-tab="dia" hidden><div class="dash-table" id="t-dia"></div></section>
+    <section data-tab="pagina" hidden><div class="dash-table" id="t-pagina"></div></section>
+    <section data-tab="campana" hidden>
+      <div class="dash-table" id="t-campana"></div>
+      <p class="hint">Embudo por campaña: portada → crear cuenta → paso del código → cuenta creada. % altas = cuentas creadas / portadas. Solo aparecen las visitas que llegaron con una etiqueta utm_campaign.</p>
+    </section>
+    <section data-tab="origen" hidden>
+      <div class="dash-two"><div class="dash-table" id="t-origen"></div><div class="dash-table" id="t-pais"></div></div>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p>Recuentos agregados por día, página, origen, campaña y país. Nada identifica a nadie.</p>
+  </footer>
+  <script src="/stats-panel.js" defer></script>
+</body>
+</html>
