@@ -61,6 +61,17 @@ test("pàgines de visitant: navegació superior sencera i peu legal", () => {
   }
 });
 
+test("panell d'estadístiques: cada pestanya té el seu panell, i botons i panells no comparteixen atribut", () => {
+  const src = html["stats-panel.html"];
+  const tabs = [...src.matchAll(/class="tab[^"]*" data-tab="([a-z]+)"/g)].map((m) => m[1]);
+  const panels = [...src.matchAll(/<section data-panel="([a-z]+)"/g)].map((m) => m[1]);
+  assert.equal(tabs.length, 5);
+  assert.deepEqual(panels, tabs);
+  assert.doesNotMatch(src, /<section data-tab=/, "si els panells porten data-tab, amagar-los amaga també els botons");
+  const js = readFileSync(join(PUBLIC, "stats-panel.js"), "utf8");
+  assert.match(js, /querySelectorAll\("main \[data-panel\]"\)/);
+});
+
 test("pàgines públiques: indexables i amb descripció; les de persones de confiança, noindex", () => {
   for (const name of VISITOR) {
     assert.ok(!/name="robots"/.test(html[name]), `${name}: no ha de portar robots noindex`);

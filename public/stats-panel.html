@@ -46,7 +46,7 @@
       <button type="button" class="tab" data-tab="origen">Origen y país</button>
     </nav>
 
-    <section data-tab="resumen">
+    <section data-panel="resumen">
       <ul class="kpis" id="kpis"></ul>
       <figure class="bars">
         <figcaption>Páginas vistas por día</figcaption>
@@ -54,13 +54,13 @@
       </figure>
       <p class="hint">Páginas vistas: cargas de la portada y de las páginas de información. Lecturas: cargas que estuvieron visibles al menos un segundo. Segundos medios: sobre las lecturas. Los pasos (código enviado, cuenta creada, llamada pedida) los suma el servidor o un clic y no cuentan como páginas.</p>
     </section>
-    <section data-tab="dia" hidden><div class="dash-table" id="t-dia"></div></section>
-    <section data-tab="pagina" hidden><div class="dash-table" id="t-pagina"></div></section>
-    <section data-tab="campana" hidden>
+    <section data-panel="dia" hidden><div class="dash-table" id="t-dia"></div></section>
+    <section data-panel="pagina" hidden><div class="dash-table" id="t-pagina"></div></section>
+    <section data-panel="campana" hidden>
       <div class="dash-table" id="t-campana"></div>
       <p class="hint">Embudo por campaña: portada → crear cuenta → paso del código → cuenta creada. % altas = cuentas creadas / portadas. Solo aparecen las visitas que llegaron con una etiqueta utm_campaign.</p>
     </section>
-    <section data-tab="origen" hidden>
+    <section data-panel="origen" hidden>
       <div class="dash-two"><div class="dash-table" id="t-origen"></div><div class="dash-table" id="t-pais"></div></div>
     </section>
   </main>

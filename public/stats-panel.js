@@ -180,7 +180,8 @@
     b.addEventListener("click", () => {
       tab = b.dataset.tab;
       for (const t of document.querySelectorAll(".dash-tabs .tab")) t.classList.toggle("is-current", t === b);
-      for (const sct of document.querySelectorAll("main [data-tab]")) sct.hidden = sct.dataset.tab !== tab;
+      // Els botons porten data-tab i els panells data-panel: així amagar panells mai amaga els botons.
+      for (const sct of document.querySelectorAll("main [data-panel]")) sct.hidden = sct.dataset.panel !== tab;
     });
   }
 
