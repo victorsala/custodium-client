@@ -92,6 +92,18 @@ test("stats: el clic a l'enllaç de la trucada compta com a vista de /llamada, p
   }
 });
 
+test("stats: l'arribada des d'un anunci compta com a vista de /llegada, no admet temps, i stats.js l'envia només amb paràmetres d'anunci", async () => {
+  const r = await post({ kind: "view", path: "/llegada", source: "anuncio", campaign: "ads" }, { country: "ES" });
+  assert.equal(r.status, 204);
+  assert.deepEqual(inserts()[0].args, [today(), "/llegada", "anuncio", "ads", "ES", 1, 0, 0]);
+  const t = await post({ kind: "time", path: "/llegada", source: "anuncio", seconds: 5 });
+  assert.equal(t.status, 400);
+  const { readFileSync } = await import("node:fs");
+  const stats = readFileSync(new URL("../public/stats.js", import.meta.url), "utf8");
+  assert.match(stats, /if \(q\.has\("utm_campaign"\) \|\| q\.has\("utm_source"\) \|\| q\.has\("gclid"\)\) \{\s*send\("\/llegada", \{ kind: "view" \}\);/, "una càrrega amb paràmetres d'anunci envia /llegada un sol cop");
+  assert.match(stats, /history\.replaceState\(history\.state, "", `\$\{location\.pathname\}\?c=\$\{campaign\}\$\{location\.hash\}`\)/, "després l'URL queda amb ?c=, com la d'una pàgina navegada");
+});
+
 test("stats: el cos pot arribar com a text pla (sendBeacon) i la portada compta com a /", async () => {
   const r = await post(JSON.stringify({ kind: "view", path: "/", source: "directo" }), { headers: { "content-type": "text/plain;charset=UTF-8" } });
   assert.equal(r.status, 204);

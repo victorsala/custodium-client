@@ -4,7 +4,7 @@
 // i aquí es fan les sumes, els talls per vista i l'ordenació. Sense dependències.
 (() => {
   const $ = (s) => document.querySelector(s);
-  const STEPS = { "/alta/codigo": "paso: código enviado", "/alta": "paso: cuenta creada", "/llamada": "paso: llamada pedida" };
+  const STEPS = { "/llegada": "paso: llegada desde anuncio", "/alta/codigo": "paso: código enviado", "/alta": "paso: cuenta creada", "/llamada": "paso: llamada pedida" };
   const PAGE_NAMES = {
     "/": "Portada (login)", "/crear-cuenta": "Crear cuenta (paso 1)", "/crear-cuenta/codigo": "Crear cuenta (paso 2)",
     "/como-funciona": "Cómo funciona", "/seguridad": "Seguridad", "/codigo": "Código", "/preguntas": "Preguntas", "/legal": "Legal", "/formato": "Formato",
@@ -81,10 +81,12 @@
       enviados: sum(list, (r) => (r.path === "/alta/codigo" ? r.views : 0)),
       altas: sum(list, (r) => (r.path === "/alta" ? r.views : 0)),
       llamadas: sum(list, (r) => (r.path === "/llamada" ? r.views : 0)),
+      llegadas: sum(list, (r) => (r.path === "/llegada" ? r.views : 0)),
     };
     s.otras = s.vistas - s.portada - s.crear - s.codigo;
     s.seg = s.lecturas ? Math.round(s.segundos / s.lecturas) : null;
-    s.pcta = s.portada ? (100 * s.altas) / s.portada : null;
+    // % d'altes sobre les arribades des de l'anunci: només compten les altes que venen d'un anunci.
+    s.pcta = s.llegadas ? (100 * sum(list, (r) => (r.path === "/alta" && r.source === "anuncio" ? r.views : 0))) / s.llegadas : null;
     return s;
   }
 
@@ -94,7 +96,7 @@
     renderBars();
     renderTable("t-dia", "Por día", [
       { key: "day", label: "Día" }, { key: "vistas", label: "Páginas vistas", num: true }, { key: "lecturas", label: "Lecturas", num: true },
-      { key: "seg", label: "Seg. medios", num: true }, { key: "portada", label: "Portadas", num: true }, { key: "altas", label: "Altas", num: true }, { key: "llamadas", label: "Llamadas", num: true },
+      { key: "seg", label: "Seg. medios", num: true }, { key: "llegadas", label: "Llegadas", num: true }, { key: "portada", label: "Portadas", num: true }, { key: "altas", label: "Altas", num: true }, { key: "llamadas", label: "Llamadas", num: true },
     ], [...groupBy(rows, (r) => r.day)].map(([day, list]) => ({ day, ...stat(list) })), { key: "day", dir: -1 });
 
     renderTable("t-pagina", "Por página", [
@@ -106,10 +108,10 @@
     }), { key: "vistas", dir: -1 });
 
     renderTable("t-campana", "Campañas", [
-      { key: "campaign", label: "Campaña" }, { key: "portada", label: "Portada", num: true }, { key: "crear", label: "Crear cuenta", num: true }, { key: "codigo", label: "Paso código", num: true },
+      { key: "campaign", label: "Campaña" }, { key: "llegadas", label: "Llegadas", num: true }, { key: "portada", label: "Portada", num: true }, { key: "crear", label: "Crear cuenta", num: true }, { key: "codigo", label: "Paso código", num: true },
       { key: "altas", label: "Altas", num: true }, { key: "pcta", label: "% altas", num: true, fmt: (v) => pctText(v) }, { key: "llamadas", label: "Llamadas", num: true },
       { key: "otras", label: "Otras páginas", num: true }, { key: "seg", label: "Seg. medios", num: true },
-    ], [...groupBy(rows.filter((r) => r.campaign), (r) => r.campaign)].map(([campaign, list]) => ({ campaign, ...stat(list) })), { key: "portada", dir: -1 });
+    ], [...groupBy(rows.filter((r) => r.campaign), (r) => r.campaign)].map(([campaign, list]) => ({ campaign, ...stat(list) })), { key: "llegadas", dir: -1 });
 
     renderTable("t-origen", "Origen", [{ key: "origen", label: "Origen" }, { key: "vistas", label: "Páginas vistas", num: true }, { key: "altas", label: "Altas", num: true }],
       [...groupBy(rows, (r) => r.source)].map(([source, list]) => ({ origen: SOURCE_NAMES[source] ?? source, ...stat(list) })), { key: "vistas", dir: -1 });
@@ -122,8 +124,8 @@
     const s = stat(rows);
     const items = [
       ["Páginas vistas", nf.format(s.vistas)], ["Lecturas", nf.format(s.lecturas)], ["Seg. medios", s.seg === null ? "–" : nf.format(s.seg)],
-      ["Portadas", nf.format(s.portada)], ["Códigos enviados", nf.format(s.enviados)], ["Cuentas creadas", nf.format(s.altas)],
-      ["% altas / portadas", pctText(s.pcta)], ["Llamadas pedidas", nf.format(s.llamadas)],
+      ["Llegadas (anuncio)", nf.format(s.llegadas)], ["Portadas", nf.format(s.portada)], ["Códigos enviados", nf.format(s.enviados)], ["Cuentas creadas", nf.format(s.altas)],
+      ["% altas / llegadas", pctText(s.pcta)], ["Llamadas pedidas", nf.format(s.llamadas)],
     ];
     $("#kpis").innerHTML = items.map(([l, v]) => `<li><strong>${esc(v)}</strong><span>${esc(l)}</span></li>`).join("");
   }

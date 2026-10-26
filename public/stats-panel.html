@@ -52,13 +52,13 @@
         <figcaption>Páginas vistas por día</figcaption>
         <svg id="bars" viewBox="0 0 600 160" role="img" aria-label="Páginas vistas por día"></svg>
       </figure>
-      <p class="hint">Páginas vistas: cargas de la portada y de las páginas de información. Lecturas: cargas que estuvieron visibles al menos un segundo. Segundos medios: sobre las lecturas. Los pasos (código enviado, cuenta creada, llamada pedida) los suma el servidor o un clic y no cuentan como páginas.</p>
+      <p class="hint">Páginas vistas: cargas de la portada y de las páginas de información. Lecturas: cargas que estuvieron visibles al menos un segundo. Segundos medios: sobre las lecturas. Llegadas: cargas que traen los parámetros del anuncio (utm o gclid), en cualquier página; es la cifra comparable con los clics de Google y se cuenta desde el 27 de octubre de 2026. Los pasos (llegada desde anuncio, código enviado, cuenta creada, llamada pedida) los suma el servidor o el contador y no cuentan como páginas.</p>
     </section>
     <section data-panel="dia" hidden><div class="dash-table" id="t-dia"></div></section>
     <section data-panel="pagina" hidden><div class="dash-table" id="t-pagina"></div></section>
     <section data-panel="campana" hidden>
       <div class="dash-table" id="t-campana"></div>
-      <p class="hint">Embudo por campaña: portada → crear cuenta → paso del código → cuenta creada. % altas = cuentas creadas / portadas. Solo aparecen las visitas que llegaron con una etiqueta utm_campaign.</p>
+      <p class="hint">Embudo por campaña: llegadas desde el anuncio → portada → crear cuenta → paso del código → cuenta creada. % altas = cuentas creadas / llegadas (las llegadas se cuentan desde el 27 de octubre de 2026). Solo aparecen las visitas que llegaron con una etiqueta utm_campaign.</p>
     </section>
     <section data-panel="origen" hidden>
       <div class="dash-two"><div class="dash-table" id="t-origen"></div><div class="dash-table" id="t-pais"></div></div>

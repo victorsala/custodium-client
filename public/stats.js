@@ -1,5 +1,6 @@
 // Comptador propi de visites, només a la portada i a les pàgines de visitant. Envia una
-// vista en carregar i, en sortir, els segons que la pàgina ha estat visible. Tot al mateix
+// vista en carregar (i una arribada, si la càrrega ve d'un anunci) i, en sortir, els segons
+// que la pàgina ha estat visible. Tot al mateix
 // origen (POST /api/stats), on es suma per dia, pàgina, origen, campanya i país: sense
 // cookies, sense localStorage, sense cap identificador, cap fila per visitant. A la portada
 // cada pantalla d'entrada compta com una pàgina («/» el login, «/crear-cuenta» el pas 1 de
@@ -46,6 +47,16 @@
   }
 
   const send = (page, data) => navigator.sendBeacon("/api/stats", JSON.stringify({ path: page, source, campaign, ...data }));
+
+  // Arribada des d'un anunci: la càrrega porta els paràmetres de l'anunci (utm_campaign, utm_source
+  // o gclid). Compta un cop com a pas "/llegada", sigui quina sigui la pàgina on s'aterra: és la
+  // xifra comparable amb els clics que compta Google i el primer pas de l'embut. Després l'URL es
+  // deixa amb ?c= (sense recarregar ni guardar res), com la d'una pàgina a la qual s'ha navegat:
+  // recarregar o tornar enrere compta com a navegació, no com una altra arribada.
+  if (q.has("utm_campaign") || q.has("utm_source") || q.has("gclid")) {
+    send("/llegada", { kind: "view" });
+    if (campaign) { try { history.replaceState(history.state, "", `${location.pathname}?c=${campaign}${location.hash}`); } catch { /* es deixa l'URL com està */ } }
+  }
 
   // Clic a l'enllaç per reservar 15 minuts (cal.com): un pas més de l'embut, "/llamada". Només el
   // clic; la reserva en si la sap Cal.com, no nosaltres.
