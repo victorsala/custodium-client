@@ -319,3 +319,20 @@ test("canvi de correu: mateix correu → same_email; sense sessió → 401; lím
   for (let i = 1; i <= 3; i++) assert.equal((await startEmail("nou@example.com", token)).status, 200);
   assert.equal((await startEmail("nou@example.com", token)).status, 429);
 });
+
+test("comptador de l'alta: un correu amb compte compta com /alta/existe (no com a codi) i la resposta és la mateixa", async () => {
+  const email = "titular@example.com";
+  db.users.set(email, { id: "u1", email, kdf_salt: "x", auth_salt: "y", auth_hash: "z" });
+  const s = await start(email);
+  assert.deepEqual(s.data, { ok: true });
+  assert.deepEqual(db.stats.map((r) => r.path), ["/alta/existe"]);
+});
+
+test("comptador de l'alta: «No me ha llegado» (resend) envia un altre codi però no torna a sumar", async () => {
+  const email = "nou@example.com";
+  await start(email);
+  const r = await post("/api/register/start", { email, resend: true });
+  assert.equal(r.status, 200);
+  assert.equal(mails.length, 2, "el segon codi s'envia");
+  assert.deepEqual(db.stats.map((x) => x.path), ["/alta/codigo"], "però només compta el primer");
+});

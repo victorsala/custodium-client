@@ -4,9 +4,12 @@
 // i aquí es fan les sumes, els talls per vista i l'ordenació. Sense dependències.
 (() => {
   const $ = (s) => document.querySelector(s);
-  const STEPS = { "/llegada": "paso: llegada desde anuncio", "/alta/codigo": "paso: código enviado", "/alta": "paso: cuenta creada", "/llamada": "paso: llamada pedida" };
+  const STEPS = {
+    "/llegada": "paso: llegada desde anuncio", "/alta/codigo": "paso: código enviado (correo nuevo)", "/alta/existe": "paso: el correo ya tenía cuenta",
+    "/alta": "paso: cuenta creada", "/sesion": "paso: sesión iniciada", "/llamada": "paso: llamada pedida",
+  };
   const PAGE_NAMES = {
-    "/crear-cuenta": "Portada · crear cuenta (paso 1)", "/crear-cuenta/codigo": "Crear cuenta (paso 2)", "/entrar": "Entrar",
+    "/crear-cuenta": "Crear cuenta · paso 1, correo (portada)", "/crear-cuenta/codigo": "Crear cuenta · paso 2, código y contraseña", "/entrar": "Entrar (pantalla)",
     "/": "Portada con login (hasta el 5-11-2026)",
     "/como-funciona": "Cómo funciona", "/seguridad": "Seguridad", "/codigo": "Código", "/preguntas": "Preguntas", "/legal": "Legal", "/formato": "Formato",
   };
@@ -82,6 +85,8 @@
       codigo: sum(list, (r) => (r.path === "/crear-cuenta/codigo" ? r.views : 0)),
       enviados: sum(list, (r) => (r.path === "/alta/codigo" ? r.views : 0)),
       altas: sum(list, (r) => (r.path === "/alta" ? r.views : 0)),
+      existe: sum(list, (r) => (r.path === "/alta/existe" ? r.views : 0)),
+      sesiones: sum(list, (r) => (r.path === "/sesion" ? r.views : 0)),
       llamadas: sum(list, (r) => (r.path === "/llamada" ? r.views : 0)),
       llegadas: sum(list, (r) => (r.path === "/llegada" ? r.views : 0)),
     };
@@ -98,7 +103,7 @@
     renderBars();
     renderTable("t-dia", "Por día", [
       { key: "day", label: "Día" }, { key: "vistas", label: "Páginas vistas", num: true }, { key: "lecturas", label: "Lecturas", num: true },
-      { key: "seg", label: "Seg. medios", num: true }, { key: "llegadas", label: "Llegadas", num: true }, { key: "crear", label: "Crear cuenta", num: true }, { key: "altas", label: "Altas", num: true }, { key: "llamadas", label: "Llamadas", num: true },
+      { key: "seg", label: "Seg. medios", num: true }, { key: "llegadas", label: "Llegadas", num: true }, { key: "crear", label: "Paso 1", num: true }, { key: "altas", label: "Altas", num: true }, { key: "sesiones", label: "Sesiones", num: true }, { key: "llamadas", label: "Llamadas", num: true },
     ], [...groupBy(rows, (r) => r.day)].map(([day, list]) => ({ day, ...stat(list) })), { key: "day", dir: -1 });
 
     renderTable("t-pagina", "Por página", [
@@ -110,7 +115,7 @@
     }), { key: "vistas", dir: -1 });
 
     renderTable("t-campana", "Campañas", [
-      { key: "campaign", label: "Campaña" }, { key: "llegadas", label: "Llegadas", num: true }, { key: "crear", label: "Crear cuenta", num: true }, { key: "codigo", label: "Paso código", num: true },
+      { key: "campaign", label: "Campaña" }, { key: "llegadas", label: "Llegadas", num: true }, { key: "crear", label: "Paso 1", num: true }, { key: "codigo", label: "Paso 2", num: true },
       { key: "altas", label: "Altas", num: true }, { key: "pcta", label: "% altas", num: true, fmt: (v) => pctText(v) }, { key: "llamadas", label: "Llamadas", num: true },
       { key: "entrar", label: "Entrar", num: true }, { key: "otras", label: "Otras páginas", num: true }, { key: "seg", label: "Seg. medios", num: true },
     ], [...groupBy(rows.filter((r) => r.campaign), (r) => r.campaign)].map(([campaign, list]) => ({ campaign, ...stat(list) })), { key: "llegadas", dir: -1 });
@@ -126,7 +131,7 @@
     const s = stat(rows);
     const items = [
       ["Páginas vistas", nf.format(s.vistas)], ["Lecturas", nf.format(s.lecturas)], ["Seg. medios", s.seg === null ? "–" : nf.format(s.seg)],
-      ["Llegadas (anuncio)", nf.format(s.llegadas)], ["Crear cuenta (paso 1)", nf.format(s.crear)], ["Códigos enviados", nf.format(s.enviados)], ["Cuentas creadas", nf.format(s.altas)],
+      ["Llegadas (anuncio)", nf.format(s.llegadas)], ["Paso 1 del alta (portada)", nf.format(s.crear)], ["Códigos enviados", nf.format(s.enviados)], ["Cuentas creadas", nf.format(s.altas)], ["Correo ya con cuenta", nf.format(s.existe)], ["Sesiones iniciadas", nf.format(s.sesiones)],
       ["% altas / llegadas", pctText(s.pcta)], ["Llamadas pedidas", nf.format(s.llamadas)],
     ];
     $("#kpis").innerHTML = items.map(([l, v]) => `<li><strong>${esc(v)}</strong><span>${esc(l)}</span></li>`).join("");

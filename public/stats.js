@@ -57,7 +57,8 @@
   // recarregar o tornar enrere compta com a navegació, no com una altra arribada.
   if (q.has("utm_campaign") || q.has("utm_source") || q.has("gclid")) {
     send("/llegada", { kind: "view" });
-    if (campaign) { try { history.replaceState(history.state, "", `${location.pathname}?c=${campaign}${location.hash}`); } catch { /* es deixa l'URL com està */ } }
+    // Sempre, també sense utm_campaign (només gclid o utm_source): si no, recarregar comptaria una altra arribada.
+    try { history.replaceState(history.state, "", `${location.pathname}${campaign ? `?c=${campaign}` : ""}${location.hash}`); } catch { /* es deixa l'URL com està */ }
   }
 
   // Clic a l'enllaç per reservar 15 minuts (cal.com): un pas més de l'embut, "/llamada". Només el

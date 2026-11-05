@@ -52,13 +52,13 @@
         <figcaption>Páginas vistas por día</figcaption>
         <svg id="bars" viewBox="0 0 600 160" role="img" aria-label="Páginas vistas por día"></svg>
       </figure>
-      <p class="hint">Páginas vistas: cargas de la portada y de las páginas de información. Lecturas: cargas que estuvieron visibles al menos un segundo. Segundos medios: sobre las lecturas. Llegadas: cargas que traen los parámetros del anuncio (utm o gclid), en cualquier página; es la cifra comparable con los clics de Google y se cuenta desde el 27 de octubre de 2026. Los pasos (llegada desde anuncio, código enviado, cuenta creada, llamada pedida) los suma el servidor o el contador y no cuentan como páginas.</p>
+      <p class="hint">Páginas vistas: cargas de la portada y de las páginas de información. Lecturas: cargas que estuvieron visibles al menos un segundo. Segundos medios: sobre las lecturas. Llegadas: cargas que traen los parámetros del anuncio (utm o gclid), en cualquier página; es la cifra comparable con los clics de Google y se cuenta desde el 27 de octubre de 2026. Los pasos no son páginas: los suma el servidor o el contador. Llegada desde anuncio: carga con los parámetros del anuncio. Código enviado: primer código a un correo sin cuenta (los reenvíos no cuentan). El correo ya tenía cuenta: alguien con cuenta ha escrito su correo en el alta. Cuenta creada. Sesión iniciada: entrada correcta con contraseña (no la automática después del alta). Llamada pedida: clic para reservar 15 minutos. «Entrar» cuenta las veces que se abre esa pantalla, no las de después de salir o del bloqueo por inactividad.</p>
     </section>
     <section data-panel="dia" hidden><div class="dash-table" id="t-dia"></div></section>
     <section data-panel="pagina" hidden><div class="dash-table" id="t-pagina"></div></section>
     <section data-panel="campana" hidden>
       <div class="dash-table" id="t-campana"></div>
-      <p class="hint">Embudo por campaña: llegadas desde el anuncio → crear cuenta (la portada desde el 5 de noviembre de 2026) → paso del código → cuenta creada. «Entrar» son las veces que se ha abierto la pantalla de entrar; hasta el 5 de noviembre la portada era esa pantalla, y esas visitas están en «Por página» como «Portada con login». % altas = cuentas creadas / llegadas (las llegadas se cuentan desde el 27 de octubre de 2026). Solo aparecen las visitas que llegaron con una etiqueta utm_campaign.</p>
+      <p class="hint">Embudo por campaña: llegadas desde el anuncio → paso 1 del alta (correo; es la portada desde el 5 de noviembre de 2026) → paso 2 (código y contraseña) → cuenta creada. «Entrar» son las veces que se ha abierto la pantalla de entrar; hasta el 5 de noviembre la portada era esa pantalla, y esas visitas están en «Por página» como «Portada con login». % altas = cuentas creadas / llegadas (las llegadas se cuentan desde el 27 de octubre de 2026). Solo aparecen las visitas que llegaron con una etiqueta utm_campaign.</p>
     </section>
     <section data-panel="origen" hidden>
       <div class="dash-two"><div class="dash-table" id="t-origen"></div><div class="dash-table" id="t-pais"></div></div>

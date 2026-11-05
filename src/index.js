@@ -57,7 +57,9 @@ const MIN_RELEASE_GAP_DAYS = 3;           // entrega com a mínim tres dies desp
 // país; cap fila per visitant. Pàgines i orígens tancats perquè la taula tingui mida acotada.
 const STATS_PAGES = new Set(["/", "/entrar", "/crear-cuenta", "/crear-cuenta/codigo", "/como-funciona", "/seguridad", "/codigo", "/preguntas", "/legal", "/formato"]);
 const STATS_SOURCES = new Set(["anuncio", "buscador", "interno", "directo", "otro"]);
-const STATS_STEPS = new Set(["/alta/codigo", "/alta"]); // passos de l'alta: els suma el servidor, mai el beacon
+// Passos que suma el servidor, mai el beacon: codi d'alta enviat a un correu sense compte (sense
+// reenviaments), alta demanada amb un correu que ja té compte, compte creat i sessió iniciada.
+const STATS_STEPS = new Set(["/alta/codigo", "/alta/existe", "/alta", "/sesion"]);
 const STATS_CLICKS = new Set(["/llamada", "/llegada"]); // passos que compta el beacon, només vistes, mai temps: el clic a l'enllaç per reservar 15 minuts i l'arribada des d'un anunci (càrrega amb utm_campaign, utm_source o gclid)
 const STATS_MAX_SECONDS = 1800;           // segons visibles per càrrega, com a màxim
 const STATS_MAX_CAMPAIGNS_PER_DAY = 20;   // etiquetes de campanya noves per dia; la resta cau a "otra"
@@ -169,8 +171,12 @@ export default {
 async function startSignup(request, env) {
   const body = await readJson(request);
   const email = parseEmail(body?.email);
+  const existing = await env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
   const res = await issueCode(env, email, "signup");
-  await bumpStep(request, env, "/alta/codigo", body);
+  // Comptador: un codi per intent («No me ha llegado» no torna a sumar). Si el correu ja té compte
+  // no s'envia cap codi sinó l'avís «ya existe»: compta a part. Les estadístiques només les veu el
+  // panell protegit; la resposta pública continua sent la mateixa en tots dos casos.
+  if (body?.resend !== true) await bumpStep(request, env, existing ? "/alta/existe" : "/alta/codigo", body);
   return res;
 }
 
@@ -338,7 +344,8 @@ async function deriveSalt(pepper, email) {
 }
 
 async function login(request, env) {
-  const { email, authHash } = parseCredentials(await readJson(request));
+  const body = await readJson(request);
+  const { email, authHash } = parseCredentials(body);
   const user = await env.DB.prepare("SELECT id, auth_salt, auth_hash FROM users WHERE email = ?").bind(email).first();
 
   // Es calcula igualment quan l'usuari no existeix, per no delatar-ho pel temps.
@@ -362,6 +369,8 @@ async function login(request, env) {
     env.DB.prepare("UPDATE users SET last_seen = ?, warned_at = NULL, warn_count = 0 WHERE id = ?").bind(ts, user.id),
   ]);
   await logEvent(env, user.id, "login", null, request);
+  // L'entrada automàtica que fa el client just després de l'alta no compta com a sessió iniciada.
+  if (body?.afterSignup !== true) await bumpStep(request, env, "/sesion", body);
 
   return json({ token: b64.encode(token), expiresAt: ts + TOKEN_TTL_S });
 }

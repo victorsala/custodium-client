@@ -79,6 +79,11 @@ test("stats: les pantalles de l'alta són pàgines del beacon, i app.js les anun
   const stats = readFileSync(new URL("../public/stats.js", import.meta.url), "utf8");
   assert.match(stats, /"register-code": "\/crear-cuenta\/codigo"/, "stats.js tradueix el pas 2 a la seva pàgina");
   assert.match(stats, /login: "\/entrar"/, "la pantalla d'entrar compta com /entrar");
+  assert.match(app, /name === "register" && !\$\("#register-form"\)\.hidden \? "register-code" : name/, "l'alta amb el pas 2 obert compta com a pas 2");
+  assert.match(app, /showScreen\("login"\);\n[^\n]*\n\s*document\.body\.dataset\.statsScreen = "login-exit";/, "sortir o el bloqueig no compten com a visita a Entrar");
+  assert.doesNotMatch(stats, /"login-exit"/, "login-exit no és cap pantalla del comptador");
+  assert.match(app, /requestCode\(signupEmail, msg, true\)/, "«No me ha llegado» marca el reenviament");
+  assert.match(app, /afterSignup: true/, "l'entrada automàtica després de l'alta es marca");
 });
 
 test("stats: el clic a l'enllaç de la trucada compta com a vista de /llamada, però no admet temps", async () => {
@@ -102,7 +107,8 @@ test("stats: l'arribada des d'un anunci compta com a vista de /llegada, no admet
   const { readFileSync } = await import("node:fs");
   const stats = readFileSync(new URL("../public/stats.js", import.meta.url), "utf8");
   assert.match(stats, /if \(q\.has\("utm_campaign"\) \|\| q\.has\("utm_source"\) \|\| q\.has\("gclid"\)\) \{\s*send\("\/llegada", \{ kind: "view" \}\);/, "una càrrega amb paràmetres d'anunci envia /llegada un sol cop");
-  assert.match(stats, /history\.replaceState\(history\.state, "", `\$\{location\.pathname\}\?c=\$\{campaign\}\$\{location\.hash\}`\)/, "després l'URL queda amb ?c=, com la d'una pàgina navegada");
+  assert.match(stats, /history\.replaceState\(history\.state, "", `\$\{location\.pathname\}\$\{campaign \? `\?c=\$\{campaign\}` : ""\}\$\{location\.hash\}`\)/, "després l'URL queda neta: ?c= si hi ha campanya, res si només hi havia gclid o utm_source");
+  assert.doesNotMatch(stats, /if \(campaign\) \{ try \{ history\.replaceState/, "la neteja no pot dependre de tenir campanya: recarregar sumaria una altra arribada");
 });
 
 test("stats: el cos pot arribar com a text pla (sendBeacon) i la portada compta com a /", async () => {

@@ -96,7 +96,7 @@ async function submitLogin(event) {
   try {
     const salt = await fetchSalt(email);
     const { encKey, authHash } = await deriveKeys(salt, password);
-    const r = await api("/api/login", { method: "POST", body: { email, authHash }, auth: false });
+    const r = await api("/api/login", { method: "POST", body: { email, authHash, ...visit() }, auth: false });
     if (r.status !== 200) return msg("Email o contraseña incorrectos.");
     $("#login-password").value = "";
     state.email = email;
@@ -143,8 +143,8 @@ async function startRegister(event) {
 
 // Demana un codi per a l'email. Retorna true si el servidor l'ha acceptat; el
 // límit (tres per hora) val igual per a un email amb compte que sense.
-async function requestCode(email, msg) {
-  const r = await api("/api/register/start", { method: "POST", body: { email, ...visit() }, auth: false });
+async function requestCode(email, msg, resend = false) {
+  const r = await api("/api/register/start", { method: "POST", body: { email, ...visit(), ...(resend ? { resend: true } : {}) }, auth: false });
   if (r.status === 429) { msg("Ya hemos enviado varios códigos a este correo en la última hora. Revisa la carpeta de spam o vuelve a intentarlo más tarde."); return false; }
   if (r.status !== 200) { msg("No se ha podido enviar el código. Vuelve a intentarlo."); return false; }
   return true;
@@ -154,7 +154,7 @@ async function resendCode() {
   const msg = (t) => { $("#register-message").textContent = t; };
   setBusy(true, "Enviando otro código…");
   try {
-    if (await requestCode(signupEmail, msg)) {
+    if (await requestCode(signupEmail, msg, true)) {
       $("#register-code").value = "";
       msg("Te hemos enviado otro código. Solo vale el último.");
       $("#register-code").focus();
@@ -198,7 +198,7 @@ async function submitRegister(event) {
     if (reg.status === 400 && reg.data?.error === "code_expired") return msg("El código ha caducado. Pide uno nuevo con «No me ha llegado».");
     if (reg.status === 400 && reg.data?.error === "too_many_attempts") return msg("Demasiados intentos con este código. Pide uno nuevo con «No me ha llegado».");
     if (reg.status !== 201) return msg("No se ha podido crear la cuenta.");
-    const r = await api("/api/login", { method: "POST", body: { email, authHash }, auth: false });
+    const r = await api("/api/login", { method: "POST", body: { email, authHash, afterSignup: true }, auth: false });
     if (r.status !== 200) return msg("Cuenta creada, pero no se ha podido entrar. Prueba desde Entrar.");
     $("#register-password").value = "";
     $("#register-confirm").value = "";
@@ -243,6 +243,8 @@ function lock(message) {
   eventsAll = [];
   $("#events").replaceChildren();
   showScreen("login");
+  // Sortir o el bloqueig per inactivitat no és una visita a «Entrar»: el comptador no la suma.
+  document.body.dataset.statsScreen = "login-exit";
   $("#login-message").textContent = message || "";
 }
 
@@ -1722,7 +1724,9 @@ function renderPersonTools() {
 
 function showScreen(name) {
   for (const s of $$("[data-screen]")) s.hidden = s.dataset.screen !== name;
-  document.body.dataset.statsScreen = name; // stats.js compta les pantalles d'entrada com a pàgines; dins de l'app, res. (No "data-screen": el selector de dalt l'atraparia.)
+  // stats.js compta les pantalles d'entrada com a pàgines; dins de l'app, res. (No "data-screen": el
+  // selector de dalt l'atraparia.) L'alta amb el pas 2 obert és el pas 2.
+  document.body.dataset.statsScreen = name === "register" && !$("#register-form").hidden ? "register-code" : name;
   const inside = !["login", "register"].includes(name);
   $("#top-nav").hidden = !inside;
   document.body.classList.toggle("is-entry", !inside);

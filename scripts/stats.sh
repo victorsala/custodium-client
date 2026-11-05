@@ -38,8 +38,11 @@ Què surt (quatre taules):
                      el pas 2, "/entrar" l'entrada. "/" és la portada amb l'entrada, fins al 2026-11-05.
                      Les files "paso: …" no són pàgines sinó fets que suma el servidor o el comptador:
                      llegada desde anuncio (càrrega amb utm_campaign, utm_source o gclid, sigui quina sigui la
-                     pàgina; es compten des del 2026-10-27), código enviado (s'ha enviat un codi d'alta),
-                     cuenta creada, llamada pedida (clic a cal.com).
+                     pàgina; es compten des del 2026-10-27), código enviado (primer codi a un correu sense compte;
+                     els reenviaments no compten), el correo ya tenía cuenta (algú amb compte ha escrit el seu
+                     correu a l'alta), cuenta creada, sesión iniciada (entrada correcta, no l'automàtica després de
+                     l'alta), llamada pedida (clic a cal.com). "/entrar" no compta la pantalla que surt després de
+                     sortir o del bloqueig per inactivitat.
      lectures        Càrregues que a més han enviat temps: la pàgina ha estat visible almenys un segon.
                      Lectures <= vistes; la diferència són càrregues tancades abans d'un segon o en segon pla.
      segons_mitjans  Segons visibles de mitjana, només sobre les lectures (segons sumats / lectures).
@@ -93,10 +96,10 @@ if [ -n "$DESDE" ]; then WHERE="day >= '$DESDE'"; else WHERE="day >= date('now',
 [ -n "$FINS" ] && WHERE="$WHERE AND day <= '$FINS'"
 [ -n "$CAMPANYA" ] && WHERE="$WHERE AND campaign = '$CAMPANYA'"
 
-LABEL="CASE path WHEN '/' THEN '/ (portada amb login, fins al 2026-11-05)' WHEN '/llegada' THEN 'paso: llegada desde anuncio' WHEN '/alta/codigo' THEN 'paso: código enviado' WHEN '/alta' THEN 'paso: cuenta creada' WHEN '/llamada' THEN 'paso: llamada pedida' ELSE path END"
+LABEL="CASE path WHEN '/' THEN '/ (portada amb login, fins al 2026-11-05)' WHEN '/llegada' THEN 'paso: llegada desde anuncio' WHEN '/alta/codigo' THEN 'paso: código enviado (correo nuevo)' WHEN '/alta/existe' THEN 'paso: el correo ya tenía cuenta' WHEN '/sesion' THEN 'paso: sesión iniciada' WHEN '/alta' THEN 'paso: cuenta creada' WHEN '/llamada' THEN 'paso: llamada pedida' ELSE path END"
 Q1="SELECT day, $LABEL AS path, SUM(views) AS vistes, SUM(reads) AS lectures, CASE WHEN SUM(reads) > 0 THEN SUM(seconds) / SUM(reads) ELSE NULL END AS segons_mitjans FROM stats WHERE $WHERE GROUP BY day, path ORDER BY day DESC, vistes DESC"
 Q2="SELECT source AS origen, SUM(views) AS pagines_vistes FROM stats WHERE $WHERE GROUP BY source ORDER BY pagines_vistes DESC"
 Q3="SELECT country AS pais, SUM(views) AS pagines_vistes FROM stats WHERE $WHERE GROUP BY country ORDER BY pagines_vistes DESC LIMIT 15"
-Q4="SELECT campaign AS campanya, SUM(CASE WHEN path = '/llegada' THEN views ELSE 0 END) AS llegades, SUM(CASE WHEN path = '/crear-cuenta' THEN views ELSE 0 END) AS crear_cuenta, SUM(CASE WHEN path = '/crear-cuenta/codigo' THEN views ELSE 0 END) AS pas_codi, SUM(CASE WHEN path = '/alta' THEN views ELSE 0 END) AS altes, SUM(CASE WHEN path = '/llamada' THEN views ELSE 0 END) AS llamadas, SUM(CASE WHEN path = '/entrar' THEN views ELSE 0 END) AS entrar, ROUND(100.0 * SUM(CASE WHEN path = '/alta' THEN views ELSE 0 END) / NULLIF(SUM(CASE WHEN path = '/llegada' THEN views ELSE 0 END), 0), 1) AS pct_altes, SUM(CASE WHEN path NOT IN ('/', '/entrar', '/crear-cuenta', '/crear-cuenta/codigo', '/alta', '/alta/codigo', '/llamada', '/llegada') THEN views ELSE 0 END) AS altres_pagines, CASE WHEN SUM(reads) > 0 THEN SUM(seconds) / SUM(reads) ELSE NULL END AS segons_mitjans FROM stats WHERE $WHERE AND campaign != '' GROUP BY campaign ORDER BY llegades DESC, crear_cuenta DESC"
+Q4="SELECT campaign AS campanya, SUM(CASE WHEN path = '/llegada' THEN views ELSE 0 END) AS llegades, SUM(CASE WHEN path = '/crear-cuenta' THEN views ELSE 0 END) AS crear_cuenta, SUM(CASE WHEN path = '/crear-cuenta/codigo' THEN views ELSE 0 END) AS pas_codi, SUM(CASE WHEN path = '/alta' THEN views ELSE 0 END) AS altes, SUM(CASE WHEN path = '/llamada' THEN views ELSE 0 END) AS llamadas, SUM(CASE WHEN path = '/entrar' THEN views ELSE 0 END) AS entrar, ROUND(100.0 * SUM(CASE WHEN path = '/alta' THEN views ELSE 0 END) / NULLIF(SUM(CASE WHEN path = '/llegada' THEN views ELSE 0 END), 0), 1) AS pct_altes, SUM(CASE WHEN path NOT IN ('/', '/entrar', '/crear-cuenta', '/crear-cuenta/codigo', '/alta', '/alta/codigo', '/alta/existe', '/sesion', '/llamada', '/llegada') THEN views ELSE 0 END) AS altres_pagines, CASE WHEN SUM(reads) > 0 THEN SUM(seconds) / SUM(reads) ELSE NULL END AS segons_mitjans FROM stats WHERE $WHERE AND campaign != '' GROUP BY campaign ORDER BY llegades DESC, crear_cuenta DESC"
 echo "stats · $DB · $WHERE"
 exec npx wrangler d1 execute "$DB" --remote --command "$Q1; $Q2; $Q3; $Q4"
