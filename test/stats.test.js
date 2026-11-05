@@ -66,11 +66,11 @@ test("stats: passat el límit de campanyes del dia, una de nova cau a «otra»; 
 });
 
 test("stats: les pantalles de l'alta són pàgines del beacon, i app.js les anuncia a body.dataset.statsScreen", async () => {
-  for (const p of ["/crear-cuenta", "/crear-cuenta/codigo"]) {
+  for (const p of ["/crear-cuenta", "/crear-cuenta/codigo", "/entrar"]) {
     const r = await post({ kind: "view", path: p, source: "anuncio" });
     assert.equal(r.status, 204, p);
   }
-  assert.equal(inserts().length, 2);
+  assert.equal(inserts().length, 3);
   const { readFileSync } = await import("node:fs");
   const app = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
   assert.match(app, /document\.body\.dataset\.statsScreen = name/, "showScreen publica la pantalla");
@@ -78,6 +78,7 @@ test("stats: les pantalles de l'alta són pàgines del beacon, i app.js les anun
   assert.match(app, /step === 2 \? "register-code" : "register"/, "showRegisterStep publica el pas");
   const stats = readFileSync(new URL("../public/stats.js", import.meta.url), "utf8");
   assert.match(stats, /"register-code": "\/crear-cuenta\/codigo"/, "stats.js tradueix el pas 2 a la seva pàgina");
+  assert.match(stats, /login: "\/entrar"/, "la pantalla d'entrar compta com /entrar");
 });
 
 test("stats: el clic a l'enllaç de la trucada compta com a vista de /llamada, però no admet temps", async () => {

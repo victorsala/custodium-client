@@ -24,6 +24,7 @@ export function parseRoute(hash) {
     if (a === "personas") return { name: "people" };
     if (a === "cuenta") return { name: "account" };
     if (a === "crear-cuenta") return { name: "register" };
+    if (a === "entrar") return { name: "login" };
     return null;
   }
   if (parts.length === 2 && a === "elemento") {
@@ -45,6 +46,7 @@ export function routeHash(route) {
     case "people": return "#/personas";
     case "account": return "#/cuenta";
     case "register": return "#/crear-cuenta";
+    case "login": return "#/entrar";
     default: return "#/plan";
   }
 }

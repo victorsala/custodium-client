@@ -72,6 +72,18 @@ test("panell d'estadístiques: cada pestanya té el seu panell, i botons i panel
   assert.match(js, /querySelectorAll\("main \[data-panel\]"\)/);
 });
 
+test("portada: l'alta és la pantalla per defecte i «Entrar» porta a #/entrar a totes les pàgines", () => {
+  const index = html["index.html"];
+  assert.ok(index.indexOf('data-screen="register"') < index.indexOf('data-screen="login"'), "a la targeta, primer l'alta");
+  assert.ok(index.indexOf('<aside class="pitch"') < index.indexOf('data-screen="register"'), "al DOM, la presentació abans que la targeta");
+  const st = index.indexOf('<p class="statement">');
+  assert.ok(st > index.indexOf('data-screen="login"') && st < index.indexOf('<ul class="pillars">'), "la frase central, fora de les columnes i abans dels pilars");
+  for (const name of VISITOR.filter((n) => n !== "legal.html")) {
+    assert.ok(html[name].includes('href="/#/entrar">Entrar</a>'), `${name}: sense enllaç a #/entrar`);
+    assert.ok(!/href="\/">Entrar</.test(html[name]), `${name}: «Entrar» no pot portar a l'arrel (hi ha l'alta)`);
+  }
+});
+
 test("pàgines públiques: indexables i amb descripció; les de persones de confiança, noindex", () => {
   for (const name of VISITOR) {
     assert.ok(!/name="robots"/.test(html[name]), `${name}: no ha de portar robots noindex`);

@@ -17,6 +17,7 @@ test("parseRoute: cada ruta, i routeHash la torna a la forma canònica", () => {
     [`#/persona/${UUID}`]: { name: "person", id: UUID },
     "#/cuenta": { name: "account" },
     "#/crear-cuenta": { name: "register" },
+    "#/entrar": { name: "login" },
   };
   for (const [hash, route] of Object.entries(cases)) {
     assert.deepEqual(parseRoute(hash), route, hash);

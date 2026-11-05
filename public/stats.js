@@ -3,8 +3,8 @@
 // que la pàgina ha estat visible. Tot al mateix
 // origen (POST /api/stats), on es suma per dia, pàgina, origen, campanya i país: sense
 // cookies, sense localStorage, sense cap identificador, cap fila per visitant. A la portada
-// cada pantalla d'entrada compta com una pàgina («/» el login, «/crear-cuenta» el pas 1 de
-// l'alta, «/crear-cuenta/codigo» el pas 2, segons body.dataset.statsScreen, que posa app.js);
+// cada pantalla d'entrada compta com una pàgina («/crear-cuenta» el pas 1 de l'alta, que és la
+// pantalla per defecte, «/crear-cuenta/codigo» el pas 2, «/entrar» l'entrada, segons body.dataset.statsScreen, que posa app.js);
 // dins de l'app no es compta res. README §2.3.
 (() => {
   // Staging no s'ha d'indexar; el codi és el mateix als dos entorns, així que el noindex va per host.
@@ -12,7 +12,9 @@
     const m = document.createElement("meta"); m.name = "robots"; m.content = "noindex, nofollow"; document.head.appendChild(m);
   }
   const PAGES = ["/", "/como-funciona", "/seguridad", "/codigo", "/preguntas", "/legal", "/formato"];
-  const SCREENS = { login: "/", register: "/crear-cuenta", "register-code": "/crear-cuenta/codigo" };
+  // Des del 2026-11-05 la portada mostra l'alta: el pas 1 és "/crear-cuenta" i l'entrada, "/entrar".
+  // Abans, "/" era la portada amb l'entrada; ja no s'emet.
+  const SCREENS = { login: "/entrar", register: "/crear-cuenta", "register-code": "/crear-cuenta/codigo" };
   const path = location.pathname.replace(/\/index\.html$/, "/").replace(/\.html$/, "");
   const q = new URLSearchParams(location.search);
 

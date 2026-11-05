@@ -867,13 +867,18 @@ body.has-env-banner { padding-top: 2.2rem; }
 body.is-entry .wrap { width: min(100% - 40px, 1080px); }
 body.is-entry main { padding: 40px 0 56px; }
 
-body:not(.is-entry) .pitch,
-body:not(.is-entry) .pillars { display: none; }
+body:not(.is-entry) .entry,
+body:not(.is-entry) .statement,
+body:not(.is-entry) .pillars,
+body:not(.is-entry) .more-links { display: none; }
 
-.entry { display: grid; gap: 40px; align-items: start; grid-template-areas: "card" "pitch" "notes"; }
-.entry-card { grid-area: card; }
-.pitch { grid-area: pitch; }
-.entry-notes { grid-area: notes; }
+/* Mòbil: les dues columnes es desfan i l'ordre és presentació, targeta i exemple de pla. */
+.entry { display: flex; flex-direction: column; gap: 32px; }
+.entry-col { display: contents; }
+.entry .pitch { order: 1; }
+.entry .entry-card { order: 2; }
+.entry .pitch-figure { order: 3; margin: 0; }
+.entry-card .entry-price { margin-top: 16px; }
 
 .entry-card {
   padding: 32px 24px 28px;
@@ -947,7 +952,9 @@ body:not(.is-entry) .pillars { display: none; }
 @media (min-width: 720px) { .pillars { grid-template-columns: 1fr 1fr; } }
 
 @media (min-width: 900px) {
-  .entry { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px 64px; grid-template-areas: "card pitch" "notes pitch"; }
+  /* Escriptori: a l'esquerra què és (presentació i exemple), a la dreta la targeta. */
+  .entry { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: start; }
+  .entry-col { display: grid; gap: 28px; align-content: start; }
   .entry-card { padding: 40px 36px 36px; }
   .pitch { padding-top: 6px; }
   .pillars { grid-template-columns: repeat(4, 1fr); margin-top: 56px; }
@@ -1733,7 +1740,6 @@ a.ghost[aria-current="page"] { background: rgba(247,244,238,.1); border-color: t
 }
 .pitch-call a { color: var(--teal); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 /* Sota la targeta d'entrada: l'avís del que no és Custodium i els pilars en una sola columna. */
-.entry-notes .notice { margin: 0; }
 .more-links { margin-top: 20px; color: var(--slate); font-size: 14px; }
 .more-links a { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
 
@@ -1831,3 +1837,13 @@ a.btn-link { color: var(--teal); text-decoration: underline; text-underline-offs
 .dash th button:hover { background: none; color: var(--teal); }
 .dash .num { text-align: right; font-variant-numeric: tabular-nums; }
 .dash td.empty { text-align: center; color: var(--slate); }
+
+/* Frase central de la portada: a tota l'amplada de les columnes, entre dues línies fines;
+   la de sota fa de separador amb els pilars (que llavors no en porten). */
+.statement {
+  margin: 56px 0 0; padding: 32px 0; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline);
+  text-align: center; text-wrap: balance;
+  font-family: var(--display); font-weight: 500; font-size: clamp(20px, 2.1vw, 24px); line-height: 1.4; color: var(--ink);
+}
+.statement + .pillars { margin-top: 0; border-top: 0; }
+@media (max-width: 480px) { .statement { margin-top: 40px; padding: 26px 0; text-align: left; } }

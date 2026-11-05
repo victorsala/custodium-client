@@ -1,7 +1,7 @@
 #!/bin/sh
 # Visites de les pàgines de visitant (taula stats, README §2.3): per dia i pàgina, vistes,
 # lectures amb temps i segons mitjans de lectura; després un resum per origen, per país i per
-# campanya, com un embut: arribades des de l'anunci, portada (login), crear cuenta (pas 1),
+# campanya, com un embut: arribades des de l'anunci, crear cuenta (pas 1, la portada),
 # codi (pas 2 mostrat), altes, trucades demanades (clic a l'enllaç de cal.com), % d'altes sobre
 # les arribades, altres pàgines i segons mitjans.
 #
@@ -34,7 +34,8 @@ Exemples:
 Què surt (quatre taules):
   1. Per dia i pàgina
      vistes          Càrregues de la pàgina (una per càrrega). Les pantalles de la portada compten a part:
-                     "/" el login, "/crear-cuenta" el pas 1 de l'alta, "/crear-cuenta/codigo" el pas 2.
+                     "/crear-cuenta" el pas 1 de l'alta (la portada des del 2026-11-05), "/crear-cuenta/codigo"
+                     el pas 2, "/entrar" l'entrada. "/" és la portada amb l'entrada, fins al 2026-11-05.
                      Les files "paso: …" no són pàgines sinó fets que suma el servidor o el comptador:
                      llegada desde anuncio (càrrega amb utm_campaign, utm_source o gclid, sigui quina sigui la
                      pàgina; es compten des del 2026-10-27), código enviado (s'ha enviat un codi d'alta),
@@ -49,11 +50,11 @@ Què surt (quatre taules):
   4. Per campanya (embut; només surt si hi ha visites amb campanya)
      llegades        Arribades des de l'anunci: càrregues amb els paràmetres de l'anunci, a qualsevol pàgina.
                      És la xifra comparable amb els clics de Google. Es compten des del 2026-10-27.
-     portada         Càrregues del login amb aquesta campanya.
-     crear_cuenta    Vegades que s'ha obert el pas 1 de l'alta.
+     crear_cuenta    Vegades que s'ha vist el pas 1 de l'alta (la portada des del 2026-11-05).
      pas_codi        Vegades que s'ha arribat al pas 2 (el codi ja enviat).
      altes           Comptes creats.
      llamadas        Clics a l'enllaç per reservar 15 minuts (la reserva en si la sap Cal.com).
+     entrar          Vegades que s'ha obert la pantalla d'entrar.
      pct_altes       altes / llegades, en %.
      altres_pagines  Vistes de cómo funciona, seguridad, código, preguntas i legal.
      segons_mitjans  Segons visibles de mitjana sobre totes les lectures de la campanya.
@@ -92,10 +93,10 @@ if [ -n "$DESDE" ]; then WHERE="day >= '$DESDE'"; else WHERE="day >= date('now',
 [ -n "$FINS" ] && WHERE="$WHERE AND day <= '$FINS'"
 [ -n "$CAMPANYA" ] && WHERE="$WHERE AND campaign = '$CAMPANYA'"
 
-LABEL="CASE path WHEN '/llegada' THEN 'paso: llegada desde anuncio' WHEN '/alta/codigo' THEN 'paso: código enviado' WHEN '/alta' THEN 'paso: cuenta creada' WHEN '/llamada' THEN 'paso: llamada pedida' ELSE path END"
+LABEL="CASE path WHEN '/' THEN '/ (portada amb login, fins al 2026-11-05)' WHEN '/llegada' THEN 'paso: llegada desde anuncio' WHEN '/alta/codigo' THEN 'paso: código enviado' WHEN '/alta' THEN 'paso: cuenta creada' WHEN '/llamada' THEN 'paso: llamada pedida' ELSE path END"
 Q1="SELECT day, $LABEL AS path, SUM(views) AS vistes, SUM(reads) AS lectures, CASE WHEN SUM(reads) > 0 THEN SUM(seconds) / SUM(reads) ELSE NULL END AS segons_mitjans FROM stats WHERE $WHERE GROUP BY day, path ORDER BY day DESC, vistes DESC"
 Q2="SELECT source AS origen, SUM(views) AS pagines_vistes FROM stats WHERE $WHERE GROUP BY source ORDER BY pagines_vistes DESC"
 Q3="SELECT country AS pais, SUM(views) AS pagines_vistes FROM stats WHERE $WHERE GROUP BY country ORDER BY pagines_vistes DESC LIMIT 15"
-Q4="SELECT campaign AS campanya, SUM(CASE WHEN path = '/llegada' THEN views ELSE 0 END) AS llegades, SUM(CASE WHEN path = '/' THEN views ELSE 0 END) AS portada, SUM(CASE WHEN path = '/crear-cuenta' THEN views ELSE 0 END) AS crear_cuenta, SUM(CASE WHEN path = '/crear-cuenta/codigo' THEN views ELSE 0 END) AS pas_codi, SUM(CASE WHEN path = '/alta' THEN views ELSE 0 END) AS altes, SUM(CASE WHEN path = '/llamada' THEN views ELSE 0 END) AS llamadas, ROUND(100.0 * SUM(CASE WHEN path = '/alta' THEN views ELSE 0 END) / NULLIF(SUM(CASE WHEN path = '/llegada' THEN views ELSE 0 END), 0), 1) AS pct_altes, SUM(CASE WHEN path NOT IN ('/', '/crear-cuenta', '/crear-cuenta/codigo', '/alta', '/alta/codigo', '/llamada', '/llegada') THEN views ELSE 0 END) AS altres_pagines, CASE WHEN SUM(reads) > 0 THEN SUM(seconds) / SUM(reads) ELSE NULL END AS segons_mitjans FROM stats WHERE $WHERE AND campaign != '' GROUP BY campaign ORDER BY llegades DESC, portada DESC"
+Q4="SELECT campaign AS campanya, SUM(CASE WHEN path = '/llegada' THEN views ELSE 0 END) AS llegades, SUM(CASE WHEN path = '/crear-cuenta' THEN views ELSE 0 END) AS crear_cuenta, SUM(CASE WHEN path = '/crear-cuenta/codigo' THEN views ELSE 0 END) AS pas_codi, SUM(CASE WHEN path = '/alta' THEN views ELSE 0 END) AS altes, SUM(CASE WHEN path = '/llamada' THEN views ELSE 0 END) AS llamadas, SUM(CASE WHEN path = '/entrar' THEN views ELSE 0 END) AS entrar, ROUND(100.0 * SUM(CASE WHEN path = '/alta' THEN views ELSE 0 END) / NULLIF(SUM(CASE WHEN path = '/llegada' THEN views ELSE 0 END), 0), 1) AS pct_altes, SUM(CASE WHEN path NOT IN ('/', '/entrar', '/crear-cuenta', '/crear-cuenta/codigo', '/alta', '/alta/codigo', '/llamada', '/llegada') THEN views ELSE 0 END) AS altres_pagines, CASE WHEN SUM(reads) > 0 THEN SUM(seconds) / SUM(reads) ELSE NULL END AS segons_mitjans FROM stats WHERE $WHERE AND campaign != '' GROUP BY campaign ORDER BY llegades DESC, crear_cuenta DESC"
 echo "stats · $DB · $WHERE"
 exec npx wrangler d1 execute "$DB" --remote --command "$Q1; $Q2; $Q3; $Q4"

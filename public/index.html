@@ -23,89 +23,27 @@
         <a class="ghost" href="/seguridad">Seguridad</a>
         <a class="ghost" href="/codigo">Código</a>
         <a class="ghost" href="/preguntas">Preguntas</a>
+        <a class="ghost" href="/#/entrar">Entrar</a>
       </nav>
     </div>
   </header>
 
   <main class="wrap">
 
-    <!-- Portada: la targeta d'entrada (o d'alta) a l'esquerra i la presentació a la dreta.
-         La presentació i els pilars són fora de les pantalles: es veuen mentre no hi ha sessió (body.is-entry). -->
+    <!-- Portada (només sense sessió, body.is-entry): a l'esquerra què és Custodium i un exemple de pla;
+         a la dreta l'alta, que és la pantalla per defecte, o l'entrada (#/entrar). Al mòbil les columnes
+         es desfan (display: contents) i l'ordre és presentació, targeta i exemple. A sota, a tota l'amplada,
+         la frase central i els pilars. -->
     <div class="entry">
-
-    <!-- Entrar -->
-    <section data-screen="login" class="entry-card" hidden>
-      <h1>Abre tu plan.</h1>
-      <p class="intro">Tu plan se descifra aquí, en tu navegador.</p>
-      <form id="login-form" novalidate>
-        <label><span>Email</span><input id="login-email" type="email" autocomplete="username" required></label>
-        <label>
-          <span>Contraseña</span>
-          <input id="login-password" type="password" autocomplete="current-password" required>
-          <small class="hint">Tu contraseña no se envía a Custodium.</small>
-        </label>
-        <p id="login-message" class="message" aria-live="polite"></p>
-        <div class="actions"><button id="login-submit" type="submit">Entrar</button></div>
-      </form>
-      <p class="switch">¿Primera vez?<br><button id="to-register" type="button" class="link">Crear una cuenta</button></p>
-      <p class="hint entry-note">Si has recibido un correo de Custodium con un enlace, no necesitas entrar aquí: ábrelo desde el correo.</p>
-    </section>
-
-    <!-- Crear cuenta -->
-    <section data-screen="register" class="entry-card" hidden>
-      <h1>Crea tu cuenta.</h1>
-      <p class="intro">El contenido de tu plan se cifrará en tu navegador antes de enviarse a Custodium.</p>
-
-      <!-- Paso 1: el email. Se envía un código para comprobar que es suyo. -->
-      <form id="register-start-form" novalidate>
-        <label>
-          <span>Email</span>
-          <input id="register-email" type="email" autocomplete="username" required>
-          <small class="hint">Usa un correo que consultes habitualmente. Aquí recibirás los avisos de tu plan. Te enviaremos un código para comprobarlo.</small>
-        </label>
-        <p id="register-start-message" class="message" aria-live="polite"></p>
-        <div class="actions"><button id="register-start-submit" type="submit">Enviar código</button></div>
-      </form>
-
-      <!-- Paso 2: el código y la contraseña. Las claves se derivan aquí, no antes. -->
-      <form id="register-form" novalidate hidden>
-        <p class="intro">Te hemos enviado un código a <strong id="register-sent-email"></strong>. Si no lo ves, mira en la carpeta de spam.</p>
-        <label>
-          <span>Código (seis cifras)</span>
-          <input id="register-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" spellcheck="false" required>
-          <small class="hint">Caduca en 15 minutos. <button id="register-resend" type="button" class="link">No me ha llegado</button> · <button id="register-back" type="button" class="link">Cambiar el email</button></small>
-        </label>
-
-        <div class="group">
-          <label><span>Contraseña</span><input id="register-password" type="text" autocomplete="new-password" spellcheck="false" required></label>
-          <label><span>Repite la contraseña</span><input id="register-confirm" type="text" autocomplete="new-password" spellcheck="false" required></label>
-          <p id="register-proposed" class="hint">
-            Te proponemos una frase de seis palabras: más fuerte y más fácil de recordar que una contraseña inventada.
-            Apúntala antes de continuar.
-            <button id="register-own" type="button" class="link">prefiero escribir la mía</button>
-          </p>
-          <p id="register-own-hint" class="hint" hidden>Escribe una contraseña de 16 caracteres o más y guárdala en tu gestor de contraseñas.</p>
-        </div>
-
-        <p class="notice">
-          Guarda tu contraseña antes de continuar.<br>
-          Custodium no puede recuperarla ni restablecerla.<br>
-          Si la pierdes, perderás el acceso a tu plan.<br>
-          Guárdala en tu gestor de contraseñas.
-        </p>
-        <p id="register-message" class="message" aria-live="polite"></p>
-        <div class="actions"><button id="register-submit" type="submit">Crear cuenta</button></div>
-      </form>
-      <p class="switch">¿Ya tienes cuenta?<br><button id="to-login" type="button" class="link">Entrar</button></p>
-    </section>
-
-    <!-- Presentació: què és, un exemple de pla (dades fictícies; línies i moviment a portada.js) i la reserva de 15 minuts. -->
-    <aside class="pitch" aria-labelledby="pitch-title">
-      <p class="eyebrow">Qué es Custodium</p>
-      <h2 id="pitch-title">Deja tu vida digital preparada.</h2>
-      <p class="lead">Un plan privado con tus cuentas, documentos e instrucciones, y qué debe recibir cada persona de confianza si un día no puedes actuar.</p>
-      <p class="pitch-price">Gratis durante la beta. No pedimos tarjeta.</p>
-      <p class="pitch-call">¿Prefieres que te lo contemos? <a href="https://cal.com/custodium/custodium-15-minutos-con-un-fundador" target="_blank" rel="noopener">Reserva 15 minutos con uno de los fundadores</a>.</p>
+      <div class="entry-col entry-intro">
+        <!-- Presentació: què és i la reserva de 15 minuts. -->
+      <aside class="pitch" aria-labelledby="pitch-title">
+        <p class="eyebrow">Qué es Custodium</p>
+        <h2 id="pitch-title">Deja tu vida digital preparada.</h2>
+        <p class="lead">Un plan privado con tus cuentas, documentos e instrucciones, y qué debe recibir cada persona de confianza si un día no puedes actuar.</p>
+        <p class="pitch-call">¿Prefieres que te lo contemos? <a href="https://cal.com/custodium/custodium-15-minutos-con-un-fundador" target="_blank" rel="noopener">Reserva 15 minutos con uno de los fundadores</a>.</p>
+      </aside>
+      <!-- Exemple de pla (dades fictícies; línies i moviment a portada.js). -->
       <figure class="pitch-figure plan" aria-label="Ejemplo de un plan: tres elementos asignados a una o varias personas de confianza">
         <figcaption class="plan-caption">Ejemplo de un plan</figcaption>
         <div class="plan-board" id="plan-board">
@@ -128,12 +66,79 @@
           <svg class="plan-links" aria-hidden="true" focusable="false"></svg>
         </div>
       </figure>
-    </aside>
-    <!-- Sota la targeta (a l'escriptori; al mòbil després de la presentació): què és Custodium i què aporta. -->
-    <div class="entry-notes">
-      <p class="notice">Custodium es donde dejas organizado lo que tus personas de confianza necesitarán saber: qué cuentas y documentos existen, dónde están, cómo se accede y quién recibe cada cosa.</p>
+      </div>
+      <div class="entry-col entry-access">
+      <!-- Crear cuenta -->
+      <section data-screen="register" class="entry-card" hidden>
+        <h1>Empieza tu plan.</h1>
+        <p class="intro">Solo necesitas tu correo. Después eliges una contraseña y empiezas a añadir lo importante, a tu ritmo.</p>
+
+        <!-- Paso 1: el email. Se envía un código para comprobar que es suyo. -->
+        <form id="register-start-form" novalidate>
+          <label>
+            <span>Tu correo</span>
+            <input id="register-email" type="email" autocomplete="username" required>
+            <small class="hint">Te enviaremos un código para comprobar que es tuyo. Usa uno que mires a menudo: ahí te llegarán los avisos de tu plan.</small>
+          </label>
+          <p id="register-start-message" class="message" aria-live="polite"></p>
+          <div class="actions"><button id="register-start-submit" type="submit">Enviar código</button></div>
+          <p class="hint entry-price">Gratis durante la beta. No pedimos tarjeta.</p>
+        </form>
+
+        <!-- Paso 2: el código y la contraseña. Las claves se derivan aquí, no antes. -->
+        <form id="register-form" novalidate hidden>
+          <p class="intro">Te hemos enviado un código a <strong id="register-sent-email"></strong>. Si no lo ves, mira en la carpeta de spam.</p>
+          <label>
+            <span>Código (seis cifras)</span>
+            <input id="register-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" spellcheck="false" required>
+            <small class="hint">Caduca en 15 minutos. <button id="register-resend" type="button" class="link">No me ha llegado</button> · <button id="register-back" type="button" class="link">Cambiar el email</button></small>
+          </label>
+
+          <div class="group">
+            <label><span>Contraseña</span><input id="register-password" type="text" autocomplete="new-password" spellcheck="false" required></label>
+            <label><span>Repite la contraseña</span><input id="register-confirm" type="text" autocomplete="new-password" spellcheck="false" required></label>
+            <p id="register-proposed" class="hint">
+              Te proponemos una frase de seis palabras: más fuerte y más fácil de recordar que una contraseña inventada.
+              Apúntala antes de continuar.
+              <button id="register-own" type="button" class="link">prefiero escribir la mía</button>
+            </p>
+            <p id="register-own-hint" class="hint" hidden>Escribe una contraseña de 16 caracteres o más y guárdala en tu gestor de contraseñas.</p>
+          </div>
+
+          <p class="notice">
+            Guarda tu contraseña antes de continuar.<br>
+            Custodium no puede recuperarla ni restablecerla.<br>
+            Si la pierdes, perderás el acceso a tu plan.<br>
+            Guárdala en tu gestor de contraseñas.
+          </p>
+          <p id="register-message" class="message" aria-live="polite"></p>
+          <div class="actions"><button id="register-submit" type="submit">Crear cuenta</button></div>
+        </form>
+        <p class="switch">¿Ya tienes cuenta?<br><button id="to-login" type="button" class="link">Entrar</button></p>
+      </section>
+
+      <!-- Entrar -->
+      <section data-screen="login" class="entry-card" hidden>
+        <h1>Abre tu plan.</h1>
+        <p class="intro">Tu plan se descifra aquí, en tu navegador.</p>
+        <form id="login-form" novalidate>
+          <label><span>Email</span><input id="login-email" type="email" autocomplete="username" required></label>
+          <label>
+            <span>Contraseña</span>
+            <input id="login-password" type="password" autocomplete="current-password" required>
+            <small class="hint">Tu contraseña no se envía a Custodium.</small>
+          </label>
+          <p id="login-message" class="message" aria-live="polite"></p>
+          <div class="actions"><button id="login-submit" type="submit">Entrar</button></div>
+        </form>
+        <p class="switch">¿Primera vez?<br><button id="to-register" type="button" class="link">Crear una cuenta</button></p>
+        <p class="hint entry-note">Si has recibido un correo de Custodium con un enlace, no necesitas entrar aquí: ábrelo desde el correo.</p>
+      </section>
+
+      </div>
     </div>
-    </div>
+    <!-- La frase central de la portada, a tota l'amplada (només sense sessió). -->
+    <p class="statement">Custodium es donde dejas organizado lo que tus personas de confianza necesitarán saber: qué cuentas y documentos existen, dónde están, cómo se accede y quién recibe cada cosa.</p>
     <ul class="pillars">
       <li><strong>Cifrado en tu navegador.</strong><span>Tu plan se cifra antes de salir de tu dispositivo. Custodium guarda el plan cifrado, nunca las claves.</span></li>
       <li><strong>Cada persona, solo su parte.</strong><span>Asignas cada elemento a quien deba recibirlo. Cada persona abre lo suyo con su propia frase.</span></li>

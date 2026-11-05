@@ -55,7 +55,7 @@ const MIN_WARNINGS_BEFORE_RELEASE = 2;    // avisos entregats abans d'una entreg
 const MIN_RELEASE_GAP_DAYS = 3;           // entrega com a mínim tres dies després del primer avís: sis avisos i tres SMS abans
 // Comptador de visites (public/stats.js → POST /api/stats): agregat per dia, pàgina, origen i
 // país; cap fila per visitant. Pàgines i orígens tancats perquè la taula tingui mida acotada.
-const STATS_PAGES = new Set(["/", "/crear-cuenta", "/crear-cuenta/codigo", "/como-funciona", "/seguridad", "/codigo", "/preguntas", "/legal", "/formato"]);
+const STATS_PAGES = new Set(["/", "/entrar", "/crear-cuenta", "/crear-cuenta/codigo", "/como-funciona", "/seguridad", "/codigo", "/preguntas", "/legal", "/formato"]);
 const STATS_SOURCES = new Set(["anuncio", "buscador", "interno", "directo", "otro"]);
 const STATS_STEPS = new Set(["/alta/codigo", "/alta"]); // passos de l'alta: els suma el servidor, mai el beacon
 const STATS_CLICKS = new Set(["/llamada", "/llegada"]); // passos que compta el beacon, només vistes, mai temps: el clic a l'enllaç per reservar 15 minuts i l'arribada des d'un anunci (càrrega amb utm_campaign, utm_source o gclid)
@@ -234,13 +234,13 @@ async function issueCode(env, email, purpose) {
 async function sendAccountExistsMail(env, email) {
   const subject = "Ya tienes una cuenta en Custodium";
   await sendMail(env, email, subject,
-    `Ya existe una cuenta con este correo.\n\nSi eres tú, entra en ${env.SITE}.\nSi has olvidado la contraseña, no hay forma de recuperarla: tu plan sigue cifrado con ella.\nSi no has sido tú, ignora este mensaje.`,
+    `Ya existe una cuenta con este correo.\n\nSi eres tú, entra en ${env.SITE}/#/entrar.\nSi has olvidado la contraseña, no hay forma de recuperarla: tu plan sigue cifrado con ella.\nSi no has sido tú, ignora este mensaje.`,
     mailHtml({
       subject,
       eyebrow: "Tu cuenta",
       title: "Ya tienes una cuenta.",
       paragraphs: ["Ya existe una cuenta con este correo. Si eres tú, entra con tu contraseña."],
-      button: { label: "Entrar en Custodium", url: env.SITE },
+      button: { label: "Entrar en Custodium", url: `${env.SITE}/#/entrar` },
       after: ["Si has olvidado la contraseña, no hay forma de recuperarla: tu plan sigue cifrado con ella.", "Si no has sido tú, ignora este mensaje."],
     }));
 }
@@ -1017,7 +1017,7 @@ async function notifyOwnerReleased(env, user, released, ts) {
     ...emails.map((e) => `  ${e}`),
     "",
     "Si es un error, entra en tu cuenta y anula el acceso:",
-    env.SITE,
+    `${env.SITE}/#/personas`,
     "",
     "Custodium · Guardamos el plan, nunca las claves.",
   ].join("\n"), mailHtml({
@@ -1027,7 +1027,7 @@ async function notifyOwnerReleased(env, user, released, ts) {
     paragraphs: ["Ha pasado el plazo que fijaste sin señales tuyas, y por eso se ha entregado a tus personas de confianza la parte del plan que les corresponde."],
     box: { label: "Se ha entregado a", lines: emails },
     after: ["Si es un error, entra en tu cuenta y anula el acceso desde «Personas»."],
-    button: { label: "Entrar en Custodium", url: env.SITE, last: true },
+    button: { label: "Entrar en Custodium", url: `${env.SITE}/#/personas`, last: true },
     foot: "Recibirás este aviso durante unos días, hasta que entres en tu cuenta.",
   }));
   await env.DB.batch(released.map((r) => env.DB.prepare("UPDATE recipients SET owner_notified_at = ? WHERE id = ?").bind(ts, r.id)));

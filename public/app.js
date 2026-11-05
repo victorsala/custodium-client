@@ -40,6 +40,7 @@ const PLAN = { name: "plan" };
 const PEOPLE = { name: "people" };
 const ACCOUNT = { name: "account" };
 const REGISTER = { name: "register" };
+const LOGIN = { name: "login" };
 const NEW_ITEM = { name: "item", id: null };
 const NEW_PERSON = { name: "person", id: null };
 
@@ -1731,8 +1732,9 @@ function showScreen(name) {
     $("#nav-account").classList.toggle("is-current", name === "account");
   }
   if (name === "list") requestAnimationFrame(fitExcerpts);
-  if (name === "login") $("#login-email").focus();
-  if (name === "register") $("#register-email").focus();
+  // Sense desplaçar la pàgina: al mòbil la targeta no és el primer que es veu.
+  if (name === "login") $("#login-email").focus({ preventScroll: true });
+  if (name === "register") $("#register-email").focus({ preventScroll: true });
   window.scrollTo({ top: 0 });
 }
 
@@ -1783,11 +1785,17 @@ function editRoute() {
   return state.draft ? { name: "item", id: state.draft.id } : { name: "person", id: state.personDraft.id };
 }
 
-// Pinta la ruta. Sense sessió: l'entrada (o l'alta); la ruta queda al fragment.
+// Pinta la ruta. Sense sessió: a l'arrel sense fragment, l'alta (la portada és per a qui arriba
+// per primer cop); #/entrar i qualsevol enllaç a una pantalla de dins (#/plan, #/cuenta…), l'entrada;
+// #/crear-cuenta, l'alta. La ruta queda al fragment: en entrar, s'hi va.
 function paint(route) {
-  if (!state.encKey) return showScreen(route.name === "register" ? "register" : "login");
+  if (!state.encKey) {
+    const bare = /^#?\/?$/.test(location.hash);
+    return showScreen(route.name === "register" || (bare && route.name === "plan") ? "register" : "login");
+  }
   switch (route.name) {
-    case "register": return replaceRoute(PLAN);
+    case "register":
+    case "login": return replaceRoute(PLAN);
     case "item": return startEdit(route.id);
     case "person": return startPersonEdit(route.id);
     case "people": renderPeople(); return showScreen("people");
@@ -1885,7 +1893,7 @@ function boot() {
     showRegisterStep(1);
     navigate(REGISTER);
   });
-  $("#to-login").addEventListener("click", () => { $("#login-message").textContent = ""; goBack(PLAN); });
+  $("#to-login").addEventListener("click", () => { $("#login-message").textContent = ""; navigate(LOGIN); });
   $("#register-own").addEventListener("click", () => preferOwnPassword("register"));
   $("#logout").addEventListener("click", logout);
   $("#nav-plan").addEventListener("click", () => navigate(PLAN));

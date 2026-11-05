@@ -197,7 +197,7 @@ test("alta: email amb compte → 200 { ok }, correu 'ya tienes cuenta' sense cod
   assert.equal(mails[0].text, [
     "Ya existe una cuenta con este correo.",
     "",
-    "Si eres tú, entra en https://example.com.",
+    "Si eres tú, entra en https://example.com/#/entrar.",
     "Si has olvidado la contraseña, no hay forma de recuperarla: tu plan sigue cifrado con ella.",
     "Si no has sido tú, ignora este mensaje.",
   ].join("\n"));
